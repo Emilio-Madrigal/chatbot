@@ -74,3 +74,62 @@ class WhatsAppService:
         except Exception as e:
             print(f"{e}")
             return None
+    def enviar_main_menu(self,numero:str):
+        buttons = [
+            {"id": "agendar_cita", "title": "Agendar Cita"},
+            {"id": "ver_citas", "title": "Ver Mis Citas"},
+        ]
+        return self.enviar_b(numero, "Menú Principal", "Selecciona una opción:", buttons)
+    def enviar_menu_gestion(self,numero:str):
+        buttons=[
+            {"id": "reagendar_cita", "title": "Reagendar Cita"},
+            {"id": "cancelar_cita", "title": "Cancelar Cita"},
+            {"id": "volver", "title": "Regresar al Menú Principal"}
+        ]
+        return self.enviar_b(numero,"Gestión de Citas","¿Qué te gustaría hacer?",buttons)
+    def enviar_fechas(self,numero:str):
+        from datetime import datetime,timedelta
+
+        today=datetime.now()
+        buttons=[]
+        # aqui necesitamos firebase despues lo hago
+    
+    def escoger_horarios(self,numero:str,fecha:str,horarios:list):#esto se va a tener que adaptar a lo de arriba cuando este
+        sections=[
+            {
+                "title": f"Horarios disponibles para {fecha}",
+                "rows":[
+                    {
+                        "id": horario,
+                        "title": horario,
+                        "description": f"Reserva tu cita para las {horario}"
+                    }for horario in horarios
+                ]
+            }
+        ]
+        return self.enviar_lista_m(numero,"Selecciona un Horario","Elige un horario disponible para tu cita.","Ver Horarios",sections)
+    #los horarios y fechas estan en pausas por mientras
+
+    def send_confirmation_message(self, to_number: str, cita, is_new=True):
+
+        fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+        
+        if is_new:
+            emoji = "✅"
+            action = "AGENDADA"
+        else:
+            emoji = "🔄"
+            action = "REAGENDADA"
+        
+        message = f"""{emoji} *CITA {action} EXITOSAMENTE*
+
+        👤 *Cliente:* {cita.nombre_cliente}
+        📅 *Fecha:* {fecha_formatted}
+        ⏰ *Hora:* {cita.hora}
+        📝 *Motivo:* {cita.descripcion}
+
+        Te enviaré un recordatorio 1 día antes de tu cita.
+
+        ¡Gracias por usar nuestro servicio!"""
+        
+        return self.send_text_message(to_number, message)
