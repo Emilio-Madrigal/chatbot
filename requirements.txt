@@ -1,0 +1,20 @@
+# Flask para crear el servidor web
+flask==2.3.3
+
+# Para hacer peticiones HTTP a WhatsApp API
+requests==2.31.0
+
+# Para leer variables de entorno (.env)
+python-dotenv==1.0.0
+
+# Firebase Admin SDK para conectar con Firestore
+firebase-admin==6.2.0
+
+# Para programar recordatorios automáticos
+apscheduler==3.10.4
+
+# Para manejar zonas horarias
+pytz==2023.3
+
+# Para servidor en producción
+gunicorn==21.2.0
