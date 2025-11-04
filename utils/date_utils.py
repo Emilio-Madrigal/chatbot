@@ -85,7 +85,7 @@ class DateUtils:
             return False
     
     @staticmethod
-    def get_available_times() -> list:
+    def get_available_times() -> list: # esto despues se debe cambiar para que sea dinamico
         return [
             '09:00', '09:30', '10:00', '10:30',
             '11:00', '11:30', '12:00', '12:30',

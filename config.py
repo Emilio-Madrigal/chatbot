@@ -5,7 +5,7 @@ load_dotenv()
 
 class Config:
     WHATSAPP_TOKEN=os.getenv("WHATSAPP_TOKEN")
-    WEBHOOK_URL=os.getenv("WEBHOOK_VERIFY_TOKEN")
+    WHATSAPP_VERIFY_TOKEN=os.getenv("WHATSAPP_VERIFY_TOKEN")
     PHONE_NUMBER_ID=os.getenv("PHONE_NUMBER_ID")
     WHATSAPP_API_URL = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
     FIREBASE_CREDENTIALS_PATH = 'serviceAccountKey.json'

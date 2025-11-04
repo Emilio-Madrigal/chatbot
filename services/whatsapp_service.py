@@ -23,6 +23,35 @@ class WhatsAppService:
         }
         return self._send_message(payload)
     
+    def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None):
+        """
+        Envía un mensaje usando una plantilla verificada de WhatsApp
+        
+        Args:
+            to_number: Número de teléfono del destinatario
+            template_name: Nombre de la plantilla aprobada en Meta
+            language_code: Código de idioma (por defecto "es")
+            components: Lista de componentes con parámetros para la plantilla
+                        Ejemplo: [{"type": "body", "parameters": [{"type": "text", "text": "valor"}]}]
+        """
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_number,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {
+                    "code": language_code
+                }
+            }
+        }
+        
+        # Agregar componentes si se proporcionan
+        if components:
+            payload["template"]["components"] = components
+        
+        return self._send_message(payload)
+    
     def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list):
         if len(buttons) > 3:
             raise ValueError("WhatsApp solo permite maximo 3 botones")
@@ -94,7 +123,8 @@ class WhatsAppService:
         
         return self.send_interactive_buttons(
             to_number,
-            "¡Hola! Bienvenido a densora.\n¿Qué te gustaría hacer hoy?",
+            "¡Hola! Bienvenido a densora.",
+            "¿Qué te gustaría hacer hoy?",
             buttons
         )
     
@@ -137,6 +167,7 @@ class WhatsAppService:
         )
     
     def send_time_selection(self, to_number: str, fecha_seleccionada: str):
+        from datetime import datetime
         buttons = [
             {"id": "hora_09:00", "title": "9:00 AM"},
             {"id": "hora_11:00", "title": "11:00 AM"},
@@ -153,6 +184,7 @@ class WhatsAppService:
         )
     
     def send_citas_list(self, to_number: str, citas: list, action_type: str = "ver"):
+        from datetime import datetime
         if not citas:
             return self.send_text_message(
                 to_number, 
@@ -188,6 +220,7 @@ class WhatsAppService:
         )
     
     def send_cita_details(self, to_number: str, cita):
+        from datetime import datetime
         fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
         
         message = f"""📋 *DETALLES DE LA CITA*
@@ -216,6 +249,7 @@ class WhatsAppService:
     
     def send_confirmation_message(self, to_number: str, cita, is_new=True):
         """Envía mensaje de confirmación de cita"""
+        from datetime import datetime
         fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
         
         if is_new:

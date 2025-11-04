@@ -52,7 +52,7 @@ def process_message(message_data):
             
             if message_type == 'text':
                 text_content = message['text']['body']
-                handle_text_message(from_number, text_content)
+                handle_text_message_extended(from_number, text_content)
             
             elif message_type == 'interactive':
                 interactive_content = message['interactive']
@@ -65,7 +65,7 @@ def process_message(message_data):
 
 def handle_text_message(from_number,text):
     try:
-        text_lower+text.lower().strip()
+        text_lower = text.lower().strip()
 
         state=user_states.get(from_number,{})
         current_step=state.get('step','inicial')
@@ -81,7 +81,7 @@ def handle_text_message(from_number,text):
                 from_number,f"*cliente:* {text}\n\n Ahora describe el motivo brevemente"
             )
         elif current_step=='esperando_descripcion':
-            user_states[from_number]['descripciom']=text
+            user_states[from_number]['descripcion']=text
             success=citas_service.crear_cita(from_number,user_states[from_number])
 
             if success:
@@ -105,7 +105,7 @@ def handle_interactive_message(from_number,interactive_data):
 
         if interaction_type=='button_reply':
             button_id=interactive_data['button_reply']['id']
-            handle_button_response(from_number,button_id)
+            handle_button_response_extended(from_number,button_id)
         elif interaction_type=='list_reply':
             list_id=interactive_data['list_reply']['id']
             handle_list_response(from_number,list_id)

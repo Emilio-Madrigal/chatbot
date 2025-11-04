@@ -60,7 +60,7 @@ class CitasService:
             self.whatsapp.send_text_message(usuario_whatsapp,"error mostrando los detalles")
     def reagendar_cita(self, usuario_whatsapp:str, cita_id:str,nueva_fecha:str,nueva_hora:str)->bool:
         try:
-            Cita+self.cita_repo.obtener_cita(cita_id)
+            Cita = self.cita_repo.obtener_cita(cita_id)
             if not Cita or Cita.usuario_whatsapp!=usuario_whatsapp:
                 self.whatsapp.send_text_message(
                     usuario_whatsapp,"no existe la cita que intentas reagendar"
