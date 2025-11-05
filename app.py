@@ -115,7 +115,27 @@ def handle_button_response(from_number,button_id):
     try:
         print(f"boton presionado: {button_id}")
         if button_id=='agendar_cita':
-            WhatsApp_service.send_date_selection(from_number)
+            # Obtener fechas dinámicas del último consultorio
+            from database.models import CitaRepository
+            cita_repo = CitaRepository()
+            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            fechas_disponibles = []
+            
+            if paciente:
+                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                if ultimo_consultorio:
+                    from datetime import datetime
+                    fecha_base = datetime.now()
+                    fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                    
+                    fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                        ultimo_consultorio['dentistaId'],
+                        ultimo_consultorio['consultorioId'],
+                        fecha_timestamp,
+                        cantidad=3
+                    )
+            
+            WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
             user_states[from_number]={'step':'seleccionando_fecha'}
         elif button_id=='ver_citas':
             citas_service.obtener_citas_usuario(from_number,'ver')
@@ -132,7 +152,27 @@ def handle_button_response(from_number,button_id):
             fecha_seleccionada=button_id.replace('fecha_','')
             user_states[from_number]['fecha']=fecha_seleccionada
             user_states[from_number]['step']='selecionando_hora'
-            WhatsApp_service.send_time_selection(from_number,fecha_seleccionada)
+            
+            # Obtener horarios dinámicos del último consultorio
+            from database.models import CitaRepository
+            cita_repo = CitaRepository()
+            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            horarios_disponibles = []
+            
+            if paciente:
+                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                if ultimo_consultorio:
+                    from datetime import datetime
+                    fecha_dt = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
+                    fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                    
+                    horarios_disponibles = cita_repo.obtener_horarios_disponibles(
+                        ultimo_consultorio['dentistaId'],
+                        ultimo_consultorio['consultorioId'],
+                        fecha_timestamp
+                    )
+            
+            WhatsApp_service.send_time_selection(from_number, fecha_seleccionada, horarios_disponibles)
         elif button_id.startswith('hora_'):
             hora_seleccionada = button_id.replace('hora_', '')
             user_states[from_number]['hora'] = hora_seleccionada
@@ -152,7 +192,27 @@ def handle_button_response(from_number,button_id):
                 'step':'reagendando_fecha',
                 'cita_id': cita_id
             }
-            WhatsApp_service.send_date_selection(from_number)
+            # Obtener fechas dinámicas
+            from database.models import CitaRepository
+            cita_repo = CitaRepository()
+            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            fechas_disponibles = []
+            
+            if paciente:
+                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                if ultimo_consultorio:
+                    from datetime import datetime
+                    fecha_base = datetime.now()
+                    fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                    
+                    fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                        ultimo_consultorio['dentistaId'],
+                        ultimo_consultorio['consultorioId'],
+                        fecha_timestamp,
+                        cantidad=3
+                    )
+            
+            WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
         elif button_id.startswith('cancelar_'):
             cita_id=button_id.replace('cancelar_','')
             WhatsApp_service.send_text_message(
@@ -177,7 +237,27 @@ def handle_list_response(from_number,list_id):
                     'step':'reagendando_fecha',
                     'cita_id':cita_id
                 }
-                WhatsApp_service.send_date_selection(from_number)
+                # Obtener fechas dinámicas
+                from database.models import CitaRepository
+                cita_repo = CitaRepository()
+                paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+                fechas_disponibles = []
+                
+                if paciente:
+                    ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                    if ultimo_consultorio:
+                        from datetime import datetime
+                        fecha_base = datetime.now()
+                        fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                        
+                        fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                            ultimo_consultorio['dentistaId'],
+                            ultimo_consultorio['consultorioId'],
+                            fecha_timestamp,
+                            cantidad=3
+                        )
+                
+                WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
             elif action=="cancelar":
                 WhatsApp_service.send_text_message(
                     from_number,"⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla."
@@ -197,7 +277,26 @@ def handle_reagendamiento(from_number, button_id):
             user_states[from_number]['nueva_fecha'] = nueva_fecha
             user_states[from_number]['step'] = 'reagendando_hora'
             
-            WhatsApp_service.send_time_selection(from_number, nueva_fecha)
+            # Obtener horarios dinámicos
+            from database.models import CitaRepository
+            cita_repo = CitaRepository()
+            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            horarios_disponibles = []
+            
+            if paciente:
+                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                if ultimo_consultorio:
+                    from datetime import datetime
+                    fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
+                    fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                    
+                    horarios_disponibles = cita_repo.obtener_horarios_disponibles(
+                        ultimo_consultorio['dentistaId'],
+                        ultimo_consultorio['consultorioId'],
+                        fecha_timestamp
+                    )
+            
+            WhatsApp_service.send_time_selection(from_number, nueva_fecha, horarios_disponibles)
         
         elif state.get('step') == 'reagendando_hora' and button_id.startswith('hora_'):
             nueva_hora = button_id.replace('hora_', '')

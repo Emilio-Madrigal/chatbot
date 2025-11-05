@@ -166,13 +166,42 @@ class WhatsAppService:
             buttons
         )
     
-    def send_time_selection(self, to_number: str, fecha_seleccionada: str):
+    def send_time_selection(self, to_number: str, fecha_seleccionada: str, horarios_disponibles: list = None):
         from datetime import datetime
-        buttons = [
-            {"id": "hora_09:00", "title": "9:00 AM"},
-            {"id": "hora_11:00", "title": "11:00 AM"},
-            {"id": "hora_14:00", "title": "2:00 PM"}
-        ]
+        
+        # Si se proporcionan horarios dinámicos, usarlos; sino usar horarios por defecto
+        if horarios_disponibles and len(horarios_disponibles) > 0:
+            buttons = []
+            for i, slot in enumerate(horarios_disponibles[:3]):  # Máximo 3 botones
+                hora_inicio = slot.get('horaInicio', slot.get('inicio', ''))
+                hora_fin = slot.get('horaFin', slot.get('fin', ''))
+                
+                # Formatear hora para mostrar
+                try:
+                    hora_obj = datetime.strptime(hora_inicio, '%H:%M')
+                    hora_display = hora_obj.strftime('%I:%M %p').lstrip('0')
+                except:
+                    hora_display = hora_inicio
+                
+                buttons.append({
+                    "id": f"hora_{hora_inicio}",
+                    "title": hora_display
+                })
+            
+            if not buttons:
+                # Fallback a horarios por defecto si no hay disponibles
+                buttons = [
+                    {"id": "hora_09:00", "title": "9:00 AM"},
+                    {"id": "hora_11:00", "title": "11:00 AM"},
+                    {"id": "hora_14:00", "title": "2:00 PM"}
+                ]
+        else:
+            # Horarios por defecto
+            buttons = [
+                {"id": "hora_09:00", "title": "9:00 AM"},
+                {"id": "hora_11:00", "title": "11:00 AM"},
+                {"id": "hora_14:00", "title": "2:00 PM"}
+            ]
         
         fecha_formatted = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
         
