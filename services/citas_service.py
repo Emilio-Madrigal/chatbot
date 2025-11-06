@@ -154,3 +154,32 @@ Tu cita ha sido cancelada"""
         except Exception as e:
             print(f"error validando disponibilidad: {e}")
             return False
+    
+    def obtener_citas_usuario_web(self, usuario_whatsapp: str):
+        """
+        Obtiene las citas del usuario para la web (solo devuelve datos, no envía por WhatsApp)
+        """
+        try:
+            citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
+            # Convertir a formato simple para la web
+            citas_formateadas = []
+            for cita in citas:
+                fecha_str = ''
+                if cita.fecha:
+                    if isinstance(cita.fecha, str):
+                        fecha_str = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    else:
+                        fecha_str = cita.fecha.strftime('%d/%m/%Y')
+                
+                citas_formateadas.append({
+                    'id': cita.id,
+                    'nombre_cliente': cita.nombre_cliente or 'N/A',
+                    'fecha': fecha_str,
+                    'hora': cita.horaInicio or cita.hora or 'N/A',
+                    'motivo': cita.motivo or 'N/A',
+                    'estado': cita.estado or 'confirmado'
+                })
+            return citas_formateadas
+        except Exception as e:
+            print(f"error obteniendo citas para web: {e}")
+            return []

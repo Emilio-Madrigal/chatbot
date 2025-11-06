@@ -1,11 +1,22 @@
 from flask import Flask,request,jsonify
+from flask_cors import CORS
 from config import Config
 from services.whatsapp_service import WhatsAppService
 from services.citas_service import CitasService
+from datetime import datetime
 import json
 
 app=Flask(__name__)
 app.config.from_object(Config)
+
+# Configuración de CORS para el endpoint web
+CORS(app, resources={
+    r"/api/web/chat": {"origins": [
+        "http://localhost:4321",  # Para desarrollo local de tu frontend
+        "https://www.densora.com",  # ⚠️ CAMBIA por tu dominio real de producción
+        "https://densora.com"      # ⚠️ CAMBIA por tu dominio real de producción
+    ]}
+})
 
 WhatsApp_service=WhatsAppService()
 citas_service=CitasService()
@@ -26,6 +37,35 @@ def health_check():
         "service": "chatbot-whatsapp",
         "twilio_configured": bool(Config.TWILIO_ACCOUNT_SID)
     }), 200
+
+@app.route('/api/web/chat', methods=['POST'])
+def web_chat():
+    """Endpoint para el chat web"""
+    try:
+        data = request.get_json()
+        message_body = data.get('message')
+        session_id = data.get('session_id')
+        platform = data.get('platform', 'web')  # 'web' por defecto
+
+        if not message_body or not session_id:
+            return jsonify({'success': False, 'error': 'Message and session_id are required'}), 400
+
+        print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}")
+
+        # Procesar el mensaje usando la lógica existente del bot
+        bot_response_text = process_web_message(session_id, message_body, platform)
+
+        return jsonify({
+            'success': True,
+            'response': bot_response_text,
+            'session_id': session_id
+        })
+
+    except Exception as e:
+        print(f"ERROR en web_chat: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
     
 @app.route('/webhook',methods=['POST'])
 def webhook():
@@ -543,6 +583,281 @@ def handle_button_response_extended(from_number, button_id):
     if handle_reagendamiento(from_number, button_id):
         return
     handle_button_response(from_number, button_id)
+
+def process_web_message(session_id, message_body, platform):
+    """Adaptar la lógica existente para el chat web"""
+    text_lower = message_body.lower().strip()
+    text_original = message_body.strip()
+
+    state = user_states.get(session_id, {})
+    current_step = state.get('step', 'inicial')
+    
+    response_messages = []  # Para acumular las respuestas del bot
+
+    # Simular el envío de mensajes de WhatsAppService para capturar la respuesta
+    class WebResponseCaptureService:
+        def send_text_message(self, to_number, message):
+            response_messages.append(message)
+        def send_main_menu(self, to_number):
+            response_messages.append("👋 ¡Hola! Soy tu asistente web.\n\nEscribe *menu* para ver las opciones disponibles.")
+        def send_date_selection(self, to_number, dates):
+            # Simplificar para web
+            date_options = "\n".join([f"{i+1}. {d.strftime('%d/%m/%Y')}" for i, d in enumerate(dates)])
+            response_messages.append(f"Por favor, selecciona una fecha:\n{date_options}")
+        def send_time_selection(self, to_number, date, times):
+            # Simplificar para web
+            time_options = "\n".join([f"{i+1}. {t.get('horaInicio', t.get('inicio', ''))}" for i, t in enumerate(times)])
+            response_messages.append(f"Para la fecha {date}, selecciona una hora:\n{time_options}")
+        def send_confirmation_message(self, to_number, cita, is_new):
+            action = "creada" if is_new else "reagendada"
+            fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
+            response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
+        def send_citas_list(self, to_number, citas, action_type):
+            if not citas:
+                response_messages.append("No tienes citas programadas.")
+                return
+            
+            list_items = []
+            for i, cita in enumerate(citas):
+                fecha_str = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
+                list_items.append(f"{i+1}. {cita.nombre_cliente} - {fecha_str} {cita.horaInicio or cita.hora}")
+            
+            response_messages.append(f"Tus citas:\n" + "\n".join(list_items))
+        def send_management_menu(self, to_number):
+            response_messages.append("¿Qué deseas gestionar?\n1. Reagendar Cita\n2. Cancelar Cita\n3. Volver al Menú Principal")
+        def send_cita_details(self, to_number, cita):
+            fecha_formatted = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
+            response_messages.append(f"*Detalles de la Cita*\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}\n*Motivo:* {cita.motivo}\n*Estado:* {cita.estado}")
+
+    # Reemplazar WhatsAppService con nuestro capturador de respuestas
+    global WhatsApp_service
+    original_whatsapp_service = WhatsApp_service
+    WhatsApp_service = WebResponseCaptureService()
+    
+    try:
+        # Lógica de manejo de mensajes (similar a handle_text_message_extended)
+        if text_lower in ['hola', 'menu', 'inicio', 'start', 'ayuda']:
+            WhatsApp_service.send_main_menu(session_id)
+            user_states[session_id] = {'step': 'menu_principal'}
+        elif current_step == 'esperando_nombre_cliente':
+            user_states[session_id]['nombre_cliente'] = text_original
+            user_states[session_id]['step'] = 'esperando_descripcion'
+            WhatsApp_service.send_text_message(session_id, f"*Cliente:* {text_original}\n\nAhora describe el motivo brevemente")
+        elif current_step == 'esperando_descripcion':
+            user_states[session_id]['descripcion'] = text_original
+            success = citas_service.crear_cita(session_id, user_states[session_id])
+            if success:
+                del user_states[session_id]
+            else:
+                WhatsApp_service.send_text_message(session_id, "Error al crear tu cita, intenta nuevamente.")
+        elif current_step == 'seleccionando_fecha':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                fechas_disponibles = user_states[session_id].get('fechas_disponibles', [])
+                if 0 <= option_num < len(fechas_disponibles):
+                    fecha_seleccionada = fechas_disponibles[option_num].strftime('%Y-%m-%d')
+                    user_states[session_id]['fecha'] = fecha_seleccionada
+                    user_states[session_id]['step'] = 'selecionando_hora'
+                    
+                    # Obtener horarios dinámicos
+                    from database.models import CitaRepository
+                    cita_repo = CitaRepository()
+                    paciente = cita_repo.obtener_paciente_por_telefono(session_id)
+                    horarios_disponibles = []
+                    if paciente:
+                        ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                        if ultimo_consultorio:
+                            fecha_dt = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
+                            fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                            horarios_disponibles = cita_repo.obtener_horarios_disponibles(
+                                ultimo_consultorio['dentistaId'],
+                                ultimo_consultorio['consultorioId'],
+                                fecha_timestamp
+                            )
+                            user_states[session_id]['horarios_disponibles'] = horarios_disponibles
+                    WhatsApp_service.send_time_selection(session_id, fecha_seleccionada, horarios_disponibles)
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de fecha inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la fecha que deseas seleccionar.")
+        elif current_step == 'selecionando_hora':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                horarios_disponibles = user_states[session_id].get('horarios_disponibles', [])
+                if 0 <= option_num < len(horarios_disponibles):
+                    hora_seleccionada = horarios_disponibles[option_num].get('horaInicio', horarios_disponibles[option_num].get('inicio', ''))
+                    user_states[session_id]['hora'] = hora_seleccionada
+                    user_states[session_id]['step'] = 'esperando_nombre_cliente'
+                    fecha = user_states[session_id]['fecha']
+                    fecha_formatted = datetime.strptime(fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    WhatsApp_service.send_text_message(session_id, f"📅 *Fecha:* {fecha_formatted}\n⏰ *Hora:* {hora_seleccionada}\n\n👤 ¿Cuál es el *nombre completo* del paciente?")
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de hora inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la hora que deseas seleccionar.")
+        elif current_step == 'menu_principal':
+            if text_original == '1':
+                # Agendar Cita
+                from database.models import CitaRepository
+                cita_repo = CitaRepository()
+                paciente = cita_repo.obtener_paciente_por_telefono(session_id)
+                fechas_disponibles = []
+                if paciente:
+                    ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                    if ultimo_consultorio:
+                        fecha_base = datetime.now()
+                        fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                        fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                            ultimo_consultorio['dentistaId'],
+                            ultimo_consultorio['consultorioId'],
+                            fecha_timestamp,
+                            cantidad=3
+                        )
+                        user_states[session_id] = {
+                            'step': 'seleccionando_fecha',
+                            'fechas_disponibles': fechas_disponibles
+                        }
+                WhatsApp_service.send_date_selection(session_id, fechas_disponibles)
+            elif text_original == '2':
+                # Ver Mis Citas
+                citas_service.obtener_citas_usuario(session_id, 'ver')
+            elif text_original == '3':
+                # Gestionar Citas
+                WhatsApp_service.send_management_menu(session_id)
+                user_states[session_id] = {'step': 'gestion_citas'}
+            else:
+                WhatsApp_service.send_text_message(session_id, "Opción inválida. Por favor selecciona 1, 2 o 3.")
+        elif current_step == 'gestion_citas':
+            if text_original == '1':
+                # Reagendar Cita
+                citas_service.obtener_citas_usuario(session_id, 'reagendar')
+                user_states[session_id]['step'] = 'seleccionando_cita_reagendar'
+            elif text_original == '2':
+                # Cancelar Cita
+                citas_service.obtener_citas_usuario(session_id, 'cancelar')
+                user_states[session_id]['step'] = 'seleccionando_cita_cancelar'
+            elif text_original == '3':
+                # Volver al Menú Principal
+                WhatsApp_service.send_main_menu(session_id)
+                user_states[session_id] = {'step': 'menu_principal'}
+            else:
+                WhatsApp_service.send_text_message(session_id, "Opción inválida. Por favor selecciona 1, 2 o 3.")
+        elif current_step == 'seleccionando_cita_reagendar':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                citas = citas_service.obtener_citas_usuario_web(session_id)
+                if 0 <= option_num < len(citas):
+                    cita_id = citas[option_num]['id']
+                    user_states[session_id] = {
+                        'step': 'reagendando_fecha',
+                        'cita_id': cita_id
+                    }
+                    # Obtener fechas dinámicas
+                    from database.models import CitaRepository
+                    cita_repo = CitaRepository()
+                    paciente = cita_repo.obtener_paciente_por_telefono(session_id)
+                    fechas_disponibles = []
+                    if paciente:
+                        ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                        if ultimo_consultorio:
+                            fecha_base = datetime.now()
+                            fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                            fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                                ultimo_consultorio['dentistaId'],
+                                ultimo_consultorio['consultorioId'],
+                                fecha_timestamp,
+                                cantidad=3
+                            )
+                    WhatsApp_service.send_date_selection(session_id, fechas_disponibles)
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de cita inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la cita que deseas reagendar.")
+        elif current_step == 'reagendando_fecha':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                fechas_disponibles = user_states[session_id].get('fechas_disponibles', [])
+                if 0 <= option_num < len(fechas_disponibles):
+                    nueva_fecha = fechas_disponibles[option_num].strftime('%Y-%m-%d')
+                    user_states[session_id]['nueva_fecha'] = nueva_fecha
+                    user_states[session_id]['step'] = 'reagendando_hora'
+                    
+                    # Obtener horarios dinámicos
+                    from database.models import CitaRepository
+                    cita_repo = CitaRepository()
+                    paciente = cita_repo.obtener_paciente_por_telefono(session_id)
+                    horarios_disponibles = []
+                    if paciente:
+                        ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                        if ultimo_consultorio:
+                            fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
+                            fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                            horarios_disponibles = cita_repo.obtener_horarios_disponibles(
+                                ultimo_consultorio['dentistaId'],
+                                ultimo_consultorio['consultorioId'],
+                                fecha_timestamp
+                            )
+                            user_states[session_id]['horarios_disponibles'] = horarios_disponibles
+                    WhatsApp_service.send_time_selection(session_id, nueva_fecha, horarios_disponibles)
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de fecha inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la nueva fecha.")
+        elif current_step == 'reagendando_hora':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                horarios_disponibles = user_states[session_id].get('horarios_disponibles', [])
+                if 0 <= option_num < len(horarios_disponibles):
+                    nueva_hora = horarios_disponibles[option_num].get('horaInicio', horarios_disponibles[option_num].get('inicio', ''))
+                    cita_id = user_states[session_id].get('cita_id')
+                    nueva_fecha = user_states[session_id].get('nueva_fecha')
+                    success = citas_service.reagendar_cita(session_id, cita_id, nueva_fecha, nueva_hora)
+                    if success:
+                        del user_states[session_id]
+                        WhatsApp_service.send_text_message(session_id, "Escribe *menu* para realizar otra acción.")
+                    else:
+                        WhatsApp_service.send_text_message(session_id, "Error al reagendar tu cita, intenta nuevamente.")
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de hora inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la nueva hora.")
+        elif current_step == 'seleccionando_cita_cancelar':
+            if text_original.isdigit():
+                option_num = int(text_original) - 1
+                citas = citas_service.obtener_citas_usuario_web(session_id)
+                if 0 <= option_num < len(citas):
+                    cita_id = citas[option_num]['id']
+                    WhatsApp_service.send_text_message(session_id, "⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla.")
+                    user_states[session_id] = {
+                        'step': 'confirmando_cancelacion',
+                        'cita_id': cita_id
+                    }
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Opción de cita inválida. Por favor, selecciona un número de la lista.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor, ingresa el número de la cita que deseas cancelar.")
+        elif current_step == 'confirmando_cancelacion':
+            text_upper = text_original.upper().strip()
+            cita_id = user_states[session_id].get('cita_id')
+            if text_upper == 'SI' or text_upper == 'SÍ':
+                success = citas_service.cancelar_cita(session_id, cita_id)
+                if success:
+                    del user_states[session_id]
+                    WhatsApp_service.send_text_message(session_id, "Escribe *menu* para agendar una nueva cita o realizar otra acción.")
+                else:
+                    WhatsApp_service.send_text_message(session_id, "Error al cancelar tu cita, intenta nuevamente.")
+            elif text_upper == 'NO':
+                del user_states[session_id]
+                WhatsApp_service.send_text_message(session_id, "✅ Perfecto, tu cita se mantiene programada.\n\nEscribe *menu* para realizar otra acción.")
+            else:
+                WhatsApp_service.send_text_message(session_id, "Por favor responde *SI* para cancelar o *NO* para mantener la cita.")
+        else:
+            WhatsApp_service.send_text_message(session_id, "👋 ¡Hola! Soy tu asistente web.\n\nEscribe *menu* para ver las opciones disponibles.")
+    finally:
+        # Restaurar el servicio original de WhatsApp
+        WhatsApp_service = original_whatsapp_service
+
+    return "\n".join(response_messages)
 
 if __name__ == '__main__':
     import os
