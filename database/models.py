@@ -1,4 +1,4 @@
-from database.firebase_config import FirebaseConfig
+from database.database import FirebaseConfig
 from datetime import datetime
 from typing import List, Optional, Dict
 
