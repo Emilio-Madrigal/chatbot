@@ -343,37 +343,68 @@ def handle_button_response(from_number,button_id):
             user_id = state.get('user_id')
             phone = state.get('phone')
             
-            # Obtener paciente por ID o teléfono
-            paciente = cita_repo.obtener_paciente(telefono=phone or from_number, paciente_id=user_id)
+            print(f"AGENDAR_CITA - from_number: {from_number}, user_id: {user_id}, phone: {phone}")
+            
+            # Obtener paciente por ID o teléfono, priorizando user_id
+            paciente = None
+            if user_id:
+                print(f"Buscando paciente por user_id: {user_id}")
+                paciente = cita_repo.obtener_paciente_por_id(user_id)
+                print(f"Paciente encontrado por ID: {paciente is not None}")
+            
+            if not paciente and (phone or from_number):
+                telefono_buscar = phone or from_number
+                print(f"Buscando paciente por teléfono: {telefono_buscar}")
+                paciente = cita_repo.obtener_paciente_por_telefono(telefono_buscar)
+                print(f"Paciente encontrado por teléfono: {paciente is not None}")
+            
             fechas_disponibles = []
             
             if paciente:
-                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
-                if ultimo_consultorio:
-                    from datetime import datetime
-                    fecha_base = datetime.now()
-                    fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
-                    
-                    fechas_disponibles = cita_repo.obtener_fechas_disponibles(
-                        ultimo_consultorio['dentistaId'],
-                        ultimo_consultorio['consultorioId'],
-                        fecha_timestamp,
-                        cantidad=3
-                    )
-                    # Guardar fechas en estado para mapeo numérico
-                    user_states[from_number] = {
-                        'step': 'seleccionando_fecha',
-                        'fechas_disponibles': fechas_disponibles,
-                        'user_id': user_id,
-                        'phone': phone
-                    }
-                else:
+                print(f"Paciente encontrado: {paciente.uid if hasattr(paciente, 'uid') else 'N/A'}")
+                try:
+                    ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
+                    if ultimo_consultorio:
+                        print(f"Último consultorio encontrado: {ultimo_consultorio}")
+                        from datetime import datetime
+                        fecha_base = datetime.now()
+                        fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                        
+                        fechas_disponibles = cita_repo.obtener_fechas_disponibles(
+                            ultimo_consultorio['dentistaId'],
+                            ultimo_consultorio['consultorioId'],
+                            fecha_timestamp,
+                            cantidad=3
+                        )
+                        print(f"Fechas disponibles encontradas: {len(fechas_disponibles)}")
+                        # Guardar fechas en estado para mapeo numérico
+                        user_states[from_number] = {
+                            'step': 'seleccionando_fecha',
+                            'fechas_disponibles': fechas_disponibles,
+                            'user_id': user_id,
+                            'phone': phone,
+                            'paciente_uid': paciente.uid,
+                            'ultimo_consultorio': ultimo_consultorio
+                        }
+                    else:
+                        print("No se encontró último consultorio para el paciente")
+                        user_states[from_number] = {
+                            'step': 'seleccionando_fecha',
+                            'user_id': user_id,
+                            'phone': phone,
+                            'paciente_uid': paciente.uid
+                        }
+                except Exception as e:
+                    print(f"Error obteniendo último consultorio: {e}")
+                    import traceback
+                    traceback.print_exc()
                     user_states[from_number] = {
                         'step': 'seleccionando_fecha',
                         'user_id': user_id,
                         'phone': phone
                     }
             else:
+                print(f"Paciente no encontrado - user_id: {user_id}, phone: {phone or from_number}")
                 user_states[from_number] = {
                     'step': 'seleccionando_fecha',
                     'user_id': user_id,
@@ -752,9 +783,12 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             print(f"WebResponseCaptureService.send_management_menu")
             response_messages.append("¿Qué deseas gestionar?\n1. Reagendar Cita\n2. Cancelar Cita\n3. Volver al Menú Principal")
         def send_date_selection(self, to_number, dates):
-            date_options = "\n".join([f"{i+1}. {d.strftime('%d/%m/%Y')}" for i, d in enumerate(dates)]) if dates else "No hay fechas disponibles"
             print(f"WebResponseCaptureService.send_date_selection: {len(dates) if dates else 0} fechas")
-            response_messages.append(f"Por favor, selecciona una fecha:\n{date_options}")
+            if not dates or len(dates) == 0:
+                response_messages.append("Lo siento, no hay fechas disponibles en este momento.\n\nPor favor, contacta directamente con el consultorio o intenta más tarde.\n\nEscribe *menu* para volver al menú principal.")
+            else:
+                date_options = "\n".join([f"{i+1}. {d.strftime('%d/%m/%Y')}" for i, d in enumerate(dates)])
+                response_messages.append(f"Por favor, selecciona una fecha:\n{date_options}")
         def send_time_selection(self, to_number, date, times):
             time_options = "\n".join([f"{i+1}. {t.get('horaInicio', t.get('inicio', ''))}" for i, t in enumerate(times)]) if times else "No hay horarios disponibles"
             print(f"WebResponseCaptureService.send_time_selection: {len(times) if times else 0} horarios")
@@ -822,14 +856,19 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         
         print(f"PROCESS_WEB_BUTTON_RESPONSE - user_identifier: {user_identifier}, button_id: {button_id}")
         
-        # Si tenemos user_id o phone, actualizar temporalmente el estado para que handle_button_response los use
+        # Si tenemos user_id o phone, actualizar el estado tanto con session_id como con user_identifier
+        # Esto asegura que handle_button_response pueda encontrar el estado
         if user_id or phone:
             # Guardar el identificador en el estado para que las funciones lo usen
             state['user_identifier'] = user_identifier
             state['user_id'] = user_id
             state['phone'] = phone
+            # Guardar el estado con session_id (para mantener consistencia)
             user_states[session_id] = state
-            print(f"Estado actualizado: user_id={user_id}, phone={phone}")
+            # También guardar el estado con user_identifier para que handle_button_response lo encuentre
+            if user_identifier != session_id:
+                user_states[user_identifier] = state.copy()
+            print(f"Estado actualizado: user_id={user_id}, phone={phone}, guardado con session_id y user_identifier")
         
         # Usar la misma lógica que handle_button_response_extended
         if handle_reagendamiento(session_id, button_id):
@@ -841,6 +880,10 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         print(f"Llamando handle_button_response con user_identifier: {user_identifier}, button_id: {button_id}")
         handle_button_response(user_identifier, button_id)
         print(f"Después de handle_button_response, response_messages tiene {len(response_messages)} mensajes")
+        
+        # Sincronizar el estado de vuelta al session_id después de handle_button_response
+        if user_identifier != session_id and user_identifier in user_states:
+            user_states[session_id] = user_states[user_identifier].copy()
         
         # Si no hay mensajes, agregar un mensaje de error
         if len(response_messages) == 0:
