@@ -33,13 +33,35 @@ class WhatsAppService:
                 from_=self.whatsapp_number,
                 to=to
             )
-            print(f"Mensaje enviado via Twilio. SID: {message.sid}")
+            print(f"✅ Mensaje enviado via Twilio. SID: {message.sid}")
             return {"status": "sent", "sid": message.sid}
         except TwilioRestException as e:
-            print(f"Error enviando mensaje via Twilio: {e}")
+            error_code = e.code if hasattr(e, 'code') else None
+            error_msg = str(e)
+            
+            print("="*60)
+            print(f"❌ ERROR ENVIANDO MENSAJE VIA TWILIO")
+            print("="*60)
+            print(f"Código de error: {error_code}")
+            print(f"Mensaje: {error_msg}")
+            print(f"To: {to_number}")
+            print(f"From: {self.whatsapp_number}")
+            print("="*60)
+            
+            # Error específico 63112: Cuenta de Meta deshabilitada
+            if error_code == 63112:
+                print("⚠️ ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada")
+                print("   Revisa SOLUCION_ERROR_63112.md para más información")
+            
             return None
         except Exception as e:
-            print(f"Error inesperado enviando mensaje: {e}")
+            print("="*60)
+            print(f"❌ ERROR INESPERADO ENVIANDO MENSAJE")
+            print("="*60)
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+            print("="*60)
             return None
     
     def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None, content_sid: str = None):
@@ -91,29 +113,95 @@ class WhatsAppService:
             print(f"Plantilla enviada via Twilio. SID: {message.sid}")
             return {"status": "sent", "sid": message.sid}
         except TwilioRestException as e:
-            print(f"Error enviando plantilla via Twilio: {e}")
-            print("Nota: En producción, asegúrate de usar content_sid de plantillas aprobadas")
+            error_code = e.code if hasattr(e, 'code') else None
+            error_msg = str(e)
+            
+            print("="*60)
+            print(f"❌ ERROR ENVIANDO PLANTILLA VIA TWILIO")
+            print("="*60)
+            print(f"Código de error: {error_code}")
+            print(f"Mensaje: {error_msg}")
+            print("="*60)
+            
+            if error_code == 63112:
+                print("⚠️ ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada")
+                print("   Revisa SOLUCION_ERROR_63112.md para más información")
+            
             return None
         except Exception as e:
-            print(f"Error inesperado enviando plantilla: {e}")
+            print("="*60)
+            print(f"❌ ERROR INESPERADO ENVIANDO PLANTILLA")
+            print("="*60)
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+            print("="*60)
             return None
     
-    def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list):
+    def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list, content_sid: str = None):
         """
-        Envía mensaje con botones interactivos
-        Nota: Twilio no soporta botones interactivos nativos como Meta.
-        Se envía como mensaje de texto con opciones numeradas.
+        Envía mensaje con botones interactivos de WhatsApp usando la API de Twilio
+        
+        Args:
+            to_number: Número de destino
+            header_text: Texto del encabezado (opcional)
+            body_text: Texto del cuerpo del mensaje
+            buttons: Lista de botones (máximo 3) con 'id' y 'title'
+            content_sid: Content SID de una plantilla aprobada en Twilio (opcional)
+        
+        Nota: Para botones interactivos reales, necesitas crear Content Templates en Twilio.
+        Si no se proporciona content_sid, se envía como texto con opciones numeradas.
         """
         if len(buttons) > 3:
             raise ValueError("WhatsApp solo permite maximo 3 botones")
         
-        # Construir mensaje con opciones numeradas (Twilio no soporta botones interactivos)
-        message_text = f"{header_text}\n\n{body_text}\n\n"
-        for i, button in enumerate(buttons, 1):
-            message_text += f"{i}. {button['title']}\n"
-        message_text += "\nResponde con el número de la opción deseada."
-        
-        return self.send_text_message(to_number, message_text)
+        try:
+            to = self._format_phone_number(to_number)
+            
+            # Si se proporciona content_sid, usar Content Template aprobado
+            if content_sid:
+                try:
+                    # Construir variables para los botones (si la plantilla las requiere)
+                    # Nota: Esto depende de cómo configuraste la plantilla en Twilio
+                    message = self.client.messages.create(
+                        from_=self.whatsapp_number,
+                        to=to,
+                        content_sid=content_sid
+                    )
+                    print(f"✅ Mensaje con botones interactivos enviado. SID: {message.sid}")
+                    return {"status": "sent", "sid": message.sid}
+                except TwilioRestException as e:
+                    print(f"⚠️ Error usando Content Template, usando fallback: {e}")
+                    # Continuar con fallback
+            
+            # Fallback: Enviar como mensaje de texto con botones formateados
+            # Los botones aparecerán como opciones numeradas
+            # Cuando el usuario presione un botón real, WhatsApp enviará el texto del botón
+            message_text = f"{header_text}\n\n{body_text}\n\n" if header_text else f"{body_text}\n\n"
+            
+            # Agregar botones como opciones numeradas
+            for i, button in enumerate(buttons, 1):
+                message_text += f"{i}. {button['title']}\n"
+            
+            message_text += "\n💡 Puedes escribir el número (1, 2, 3) o el texto exacto del botón."
+            
+            result = self.send_text_message(to_number, message_text)
+            
+            # Nota: Los botones se detectan en app.py usando el estado del usuario
+            # y mapeando el texto recibido a los IDs de botones según el contexto
+            
+            return result
+                
+        except Exception as e:
+            print(f"❌ Error enviando botones interactivos: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback final a texto numerado
+            message_text = f"{header_text}\n\n{body_text}\n\n" if header_text else f"{body_text}\n\n"
+            for i, button in enumerate(buttons, 1):
+                message_text += f"{i}. {button['title']}\n"
+            message_text += "\nResponde con el número de la opción deseada."
+            return self.send_text_message(to_number, message_text)
     
     def send_list_message(self, to_number: str, header_text: str, body_text: str, button_text: str, sections: list):
         """
@@ -147,11 +235,17 @@ class WhatsAppService:
             {"id": "gestionar_citas", "title": "⚙️ Gestionar"}
         ]
         
+        # Usar Content Template si está configurado
+        content_sid = Config.CONTENT_SID_MENU_PRINCIPAL
+        if content_sid:
+            print(f"✅ Usando Content Template para menú principal: {content_sid}")
+        
         return self.send_interactive_buttons(
             to_number,
             "¡Hola! Bienvenido a densora.",
             "¿Qué te gustaría hacer hoy?",
-            buttons
+            buttons,
+            content_sid=content_sid if content_sid else None
         )
     
     def send_management_menu(self, to_number: str):
@@ -161,11 +255,17 @@ class WhatsAppService:
             {"id": "volver_menu", "title": "🏠 Menú Principal"}
         ]
         
+        # Usar Content Template si está configurado
+        content_sid = Config.CONTENT_SID_GESTION
+        if content_sid:
+            print(f"✅ Usando Content Template para menú de gestión: {content_sid}")
+        
         return self.send_interactive_buttons(
             to_number,
             "⚙️ Gestionar Citas",
             "¿Qué deseas realizar?",
-            buttons
+            buttons,
+            content_sid=content_sid if content_sid else None
         )
     
     def send_date_selection(self, to_number: str, fechas_disponibles: list = None):
@@ -201,11 +301,17 @@ class WhatsAppService:
                     "title": date.strftime('%d/%m')
                 })
         
+        # Para fechas dinámicas, es mejor no usar Content Templates
+        # porque los botones cambian según disponibilidad
+        # Pero si tienes una plantilla genérica, puedes usarla
+        content_sid = Config.CONTENT_SID_SELECCION_FECHA if not fechas_disponibles else None
+        
         return self.send_interactive_buttons(
             to_number,
             "📅 Selecciona una Fecha",
             "¿Cuándo te gustaría agendar tu cita?",
-            buttons
+            buttons,
+            content_sid=content_sid if content_sid else None
         )
     
     def send_time_selection(self, to_number: str, fecha_seleccionada: str, horarios_disponibles: list = None):
@@ -247,11 +353,16 @@ class WhatsAppService:
         
         fecha_formatted = datetime.strptime(fecha_seleccionada, '%Y-%m-%d').strftime('%d/%m/%Y')
         
+        # Para horarios dinámicos, es mejor no usar Content Templates
+        # porque los botones cambian según disponibilidad
+        content_sid = Config.CONTENT_SID_SELECCION_HORA if not horarios_disponibles else None
+        
         return self.send_interactive_buttons(
             to_number,
             "⏰ Selecciona una Hora",
             f"Fecha elegida: *{fecha_formatted}*\n¿A qué hora prefieres tu cita?",
-            buttons
+            buttons,
+            content_sid=content_sid if content_sid else None
         )
     
     def send_citas_list(self, to_number: str, citas: list, action_type: str = "ver"):

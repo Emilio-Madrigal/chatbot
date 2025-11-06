@@ -70,8 +70,56 @@ def webhook():
         # Procesar el mensaje
         if message_body:
             print(f"Procesando mensaje: {message_body}")
-            # Detectar si es una respuesta a botones (número)
-            if message_body.strip().isdigit():
+            
+            # Detectar si es una respuesta a botones interactivos
+            # Los botones interactivos envían el texto del botón como mensaje
+            # Primero intentamos detectar si es el texto exacto de un botón
+            state = user_states.get(from_number, {})
+            current_step = state.get('step', 'inicial')
+            
+            # Mapeo de textos de botones a IDs según el contexto
+            button_text_to_id = {}
+            
+            if current_step == 'menu_principal':
+                button_text_to_id = {
+                    '📅 Agendar Cita': 'agendar_cita',
+                    'Agendar Cita': 'agendar_cita',
+                    '👀 Ver Mis Citas': 'ver_citas',
+                    'Ver Mis Citas': 'ver_citas',
+                    '⚙️ Gestionar': 'gestionar_citas',
+                    'Gestionar': 'gestionar_citas'
+                }
+            elif current_step in ['seleccionando_fecha', 'reagendando_fecha']:
+                # Las fechas se detectan por formato o por el texto del botón
+                fechas_disponibles = state.get('fechas_disponibles', [])
+                for i, fecha_ts in enumerate(fechas_disponibles[:3], 1):
+                    if hasattr(fecha_ts, 'strftime'):
+                        fecha_display = fecha_ts.strftime('%d/%m')
+                        fecha_str = fecha_ts.strftime('%Y-%m-%d')
+                    else:
+                        fecha_display = str(fecha_ts)
+                        fecha_str = fecha_ts
+                    button_text_to_id[fecha_display] = f"fecha_{fecha_str}"
+            elif current_step in ['selecionando_hora', 'reagendando_hora']:
+                # Las horas se detectan por formato o por el texto del botón
+                horarios_disponibles = state.get('horarios_disponibles', [])
+                for i, slot in enumerate(horarios_disponibles[:3], 1):
+                    hora_inicio = slot.get('horaInicio', slot.get('inicio', ''))
+                    from datetime import datetime
+                    try:
+                        hora_obj = datetime.strptime(hora_inicio, '%H:%M')
+                        hora_display = hora_obj.strftime('%I:%M %p').lstrip('0')
+                        button_text_to_id[hora_display] = f"hora_{hora_inicio}"
+                    except:
+                        button_text_to_id[hora_inicio] = f"hora_{hora_inicio}"
+            
+            # Verificar si el mensaje coincide con el texto de un botón
+            message_clean = message_body.strip()
+            if message_clean in button_text_to_id:
+                button_id = button_text_to_id[message_clean]
+                print(f"✅ Botón detectado por texto: '{message_clean}' -> {button_id}")
+                handle_button_response_extended(from_number, button_id)
+            elif message_body.strip().isdigit():
                 # Es una respuesta numérica a botones
                 print(f"Es respuesta numérica: {message_body.strip()}")
                 handle_button_response_extended(from_number, f"button_{message_body.strip()}")
@@ -276,6 +324,8 @@ def handle_button_response(from_number,button_id):
                         ultimo_consultorio['consultorioId'],
                         fecha_timestamp
                     )
+                    # Guardar horarios en estado para detección de botones
+                    user_states[from_number]['horarios_disponibles'] = horarios_disponibles
             
             WhatsApp_service.send_time_selection(from_number, fecha_seleccionada, horarios_disponibles)
         elif button_id.startswith('hora_') or button_id.startswith('hora_option_'):
@@ -419,6 +469,8 @@ def handle_reagendamiento(from_number, button_id):
                         ultimo_consultorio['consultorioId'],
                         fecha_timestamp
                     )
+                    # Guardar horarios en estado para detección de botones
+                    user_states[from_number]['horarios_disponibles'] = horarios_disponibles
             
             WhatsApp_service.send_time_selection(from_number, nueva_fecha, horarios_disponibles)
         
