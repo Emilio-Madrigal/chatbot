@@ -576,8 +576,12 @@ def handle_list_response(from_number,list_id):
 def handle_reagendamiento(from_number, button_id):
     try:
         state = user_states.get(from_number, {})
+        current_step = state.get('step', '')
         
-        if state.get('step') == 'reagendando_fecha' and button_id.startswith('fecha_'):
+        print(f"handle_reagendamiento - from_number: {from_number}, button_id: {button_id}, step: {current_step}")
+        
+        # Solo procesar si estamos en un paso de reagendamiento
+        if current_step == 'reagendando_fecha' and button_id.startswith('fecha_'):
             nueva_fecha = button_id.replace('fecha_', '')
             user_states[from_number]['nueva_fecha'] = nueva_fecha
             user_states[from_number]['step'] = 'reagendando_hora'
@@ -611,8 +615,9 @@ def handle_reagendamiento(from_number, button_id):
                     user_states[from_number]['horarios_disponibles'] = horarios_disponibles
             
             WhatsApp_service.send_time_selection(from_number, nueva_fecha, horarios_disponibles)
+            return True
         
-        elif state.get('step') == 'reagendando_hora' and (button_id.startswith('hora_') or button_id.startswith('hora_option_')):
+        elif current_step == 'reagendando_hora' and (button_id.startswith('hora_') or button_id.startswith('hora_option_')):
             # Manejar selección de hora (puede ser hora_ o hora_option_)
             if button_id.startswith('hora_option_'):
                 # Es una respuesta numérica
@@ -648,11 +653,16 @@ def handle_reagendamiento(from_number, button_id):
                     from_number,
                     "Escribe *menu* para realizar otra acción."
                 )
-            
-        return True
+            return True
+        
+        # Si no es un paso de reagendamiento, retornar False para que continúe con handle_button_response
+        print(f"handle_reagendamiento - No es paso de reagendamiento, retornando False")
+        return False
     
     except Exception as e:
         print(f"Error en reagendamiento: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 def handle_cancelacion(from_number, text):
     try:
