@@ -4,7 +4,7 @@
 
 1. **Crea un archivo `Procfile`** (sin extensión) en la raíz del proyecto:
    ```
-   web: gunicorn app:app --bind 0.0.0.0:5000
+   web: gunicorn app:app --bind 0.0.0.0:$PORT
    ```
 
 2. **Asegúrate de que `requirements.txt` tenga gunicorn** (ya lo tiene)
@@ -30,8 +30,8 @@
    - **Name**: chatbot-whatsapp
    - **Environment**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `gunicorn app:app --bind 0.0.0.0:5000`
-   - **IMPORTANTE**: Debe usar el puerto 5000 explícitamente para que Render lo detecte
+   - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+   - **IMPORTANTE**: NO configures PORT=5000 manualmente. Render asigna el puerto automáticamente y gunicorn debe usar $PORT
    - **Plan**: Free
 
 5. **Agrega las variables de entorno**:
@@ -57,8 +57,7 @@
        Key: FIREBASE_PROJECT_ID
        Value: (copia el valor de tu .env local)
        
-       Key: PORT
-       Value: 5000
+       # NO agregues PORT - Render lo asigna automáticamente
        ```
    - **SEGURIDAD**: Nunca subas el `.env` a GitHub. Render tiene sus propias variables de entorno seguras.
 
