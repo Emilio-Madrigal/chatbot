@@ -72,7 +72,12 @@ def web_chat():
         # Procesar el mensaje usando la lógica existente del bot
         bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
-        print(f"WEB CHAT RESPUESTA - Response: {bot_response_text[:100]}...")
+        # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
+        if not bot_response_text or bot_response_text.strip() == "" or bot_response_text.strip() == "...":
+            print(f"WEB CHAT RESPUESTA VACÍA - Usando mensaje por defecto")
+            bot_response_text = "Lo siento, no pude procesar tu mensaje. Por favor, intenta nuevamente o escribe *menu* para ver las opciones disponibles."
+        
+        print(f"WEB CHAT RESPUESTA - Response: {bot_response_text[:200]}...")
 
         return jsonify({
             'success': True,
@@ -718,6 +723,7 @@ def process_web_button_response(session_id, button_id, response_messages, user_i
     # Crear servicio de captura
     class WebResponseCaptureService:
         def send_text_message(self, to_number, message):
+            print(f"WebResponseCaptureService.send_text_message: {message[:100]}")
             response_messages.append(message)
         def send_main_menu(self, to_number):
             menu_text = """👋 ¡Hola! Bienvenido a Densora.
@@ -730,20 +736,26 @@ def process_web_button_response(session_id, button_id, response_messages, user_i
 3. ⚙️ Gestionar Citas
 
 Escribe el *número* de la opción que deseas (1, 2 o 3)."""
+            print(f"WebResponseCaptureService.send_main_menu")
             response_messages.append(menu_text)
         def send_management_menu(self, to_number):
+            print(f"WebResponseCaptureService.send_management_menu")
             response_messages.append("¿Qué deseas gestionar?\n1. Reagendar Cita\n2. Cancelar Cita\n3. Volver al Menú Principal")
         def send_date_selection(self, to_number, dates):
-            date_options = "\n".join([f"{i+1}. {d.strftime('%d/%m/%Y')}" for i, d in enumerate(dates)])
+            date_options = "\n".join([f"{i+1}. {d.strftime('%d/%m/%Y')}" for i, d in enumerate(dates)]) if dates else "No hay fechas disponibles"
+            print(f"WebResponseCaptureService.send_date_selection: {len(dates) if dates else 0} fechas")
             response_messages.append(f"Por favor, selecciona una fecha:\n{date_options}")
         def send_time_selection(self, to_number, date, times):
-            time_options = "\n".join([f"{i+1}. {t.get('horaInicio', t.get('inicio', ''))}" for i, t in enumerate(times)])
+            time_options = "\n".join([f"{i+1}. {t.get('horaInicio', t.get('inicio', ''))}" for i, t in enumerate(times)]) if times else "No hay horarios disponibles"
+            print(f"WebResponseCaptureService.send_time_selection: {len(times) if times else 0} horarios")
             response_messages.append(f"Para la fecha {date}, selecciona una hora:\n{time_options}")
         def send_confirmation_message(self, to_number, cita, is_new):
             action = "creada" if is_new else "reagendada"
             fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
+            print(f"WebResponseCaptureService.send_confirmation_message")
             response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
         def send_citas_list(self, to_number, citas, action_type):
+            print(f"WebResponseCaptureService.send_citas_list: {len(citas)} citas, action_type: {action_type}")
             if not citas:
                 response_messages.append("No tienes citas programadas.\n\nEscribe *menu* para agendar una nueva cita.")
                 return
@@ -767,6 +779,8 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
                     list_items.append(f"{i+1}. {nombre} - {fecha_str} {hora}")
                 except Exception as e:
                     print(f"Error formateando cita {i+1}: {e}")
+                    import traceback
+                    traceback.print_exc()
                     list_items.append(f"{i+1}. Cita {i+1}")
             
             action_messages = {
@@ -778,7 +792,13 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             response_messages.append(f"{header}\n" + "\n".join(list_items) + "\n\nEscribe el *número* de la cita para ver más detalles.")
         def send_cita_details(self, to_number, cita):
             fecha_formatted = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
+            print(f"WebResponseCaptureService.send_cita_details")
             response_messages.append(f"*Detalles de la Cita*\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}\n*Motivo:* {cita.motivo}\n*Estado:* {cita.estado}")
+        def send_interactive_buttons(self, to_number, header, body, buttons, content_sid=None):
+            # Para web, convertir botones a texto numerado
+            button_text = "\n".join([f"{i+1}. {btn.get('title', btn.get('id', ''))}" for i, btn in enumerate(buttons)])
+            print(f"WebResponseCaptureService.send_interactive_buttons")
+            response_messages.append(f"{header}\n\n{body}\n\n{button_text}")
     
     # Reemplazar WhatsAppService temporalmente
     global WhatsApp_service
@@ -790,6 +810,8 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         # Crear un identificador temporal que será usado por handle_button_response
         user_identifier = phone or user_id or session_id
         
+        print(f"PROCESS_WEB_BUTTON_RESPONSE - user_identifier: {user_identifier}, button_id: {button_id}")
+        
         # Si tenemos user_id o phone, actualizar temporalmente el estado para que handle_button_response los use
         if user_id or phone:
             # Guardar el identificador en el estado para que las funciones lo usen
@@ -797,11 +819,29 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             state['user_id'] = user_id
             state['phone'] = phone
             user_states[session_id] = state
+            print(f"Estado actualizado: user_id={user_id}, phone={phone}")
         
         # Usar la misma lógica que handle_button_response_extended
         if handle_reagendamiento(session_id, button_id):
+            print(f"handle_reagendamiento retornó True, response_messages tiene {len(response_messages)} mensajes")
+            if len(response_messages) == 0:
+                response_messages.append("Error procesando reagendamiento. Por favor, intenta nuevamente.")
             return
+        
+        print(f"Llamando handle_button_response con user_identifier: {user_identifier}, button_id: {button_id}")
         handle_button_response(user_identifier, button_id)
+        print(f"Después de handle_button_response, response_messages tiene {len(response_messages)} mensajes")
+        
+        # Si no hay mensajes, agregar un mensaje de error
+        if len(response_messages) == 0:
+            print(f"ERROR: No se generaron mensajes para button_id: {button_id}")
+            response_messages.append("Lo siento, hubo un error procesando tu solicitud. Por favor, intenta nuevamente o escribe *menu* para volver al menú principal.")
+    except Exception as e:
+        print(f"ERROR en process_web_button_response: {e}")
+        import traceback
+        traceback.print_exc()
+        if len(response_messages) == 0:
+            response_messages.append(f"Error procesando tu solicitud: {str(e)}\n\nEscribe *menu* para volver al menú principal.")
     finally:
         # Restaurar el servicio original
         WhatsApp_service = original_whatsapp_service
@@ -871,9 +911,12 @@ def process_web_message(session_id, message_body, platform, user_id=None, phone=
         
         # Si se identificó un botón, procesarlo como respuesta de botón
         if button_id:
+            print(f"Procesando button_id: {button_id} para session_id: {session_id}")
             # Procesar como respuesta de botón usando la misma lógica que WhatsApp
             process_web_button_response(session_id, button_id, response_messages, user_id=user_id, phone=phone)
-            return "\n".join(response_messages)
+            result = "\n".join(response_messages) if response_messages else "Lo siento, hubo un error procesando tu solicitud. Por favor, intenta nuevamente o escribe *menu*."
+            print(f"Resultado de process_web_button_response: {len(response_messages)} mensajes, resultado: {result[:100]}")
+            return result
 
     # Crear servicio de captura (reutilizar el mismo que en process_web_button_response)
     class WebResponseCaptureService:
@@ -953,11 +996,19 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         # Usar la MISMA lógica que handle_text_message_extended
         # Esto asegura que funcione exactamente igual que WhatsApp
         handle_text_message_extended(session_id, message_body)
+    except Exception as e:
+        print(f"ERROR en process_web_message: {e}")
+        import traceback
+        traceback.print_exc()
+        if len(response_messages) == 0:
+            response_messages.append(f"Error procesando tu mensaje: {str(e)}\n\nEscribe *menu* para volver al menú principal.")
     finally:
         # Restaurar el servicio original de WhatsApp
         WhatsApp_service = original_whatsapp_service
 
-    return "\n".join(response_messages)
+    result = "\n".join(response_messages) if response_messages else "Lo siento, no pude procesar tu mensaje. Por favor, intenta nuevamente o escribe *menu*."
+    print(f"process_web_message retornando: {len(response_messages)} mensajes, resultado: {result[:100]}")
+    return result
 
 if __name__ == '__main__':
     import os
