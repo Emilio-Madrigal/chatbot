@@ -43,9 +43,13 @@ class CitasService:
             print(f"error al crear cita: {e}")
             self.whatsapp.send_text_message(usuario_whatsapp,"ocurrio un error inesperado, intenta mas tarde")
             return False
-    def obtener_citas_usuario(self,usuario_whatsapp:str,action_type:str="ver"):
+    def obtener_citas_usuario(self,usuario_whatsapp:str,action_type:str="ver", user_id=None):
         try:
-            citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
+            # Si tenemos user_id, usar directamente obtener_citas_paciente
+            if user_id:
+                citas = self.cita_repo.obtener_citas_paciente(user_id)
+            else:
+                citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
             self.whatsapp.send_citas_list(usuario_whatsapp, citas, action_type)
             return len(citas) > 0
             
@@ -155,12 +159,22 @@ Tu cita ha sido cancelada"""
             print(f"error validando disponibilidad: {e}")
             return False
     
-    def obtener_citas_usuario_web(self, usuario_whatsapp: str):
+    def obtener_citas_usuario_web(self, usuario_whatsapp: str, user_id=None, phone=None):
         """
         Obtiene las citas del usuario para la web (solo devuelve datos, no envía por WhatsApp)
+        Puede usar user_id, phone o usuario_whatsapp como identificador
         """
         try:
-            citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
+            # Si tenemos user_id, usar directamente obtener_citas_paciente
+            if user_id:
+                citas = self.cita_repo.obtener_citas_paciente(user_id)
+            # Si tenemos phone, buscar por teléfono
+            elif phone:
+                citas = self.cita_repo.obtener_citas_usuario(phone)
+            # Fallback a usuario_whatsapp (session_id)
+            else:
+                citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
+            
             # Convertir a formato simple para la web
             citas_formateadas = []
             for cita in citas:

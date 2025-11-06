@@ -59,15 +59,18 @@ def web_chat():
         message_body = data.get('message')
         session_id = data.get('session_id')
         platform = data.get('platform', 'web')  # 'web' por defecto
+        user_id = data.get('user_id')  # ID del usuario autenticado
+        phone = data.get('phone')  # Teléfono del usuario
+        user_name = data.get('user_name')  # Nombre del usuario
 
         if not message_body or not session_id:
             print(f"ERROR: Faltan parámetros - message: {bool(message_body)}, session_id: {bool(session_id)}")
             return jsonify({'success': False, 'error': 'Message and session_id are required'}), 400
 
-        print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}")
+        print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}, User ID: {user_id}, Phone: {phone}")
 
         # Procesar el mensaje usando la lógica existente del bot
-        bot_response_text = process_web_message(session_id, message_body, platform)
+        bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
         print(f"WEB CHAT RESPUESTA - Response: {bot_response_text[:100]}...")
 
@@ -347,13 +350,22 @@ def handle_button_response(from_number,button_id):
             
             WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
         elif button_id=='ver_citas':
-            citas_service.obtener_citas_usuario(from_number,'ver')
+            # Si hay user_id en el estado (para web), usarlo
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id)
         elif button_id=='gestionar_citas':
             WhatsApp_service.send_management_menu(from_number)
         elif button_id=='reagendar_cita':
-            citas_service.obtener_citas_usuario(from_number,'reagendar')
+            # Si hay user_id en el estado (para web), usarlo
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            citas_service.obtener_citas_usuario(from_number,'reagendar', user_id=user_id)
         elif button_id=='cancelar_cita':
-            citas_service.obtener_citas_usuario(from_number,'cancelar')
+            # Si hay user_id en el estado (para web), usarlo
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            citas_service.obtener_citas_usuario(from_number,'cancelar', user_id=user_id)
         elif button_id=='volver_menu':
             WhatsApp_service.send_main_menu(from_number)
             user_states[from_number]={'step':'menu_principal'}
@@ -600,8 +612,15 @@ def handle_button_response_extended(from_number, button_id):
         return
     handle_button_response(from_number, button_id)
 
-def process_web_button_response(session_id, button_id, response_messages):
+def process_web_button_response(session_id, button_id, response_messages, user_id=None, phone=None):
     """Procesa respuestas de botones para web usando la misma lógica que WhatsApp"""
+    # Obtener user_id y phone del estado si no se pasaron como parámetros
+    state = user_states.get(session_id, {})
+    if not user_id:
+        user_id = state.get('user_id')
+    if not phone:
+        phone = state.get('phone')
+    
     # Crear servicio de captura
     class WebResponseCaptureService:
         def send_text_message(self, to_number, message):
@@ -649,21 +668,42 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
     WhatsApp_service = WebResponseCaptureService()
     
     try:
+        # Para web, usar phone o user_id cuando sea necesario
+        # Crear un identificador temporal que será usado por handle_button_response
+        user_identifier = phone or user_id or session_id
+        
+        # Si tenemos user_id o phone, actualizar temporalmente el estado para que handle_button_response los use
+        if user_id or phone:
+            # Guardar el identificador en el estado para que las funciones lo usen
+            state['user_identifier'] = user_identifier
+            state['user_id'] = user_id
+            state['phone'] = phone
+            user_states[session_id] = state
+        
         # Usar la misma lógica que handle_button_response_extended
         if handle_reagendamiento(session_id, button_id):
             return
-        handle_button_response(session_id, button_id)
+        handle_button_response(user_identifier, button_id)
     finally:
         # Restaurar el servicio original
         WhatsApp_service = original_whatsapp_service
 
-def process_web_message(session_id, message_body, platform):
+def process_web_message(session_id, message_body, platform, user_id=None, phone=None, user_name=None):
     """Adaptar la lógica existente para el chat web - usa la misma lógica que WhatsApp"""
     text_lower = message_body.lower().strip()
     text_original = message_body.strip()
 
     state = user_states.get(session_id, {})
     current_step = state.get('step', 'inicial')
+    
+    # Guardar user_id y phone en el estado para usarlos después
+    if user_id:
+        state['user_id'] = user_id
+    if phone:
+        state['phone'] = phone
+    if user_name:
+        state['user_name'] = user_name
+    user_states[session_id] = state
     
     response_messages = []  # Para acumular las respuestas del bot
     
@@ -697,7 +737,9 @@ def process_web_message(session_id, message_body, platform):
             # Obtener citas y mapear número a cita_id
             from services.citas_service import CitasService
             citas_service_temp = CitasService()
-            citas = citas_service_temp.obtener_citas_usuario_web(session_id)
+            # Usar phone o user_id si están disponibles, sino usar session_id como fallback
+            user_identifier = phone or user_id or session_id
+            citas = citas_service_temp.obtener_citas_usuario_web(user_identifier, user_id=user_id, phone=phone)
             if 0 <= button_num - 1 < len(citas):
                 cita_id = citas[button_num - 1]['id']
                 if current_step == 'seleccionando_cita_reagendar':
@@ -712,7 +754,7 @@ def process_web_message(session_id, message_body, platform):
         # Si se identificó un botón, procesarlo como respuesta de botón
         if button_id:
             # Procesar como respuesta de botón usando la misma lógica que WhatsApp
-            process_web_button_response(session_id, button_id, response_messages)
+            process_web_button_response(session_id, button_id, response_messages, user_id=user_id, phone=phone)
             return "\n".join(response_messages)
 
     # Crear servicio de captura (reutilizar el mismo que en process_web_button_response)
