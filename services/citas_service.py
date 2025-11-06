@@ -45,19 +45,25 @@ class CitasService:
             return False
     def obtener_citas_usuario(self,usuario_whatsapp:str,action_type:str="ver", user_id=None):
         try:
+            print(f"obtener_citas_usuario - usuario_whatsapp: {usuario_whatsapp}, user_id: {user_id}, action_type: {action_type}")
             # Si tenemos user_id, usar directamente obtener_citas_paciente
             if user_id:
+                print(f"Buscando citas por user_id: {user_id}")
                 citas = self.cita_repo.obtener_citas_paciente(user_id)
             else:
+                print(f"Buscando citas por usuario_whatsapp: {usuario_whatsapp}")
                 citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
+            print(f"Encontradas {len(citas)} citas")
             self.whatsapp.send_citas_list(usuario_whatsapp, citas, action_type)
             return len(citas) > 0
             
         except Exception as e:
             print(f"error obteniendo citas: {e}")
+            import traceback
+            traceback.print_exc()
             self.whatsapp.send_text_message(
                 usuario_whatsapp,
-                "error al obtener tus citas. Intenta nuevamente."
+                f"Error al obtener tus citas: {str(e)}\n\nIntenta nuevamente o escribe *menu* para volver al menú principal."
             )
             return False
     def mostrar_detalles_cita(self,usuario_whatsapp:str,cita_id:str):

@@ -353,7 +353,15 @@ def handle_button_response(from_number,button_id):
             # Si hay user_id en el estado (para web), usarlo
             state = user_states.get(from_number, {})
             user_id = state.get('user_id')
-            citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id)
+            phone = state.get('phone')
+            print(f"VER CITAS - from_number: {from_number}, user_id: {user_id}, phone: {phone}")
+            try:
+                citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id)
+            except Exception as e:
+                print(f"Error en ver_citas: {e}")
+                import traceback
+                traceback.print_exc()
+                WhatsApp_service.send_text_message(from_number, f"Error al obtener tus citas: {str(e)}")
         elif button_id=='gestionar_citas':
             WhatsApp_service.send_management_menu(from_number)
         elif button_id=='reagendar_cita':
@@ -651,13 +659,37 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
         def send_citas_list(self, to_number, citas, action_type):
             if not citas:
-                response_messages.append("No tienes citas programadas.")
+                response_messages.append("No tienes citas programadas.\n\nEscribe *menu* para agendar una nueva cita.")
                 return
             list_items = []
             for i, cita in enumerate(citas):
-                fecha_str = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
-                list_items.append(f"{i+1}. {cita.nombre_cliente} - {fecha_str} {cita.horaInicio or cita.hora}")
-            response_messages.append(f"Tus citas:\n" + "\n".join(list_items))
+                try:
+                    # Manejar diferentes formatos de fecha
+                    if isinstance(cita.fecha, datetime):
+                        fecha_str = cita.fecha.strftime('%d/%m/%Y')
+                    elif isinstance(cita.fecha, str):
+                        try:
+                            fecha_obj = datetime.strptime(cita.fecha, '%Y-%m-%d')
+                            fecha_str = fecha_obj.strftime('%d/%m/%Y')
+                        except:
+                            fecha_str = cita.fecha
+                    else:
+                        fecha_str = str(cita.fecha)
+                    
+                    hora = cita.horaInicio or cita.hora or 'N/A'
+                    nombre = cita.nombre_cliente or 'Sin nombre'
+                    list_items.append(f"{i+1}. {nombre} - {fecha_str} {hora}")
+                except Exception as e:
+                    print(f"Error formateando cita {i+1}: {e}")
+                    list_items.append(f"{i+1}. Cita {i+1}")
+            
+            action_messages = {
+                "ver": "Tus citas programadas:",
+                "reagendar": "Selecciona la cita que deseas reagendar:",
+                "cancelar": "Selecciona la cita que deseas cancelar:"
+            }
+            header = action_messages.get(action_type, "Tus citas:")
+            response_messages.append(f"{header}\n" + "\n".join(list_items) + "\n\nEscribe el *número* de la cita para ver más detalles.")
         def send_cita_details(self, to_number, cita):
             fecha_formatted = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
             response_messages.append(f"*Detalles de la Cita*\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}\n*Motivo:* {cita.motivo}\n*Estado:* {cita.estado}")
@@ -787,13 +819,37 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
         def send_citas_list(self, to_number, citas, action_type):
             if not citas:
-                response_messages.append("No tienes citas programadas.")
+                response_messages.append("No tienes citas programadas.\n\nEscribe *menu* para agendar una nueva cita.")
                 return
             list_items = []
             for i, cita in enumerate(citas):
-                fecha_str = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
-                list_items.append(f"{i+1}. {cita.nombre_cliente} - {fecha_str} {cita.horaInicio or cita.hora}")
-            response_messages.append(f"Tus citas:\n" + "\n".join(list_items))
+                try:
+                    # Manejar diferentes formatos de fecha
+                    if isinstance(cita.fecha, datetime):
+                        fecha_str = cita.fecha.strftime('%d/%m/%Y')
+                    elif isinstance(cita.fecha, str):
+                        try:
+                            fecha_obj = datetime.strptime(cita.fecha, '%Y-%m-%d')
+                            fecha_str = fecha_obj.strftime('%d/%m/%Y')
+                        except:
+                            fecha_str = cita.fecha
+                    else:
+                        fecha_str = str(cita.fecha)
+                    
+                    hora = cita.horaInicio or cita.hora or 'N/A'
+                    nombre = cita.nombre_cliente or 'Sin nombre'
+                    list_items.append(f"{i+1}. {nombre} - {fecha_str} {hora}")
+                except Exception as e:
+                    print(f"Error formateando cita {i+1}: {e}")
+                    list_items.append(f"{i+1}. Cita {i+1}")
+            
+            action_messages = {
+                "ver": "Tus citas programadas:",
+                "reagendar": "Selecciona la cita que deseas reagendar:",
+                "cancelar": "Selecciona la cita que deseas cancelar:"
+            }
+            header = action_messages.get(action_type, "Tus citas:")
+            response_messages.append(f"{header}\n" + "\n".join(list_items) + "\n\nEscribe el *número* de la cita para ver más detalles.")
         def send_cita_details(self, to_number, cita):
             fecha_formatted = cita.fecha.strftime('%d/%m/%Y') if isinstance(cita.fecha, datetime) else cita.fecha
             response_messages.append(f"*Detalles de la Cita*\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}\n*Motivo:* {cita.motivo}\n*Estado:* {cita.estado}")
