@@ -495,7 +495,7 @@ def handle_button_response_extended(from_number, button_id):
 if __name__ == '__main__':
     print(f"📡 Puerto: {Config.PORT}")
     print(f"🔧 Debug: {Config.DEBUG}")
-    print("listo")
+    print("✅ Servidor listo")
     
     app.run(
         debug=Config.DEBUG,
