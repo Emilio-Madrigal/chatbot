@@ -13,34 +13,55 @@ user_states={}
 
 @app.route('/webhook',methods=['GET'])
 def verify_webhook():
-    verify_token=request.args.get('hub.verify_token')
-    challenge=request.args.get('hub.challenge')
-
-    print(f"verificando webhook: {verify_token}")
-
-    if verify_token==Config.WHATSAPP_VERIFY_TOKEN:
-        print("webhook verificado")
-        return challenge
-    else:
-        print("verificacion fallida")
-        return "Error de verificacion",403
+    """Verificación de webhook para Twilio (opcional, Twilio no requiere GET)"""
+    # Twilio no usa verificación GET como Meta, pero mantenemos por compatibilidad
+    return "OK", 200
     
 @app.route('/webhook',methods=['POST'])
 def webhook():
+    """Webhook para recibir mensajes de Twilio"""
     try:
-        data=request.get_json()
-        print(f"webhook recibido: {json.dumps(data,indent=2)}")
-        if 'entry' in data:
-                    for entry in data['entry']:
-                        if 'changes' in entry:
-                            for change in entry['changes']:
-                                if 'value' in change and 'messages' in change['value']:
-                                    process_message(change['value'])
-        return jsonify({"status": "success"}),200
+        # Twilio envía datos como form-data, no JSON
+        from_number = request.values.get('From', '')
+        message_body = request.values.get('Body', '')
+        message_sid = request.values.get('MessageSid', '')
+        num_media = request.values.get('NumMedia', '0')
+        
+        print(f"Webhook Twilio recibido:")
+        print(f"  From: {from_number}")
+        print(f"  Body: {message_body}")
+        print(f"  MessageSid: {message_sid}")
+        
+        # Limpiar el número (Twilio envía como whatsapp:+521234567890)
+        # Extraer solo el número sin el prefijo whatsapp:
+        if from_number.startswith('whatsapp:'):
+            from_number = from_number.replace('whatsapp:', '')
+        
+        # Procesar el mensaje
+        if message_body:
+            # Detectar si es una respuesta a botones (número)
+            if message_body.strip().isdigit():
+                # Es una respuesta numérica a botones
+                handle_button_response_extended(from_number, f"button_{message_body.strip()}")
+            else:
+                # Es un mensaje de texto normal
+                handle_text_message_extended(from_number, message_body)
+        
+        # Responder a Twilio (requerido)
+        response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message></Message>
+</Response>"""
+        return response, 200, {'Content-Type': 'text/xml'}
+        
     except Exception as e:
-        print(f"error en webhook: {e}")
+        print(f"Error en webhook Twilio: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"status":"error","message":str(e)}),500
+
 def process_message(message_data):
+    """Función legacy para compatibilidad (no se usa con Twilio)"""
     try:
         messages = message_data.get('messages', [])
         
@@ -66,9 +87,34 @@ def process_message(message_data):
 def handle_text_message(from_number,text):
     try:
         text_lower = text.lower().strip()
+        text_original = text.strip()
 
         state=user_states.get(from_number,{})
         current_step=state.get('step','inicial')
+
+        # Manejar respuestas numéricas a botones (Twilio no tiene botones interactivos)
+        if text_original.isdigit():
+            button_num = int(text_original)
+            # Mapear según el contexto del estado
+            if current_step == 'menu_principal':
+                if button_num == 1:
+                    handle_button_response_extended(from_number, 'agendar_cita')
+                elif button_num == 2:
+                    handle_button_response_extended(from_number, 'ver_citas')
+                elif button_num == 3:
+                    handle_button_response_extended(from_number, 'gestionar_citas')
+                else:
+                    WhatsApp_service.send_text_message(from_number, "Opción inválida. Por favor selecciona 1, 2 o 3.")
+                return
+            elif current_step == 'seleccionando_fecha':
+                # Es selección de fecha
+                handle_button_response_extended(from_number, f"fecha_option_{button_num}")
+                return
+            elif current_step == 'seleccionando_hora' or current_step == 'selecionando_hora':
+                # Es selección de hora
+                handle_button_response_extended(from_number, f"hora_option_{button_num}")
+                return
+            # Si no coincide con ningún contexto, tratar como texto normal
 
         if text_lower in ['hola', 'menu', 'inicio', 'start', 'ayuda']:
             WhatsApp_service.send_main_menu(from_number)
@@ -113,6 +159,16 @@ def handle_interactive_message(from_number,interactive_data):
         print(f"error manejado interracion: {e}")
 def handle_button_response(from_number,button_id):
     try:
+        # Si viene como button_X, extraer el número
+        if button_id.startswith('button_'):
+            button_num = button_id.replace('button_', '')
+            # Mapear número a botón según el último mensaje enviado
+            # Por ahora, manejamos respuestas numéricas directamente
+            print(f"Respuesta numerica recibida: {button_num}")
+            # Convertir respuesta numérica a acción según contexto
+            # Esto se manejará en handle_text_message_extended
+            return
+        
         print(f"boton presionado: {button_id}")
         if button_id=='agendar_cita':
             # Obtener fechas dinámicas del último consultorio
@@ -134,9 +190,17 @@ def handle_button_response(from_number,button_id):
                         fecha_timestamp,
                         cantidad=3
                     )
+                    # Guardar fechas en estado para mapeo numérico
+                    user_states[from_number] = {
+                        'step': 'seleccionando_fecha',
+                        'fechas_disponibles': fechas_disponibles
+                    }
+                else:
+                    user_states[from_number] = {'step': 'seleccionando_fecha'}
+            else:
+                user_states[from_number] = {'step': 'seleccionando_fecha'}
             
             WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
-            user_states[from_number]={'step':'seleccionando_fecha'}
         elif button_id=='ver_citas':
             citas_service.obtener_citas_usuario(from_number,'ver')
         elif button_id=='gestionar_citas':
@@ -173,8 +237,27 @@ def handle_button_response(from_number,button_id):
                     )
             
             WhatsApp_service.send_time_selection(from_number, fecha_seleccionada, horarios_disponibles)
-        elif button_id.startswith('hora_'):
-            hora_seleccionada = button_id.replace('hora_', '')
+        elif button_id.startswith('hora_') or button_id.startswith('hora_option_'):
+            # Manejar selección de hora
+            if button_id.startswith('hora_option_'):
+                # Es una respuesta numérica
+                state = user_states.get(from_number, {})
+                horarios_disponibles = state.get('horarios_disponibles', [])
+                button_num = int(button_id.replace('hora_option_', '')) - 1
+                if 0 <= button_num < len(horarios_disponibles):
+                    slot = horarios_disponibles[button_num]
+                    hora_seleccionada = slot.get('horaInicio', slot.get('inicio', ''))
+                else:
+                    # Fallback a horarios por defecto
+                    horas_default = ['09:00', '11:00', '14:00']
+                    if 0 <= button_num < len(horas_default):
+                        hora_seleccionada = horas_default[button_num]
+                    else:
+                        WhatsApp_service.send_text_message(from_number, "Opción inválida. Por favor selecciona una hora válida.")
+                        return
+            else:
+                hora_seleccionada = button_id.replace('hora_', '')
+            
             user_states[from_number]['hora'] = hora_seleccionada
             user_states[from_number]['step'] = 'esperando_nombre_cliente'
 

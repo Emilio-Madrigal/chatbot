@@ -1,118 +1,144 @@
-import requests
-import json
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 from config import Config
+from typing import Optional
+import json
 
 class WhatsAppService:
     def __init__(self):
-        self.token = Config.WHATSAPP_TOKEN
-        self.phone_number_id = Config.PHONE_NUMBER_ID
-        self.api_url = Config.WHATSAPP_API_URL
+        self.account_sid = Config.TWILIO_ACCOUNT_SID
+        self.auth_token = Config.TWILIO_AUTH_TOKEN
+        self.whatsapp_number = Config.TWILIO_WHATSAPP_NUMBER
         
-        # Headers para las peticiones HTTP
-        self.headers = {
-            'Authorization': f'Bearer {self.token}',
-            'Content-Type': 'application/json'
-        }
+        # Inicializar cliente de Twilio
+        self.client = Client(self.account_sid, self.auth_token)
+    
+    def _format_phone_number(self, phone_number: str) -> str:
+        """Formatea el número de teléfono para Twilio (debe incluir código de país)"""
+        # Si ya tiene formato whatsapp:, lo deja así
+        if phone_number.startswith('whatsapp:'):
+            return phone_number
+        # Si no, agrega el prefijo whatsapp:
+        if not phone_number.startswith('+'):
+            # Asume que es un número mexicano si no tiene +
+            phone_number = f"+52{phone_number}"
+        return f"whatsapp:{phone_number}"
     
     def send_text_message(self, to_number: str, message: str):
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "text",
-            "text": {"body": message}
-        }
-        return self._send_message(payload)
+        """Envía un mensaje de texto a través de Twilio"""
+        try:
+            to = self._format_phone_number(to_number)
+            message = self.client.messages.create(
+                body=message,
+                from_=self.whatsapp_number,
+                to=to
+            )
+            print(f"Mensaje enviado via Twilio. SID: {message.sid}")
+            return {"status": "sent", "sid": message.sid}
+        except TwilioRestException as e:
+            print(f"Error enviando mensaje via Twilio: {e}")
+            return None
+        except Exception as e:
+            print(f"Error inesperado enviando mensaje: {e}")
+            return None
     
-    def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None):
+    def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None, content_sid: str = None):
         """
-        Envía un mensaje usando una plantilla verificada de WhatsApp
+        Envía un mensaje usando una plantilla verificada de WhatsApp a través de Twilio (PRODUCCIÓN)
         
         Args:
             to_number: Número de teléfono del destinatario
-            template_name: Nombre de la plantilla aprobada en Meta
+            template_name: Nombre de la plantilla aprobada (opcional si usas content_sid)
             language_code: Código de idioma (por defecto "es")
             components: Lista de componentes con parámetros para la plantilla
-                        Ejemplo: [{"type": "body", "parameters": [{"type": "text", "text": "valor"}]}]
+            content_sid: Content SID de la plantilla en Twilio (recomendado para producción)
         """
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {
-                    "code": language_code
-                }
-            }
-        }
-        
-        # Agregar componentes si se proporcionan
-        if components:
-            payload["template"]["components"] = components
-        
-        return self._send_message(payload)
+        try:
+            from twilio.rest import Client
+            to = self._format_phone_number(to_number)
+            
+            # Si se proporciona content_sid, usar Content API de Twilio (recomendado)
+            if content_sid:
+                # Construir variables para la plantilla
+                content_variables = {}
+                if components:
+                    for component in components:
+                        if component.get('type') == 'body' and 'parameters' in component:
+                            params = []
+                            for param in component['parameters']:
+                                if param.get('type') == 'text':
+                                    params.append(param.get('text', ''))
+                            # Twilio espera las variables como JSON string
+                            if params:
+                                content_variables = json.dumps({str(i+1): param for i, param in enumerate(params)})
+                
+                # Usar Content API de Twilio
+                message = self.client.messages.create(
+                    content_sid=content_sid,
+                    from_=self.whatsapp_number,
+                    to=to,
+                    content_variables=content_variables if content_variables else None
+                )
+            else:
+                # Método alternativo: usar messaging_service con template
+                # Nota: Esto requiere configuración adicional en Twilio
+                message = self.client.messages.create(
+                    from_=self.whatsapp_number,
+                    to=to,
+                    body=f"[Plantilla: {template_name}]"  # Fallback - usar content_sid en producción
+                )
+            
+            print(f"Plantilla enviada via Twilio. SID: {message.sid}")
+            return {"status": "sent", "sid": message.sid}
+        except TwilioRestException as e:
+            print(f"Error enviando plantilla via Twilio: {e}")
+            print("Nota: En producción, asegúrate de usar content_sid de plantillas aprobadas")
+            return None
+        except Exception as e:
+            print(f"Error inesperado enviando plantilla: {e}")
+            return None
     
     def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list):
+        """
+        Envía mensaje con botones interactivos
+        Nota: Twilio no soporta botones interactivos nativos como Meta.
+        Se envía como mensaje de texto con opciones numeradas.
+        """
         if len(buttons) > 3:
             raise ValueError("WhatsApp solo permite maximo 3 botones")
         
-        interactive_buttons = []
-        for button in buttons:
-            interactive_buttons.append({
-                "type": "reply",
-                "reply": {
-                    "id": button['id'],
-                    "title": button['title'][:20]  # Límite de 20 caracteres
-                }
-            })
+        # Construir mensaje con opciones numeradas (Twilio no soporta botones interactivos)
+        message_text = f"{header_text}\n\n{body_text}\n\n"
+        for i, button in enumerate(buttons, 1):
+            message_text += f"{i}. {button['title']}\n"
+        message_text += "\nResponde con el número de la opción deseada."
         
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "interactive",
-            "interactive": {
-                "type": "button",
-                "header": {"type": "text", "text": header_text},
-                "body": {"text": body_text},
-                "action": {"buttons": interactive_buttons}
-            }
-        }
-        return self._send_message(payload)
+        return self.send_text_message(to_number, message_text)
     
-    def send_list_message(self, to_number: str, header_text: str, body_text: str,button_text: str, sections: list):
-
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "interactive",
-            "interactive": {
-                "type": "list",
-                "header": {"type": "text", "text": header_text},
-                "body": {"text": body_text},
-                "action": {
-                    "button": button_text,
-                    "sections": sections
-                }
-            }
-        }
-        return self._send_message(payload)
-    
-    def _send_message(self, payload):
-        #Método privado que hace la petición HTTP a WhatsApp
-        try:
-            response = requests.post(self.api_url, json=payload, headers=self.headers)
-            result = response.json()
-            
-            if response.status_code == 200:
-                print(f"mensaje enviado")
-                return result
-            else:
-                print(f"error enviando mensaje: {result}")
-                return None
-                
-        except Exception as e:
-            print(f"paso algo mas enviando el mensaje: {e}")
-            return None
+    def send_list_message(self, to_number: str, header_text: str, body_text: str, button_text: str, sections: list):
+        """
+        Envía mensaje con lista
+        Nota: Twilio no soporta listas interactivas nativas como Meta.
+        Se envía como mensaje de texto con opciones numeradas.
+        """
+        message_text = f"{header_text}\n\n{body_text}\n\n"
+        
+        option_number = 1
+        for section in sections:
+            if 'title' in section:
+                message_text += f"\n{section['title']}\n"
+            for row in section.get('rows', []):
+                title = row.get('title', '')
+                description = row.get('description', '')
+                message_text += f"{option_number}. {title}"
+                if description:
+                    message_text += f" - {description}"
+                message_text += "\n"
+                option_number += 1
+        
+        message_text += "\nResponde con el número de la opción deseada."
+        
+        return self.send_text_message(to_number, message_text)
     
     def send_main_menu(self, to_number: str):
         buttons = [
@@ -142,22 +168,38 @@ class WhatsAppService:
             buttons
         )
     
-    def send_date_selection(self, to_number: str):
+    def send_date_selection(self, to_number: str, fechas_disponibles: list = None):
         from datetime import datetime, timedelta
         
-        today = datetime.now()
-        buttons = []
-        
-        for i in range(1, 4):
-            date = today + timedelta(days=i)
-            #omitir fines de semana desdepues meto qque se pueda elegir cualquier dia
-            while date.weekday() >= 5:
-                date += timedelta(days=1)
+        # Si se proporcionan fechas dinámicas, usarlas; sino generar fechas por defecto
+        if fechas_disponibles and len(fechas_disponibles) > 0:
+            buttons = []
+            for i, fecha_ts in enumerate(fechas_disponibles[:3]):  # Máximo 3 botones
+                if hasattr(fecha_ts, 'strftime'):
+                    fecha_str = fecha_ts.strftime('%Y-%m-%d')
+                    fecha_display = fecha_ts.strftime('%d/%m')
+                else:
+                    fecha_str = fecha_ts
+                    fecha_display = fecha_ts
+                
+                buttons.append({
+                    "id": f"fecha_{fecha_str}",
+                    "title": fecha_display
+                })
+        else:
+            # Fechas por defecto (próximos 3 días laborables)
+            today = datetime.now()
+            buttons = []
             
-            buttons.append({
-                "id": f"fecha_{date.strftime('%Y-%m-%d')}",
-                "title": date.strftime('%d/%m')
-            })
+            for i in range(1, 4):
+                date = today + timedelta(days=i)
+                while date.weekday() >= 5:
+                    date += timedelta(days=1)
+                
+                buttons.append({
+                    "id": f"fecha_{date.strftime('%Y-%m-%d')}",
+                    "title": date.strftime('%d/%m')
+                })
         
         return self.send_interactive_buttons(
             to_number,

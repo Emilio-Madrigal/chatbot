@@ -18,3 +18,6 @@ pytz==2023.3
 
 # Para servidor en producción
 gunicorn==21.2.0
+
+# Twilio SDK para WhatsApp
+twilio==9.0.0
