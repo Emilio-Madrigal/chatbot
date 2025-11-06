@@ -31,6 +31,7 @@
    - **Environment**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT`
+   - **IMPORTANTE**: El Start Command debe usar `$PORT` para que use la variable de entorno
    - **Plan**: Free
 
 5. **Agrega las variables de entorno**:
@@ -42,8 +43,9 @@
      TWILIO_WHATSAPP_NUMBER = whatsapp:+521234567890
      TWILIO_WEBHOOK_TOKEN = tu_token
      FIREBASE_PROJECT_ID = tu_proyecto
-     # NO configures PORT manualmente - Render lo asigna automáticamente
+     PORT = 5000
      ```
+   - **IMPORTANTE**: Debes configurar `PORT = 5000` para que Render detecte correctamente el puerto
 
 6. Click en **"Create Web Service"**
 7. Espera a que termine el deploy (5-10 minutos)
