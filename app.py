@@ -493,12 +493,14 @@ def handle_button_response_extended(from_number, button_id):
     handle_button_response(from_number, button_id)
 
 if __name__ == '__main__':
-    print(f"📡 Puerto: {Config.PORT}")
+    import os
+    port = int(os.environ.get('PORT', Config.PORT))
+    print(f"📡 Puerto: {port}")
     print(f"🔧 Debug: {Config.DEBUG}")
     print("✅ Servidor listo")
     
     app.run(
         debug=Config.DEBUG,
         host='0.0.0.0', 
-        port=Config.PORT
+        port=port
     )
