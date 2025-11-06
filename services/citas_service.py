@@ -7,14 +7,24 @@ class CitasService:
         self.cita_repo=CitaRepository()
         self.whatsapp=WhatsAppService()
     
-    def crear_cita(self, usuario_whatsapp:str, datos_cita:dict)-> bool:
+    def crear_cita(self, usuario_whatsapp:str, datos_cita:dict, paciente_id:str=None, whatsapp_service=None)-> bool:
         try:
-            cita_id = self.cita_repo.crear_cita(usuario_whatsapp, datos_cita)
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            
+            cita_id = self.cita_repo.crear_cita(usuario_whatsapp, datos_cita, paciente_id=paciente_id)
             if cita_id:
                 # Obtener la cita creada para mostrar confirmación
-                cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+                # Si tenemos paciente_id, buscar por paciente_id, sino por usuario_whatsapp
+                if paciente_id:
+                    from database.models import CitaRepository
+                    cita_repo_temp = CitaRepository()
+                    cita = cita_repo_temp.obtener_cita_por_id(paciente_id, cita_id)
+                else:
+                    cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+                
                 if cita:
-                    self.whatsapp.send_confirmation_message(
+                    service.send_confirmation_message(
                         usuario_whatsapp, cita, is_new=True
                     )
                     print(f"cita creada: {cita_id}")
@@ -30,20 +40,24 @@ class CitasService:
                         motivo=datos_cita.get('descripcion', ''),
                         estado='confirmado'
                     )
-                    self.whatsapp.send_confirmation_message(
+                    service.send_confirmation_message(
                         usuario_whatsapp, nueva_cita, is_new=True
                     )
                     return True
             else:
-                self.whatsapp.send_text_message(
+                service.send_text_message(
                     usuario_whatsapp,"error al crear tu cita, intenta nuevamente"
                 )
                 return False
         except Exception as e:
             print(f"error al crear cita: {e}")
-            self.whatsapp.send_text_message(usuario_whatsapp,"ocurrio un error inesperado, intenta mas tarde")
+            import traceback
+            traceback.print_exc()
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            service.send_text_message(usuario_whatsapp,"ocurrio un error inesperado, intenta mas tarde")
             return False
-    def obtener_citas_usuario(self,usuario_whatsapp:str,action_type:str="ver", user_id=None):
+    def obtener_citas_usuario(self,usuario_whatsapp:str,action_type:str="ver", user_id=None, whatsapp_service=None):
         try:
             print(f"obtener_citas_usuario - usuario_whatsapp: {usuario_whatsapp}, user_id: {user_id}, action_type: {action_type}")
             # Si tenemos user_id, usar directamente obtener_citas_paciente
@@ -54,14 +68,19 @@ class CitasService:
                 print(f"Buscando citas por usuario_whatsapp: {usuario_whatsapp}")
                 citas = self.cita_repo.obtener_citas_usuario(usuario_whatsapp)
             print(f"Encontradas {len(citas)} citas")
-            self.whatsapp.send_citas_list(usuario_whatsapp, citas, action_type)
+            
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            service.send_citas_list(usuario_whatsapp, citas, action_type)
             return len(citas) > 0
             
         except Exception as e:
             print(f"error obteniendo citas: {e}")
             import traceback
             traceback.print_exc()
-            self.whatsapp.send_text_message(
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            service.send_text_message(
                 usuario_whatsapp,
                 f"Error al obtener tus citas: {str(e)}\n\nIntenta nuevamente o escribe *menu* para volver al menú principal."
             )
@@ -78,45 +97,77 @@ class CitasService:
         except Exception as e:
             print(f"error mostrando detalles:{e}")
             self.whatsapp.send_text_message(usuario_whatsapp,"error mostrando los detalles")
-    def reagendar_cita(self, usuario_whatsapp:str, cita_id:str,nueva_fecha:str,nueva_hora:str)->bool:
+    def reagendar_cita(self, usuario_whatsapp:str, cita_id:str,nueva_fecha:str,nueva_hora:str, paciente_id:str=None, whatsapp_service=None)->bool:
         try:
-            cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            
+            # Obtener cita por paciente_id o usuario_whatsapp
+            if paciente_id:
+                cita = self.cita_repo.obtener_cita_por_id(paciente_id, cita_id)
+            else:
+                cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+            
             if not cita:
-                self.whatsapp.send_text_message(
+                service.send_text_message(
                     usuario_whatsapp,"no existe la cita que intentas reagendar"
                 )
                 return False
-            success = self.cita_repo.actualizar_cita(usuario_whatsapp, cita_id, nueva_fecha, nueva_hora)
+            
+            # Actualizar cita usando paciente_id o usuario_whatsapp
+            if paciente_id:
+                success = self.cita_repo.actualizar_cita_por_id(paciente_id, cita_id, nueva_fecha, nueva_hora)
+            else:
+                success = self.cita_repo.actualizar_cita(usuario_whatsapp, cita_id, nueva_fecha, nueva_hora)
+            
             if success:
                 # Actualizar objeto local para confirmación
                 cita.fecha = nueva_fecha
                 cita.horaInicio = nueva_hora
                 cita.hora = nueva_hora
-                self.whatsapp.send_confirmation_message(
+                service.send_confirmation_message(
                     usuario_whatsapp, cita, is_new=False
                 )
                 print(f"cita {cita_id} reagendada")
                 return True
             else:
-                self.whatsapp.send_text_message(
+                service.send_text_message(
                     usuario_whatsapp,"no se pudo reagendar la cita. intenta nuevamente"
                 )
                 return False
         except Exception as e:
             print(f"error reagendando cita: {e}")
-            self.whatsapp.send_text_message(
+            import traceback
+            traceback.print_exc()
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            service.send_text_message(
                 usuario_whatsapp,"error reagendando cita"
             )    
             return False
-    def cancelar_cita(self,usuario_whatsapp:str,cita_id:str)->bool:
+    def cancelar_cita(self,usuario_whatsapp:str,cita_id:str, paciente_id:str=None, whatsapp_service=None)->bool:
         try:
-            cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+            # Usar el servicio pasado como parámetro o el servicio por defecto
+            service = whatsapp_service if whatsapp_service else self.whatsapp
+            
+            # Obtener cita por paciente_id o usuario_whatsapp
+            if paciente_id:
+                cita = self.cita_repo.obtener_cita_por_id(paciente_id, cita_id)
+            else:
+                cita = self.cita_repo.obtener_cita(usuario_whatsapp, cita_id)
+            
             if not cita:
-                self.whatsapp.send_text_message(
+                service.send_text_message(
                     usuario_whatsapp,"no se encontro la cita"
                 )
                 return False
-            success = self.cita_repo.eliminar_cita(usuario_whatsapp, cita_id)
+            
+            # Eliminar cita usando paciente_id o usuario_whatsapp
+            if paciente_id:
+                success = self.cita_repo.eliminar_cita_por_id(paciente_id, cita_id)
+            else:
+                success = self.cita_repo.eliminar_cita(usuario_whatsapp, cita_id)
+            
             if success:
                 fecha_formatted = ''
                 if cita.fecha:

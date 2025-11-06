@@ -276,7 +276,17 @@ def handle_text_message(from_number,text):
             )
         elif current_step=='esperando_descripcion':
             user_states[from_number]['descripcion']=text
-            success=citas_service.crear_cita(from_number,user_states[from_number])
+            
+            # Obtener user_id del estado si está disponible (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            
+            success=citas_service.crear_cita(
+                from_number,
+                user_states[from_number],
+                paciente_id=user_id,
+                whatsapp_service=WhatsApp_service
+            )
 
             if success:
                 del user_states[from_number]
@@ -322,7 +332,14 @@ def handle_button_response(from_number,button_id):
             # Obtener fechas dinámicas del último consultorio
             from database.models import CitaRepository
             cita_repo = CitaRepository()
-            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            
+            # Obtener user_id y phone del estado si están disponibles (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            phone = state.get('phone')
+            
+            # Obtener paciente por ID o teléfono
+            paciente = cita_repo.obtener_paciente(telefono=phone or from_number, paciente_id=user_id)
             fechas_disponibles = []
             
             if paciente:
@@ -341,12 +358,22 @@ def handle_button_response(from_number,button_id):
                     # Guardar fechas en estado para mapeo numérico
                     user_states[from_number] = {
                         'step': 'seleccionando_fecha',
-                        'fechas_disponibles': fechas_disponibles
+                        'fechas_disponibles': fechas_disponibles,
+                        'user_id': user_id,
+                        'phone': phone
                     }
                 else:
-                    user_states[from_number] = {'step': 'seleccionando_fecha'}
+                    user_states[from_number] = {
+                        'step': 'seleccionando_fecha',
+                        'user_id': user_id,
+                        'phone': phone
+                    }
             else:
-                user_states[from_number] = {'step': 'seleccionando_fecha'}
+                user_states[from_number] = {
+                    'step': 'seleccionando_fecha',
+                    'user_id': user_id,
+                    'phone': phone
+                }
             
             WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
         elif button_id=='ver_citas':
@@ -356,7 +383,8 @@ def handle_button_response(from_number,button_id):
             phone = state.get('phone')
             print(f"VER CITAS - from_number: {from_number}, user_id: {user_id}, phone: {phone}")
             try:
-                citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id)
+                # Pasar WhatsApp_service para que use el servicio correcto (puede ser WebResponseCaptureService)
+                citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id, whatsapp_service=WhatsApp_service)
             except Exception as e:
                 print(f"Error en ver_citas: {e}")
                 import traceback
@@ -368,12 +396,12 @@ def handle_button_response(from_number,button_id):
             # Si hay user_id en el estado (para web), usarlo
             state = user_states.get(from_number, {})
             user_id = state.get('user_id')
-            citas_service.obtener_citas_usuario(from_number,'reagendar', user_id=user_id)
+            citas_service.obtener_citas_usuario(from_number,'reagendar', user_id=user_id, whatsapp_service=WhatsApp_service)
         elif button_id=='cancelar_cita':
             # Si hay user_id en el estado (para web), usarlo
             state = user_states.get(from_number, {})
             user_id = state.get('user_id')
-            citas_service.obtener_citas_usuario(from_number,'cancelar', user_id=user_id)
+            citas_service.obtener_citas_usuario(from_number,'cancelar', user_id=user_id, whatsapp_service=WhatsApp_service)
         elif button_id=='volver_menu':
             WhatsApp_service.send_main_menu(from_number)
             user_states[from_number]={'step':'menu_principal'}
@@ -385,7 +413,14 @@ def handle_button_response(from_number,button_id):
             # Obtener horarios dinámicos del último consultorio
             from database.models import CitaRepository
             cita_repo = CitaRepository()
-            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            
+            # Obtener user_id y phone del estado si están disponibles (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            phone = state.get('phone')
+            
+            # Obtener paciente por ID o teléfono
+            paciente = cita_repo.obtener_paciente(telefono=phone or from_number, paciente_id=user_id)
             horarios_disponibles = []
             
             if paciente:
@@ -445,7 +480,14 @@ def handle_button_response(from_number,button_id):
             # Obtener fechas dinámicas
             from database.models import CitaRepository
             cita_repo = CitaRepository()
-            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            
+            # Obtener user_id y phone del estado si están disponibles (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            phone = state.get('phone')
+            
+            # Obtener paciente por ID o teléfono
+            paciente = cita_repo.obtener_paciente(telefono=phone or from_number, paciente_id=user_id)
             fechas_disponibles = []
             
             if paciente:
@@ -465,14 +507,22 @@ def handle_button_response(from_number,button_id):
             WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
         elif button_id.startswith('cancelar_'):
             cita_id=button_id.replace('cancelar_','')
+            
+            # Obtener user_id del estado si está disponible (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            phone = state.get('phone')
+            
             WhatsApp_service.send_text_message(
                 from_number,"⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla."
             )
             user_states[from_number]={
                 'step':'confurmando_cancelacion',
-                'cita_id': cita_id
+                'cita_id': cita_id,
+                'user_id': user_id,
+                'phone': phone
             }
-            citas_service.cancelar_cita(from_number,cita_id)
+            # No cancelar todavía, solo guardar el estado para confirmación
     except Exception as e:
         print(f"error con el bototn: {e}")
 def handle_list_response(from_number,list_id):
@@ -530,7 +580,14 @@ def handle_reagendamiento(from_number, button_id):
             # Obtener horarios dinámicos
             from database.models import CitaRepository
             cita_repo = CitaRepository()
-            paciente = cita_repo.obtener_paciente_por_telefono(from_number)
+            
+            # Obtener user_id y phone del estado si están disponibles (para web)
+            state = user_states.get(from_number, {})
+            user_id = state.get('user_id')
+            phone = state.get('phone')
+            
+            # Obtener paciente por ID o teléfono
+            paciente = cita_repo.obtener_paciente(telefono=phone or from_number, paciente_id=user_id)
             horarios_disponibles = []
             
             if paciente:
@@ -550,17 +607,38 @@ def handle_reagendamiento(from_number, button_id):
             
             WhatsApp_service.send_time_selection(from_number, nueva_fecha, horarios_disponibles)
         
-        elif state.get('step') == 'reagendando_hora' and button_id.startswith('hora_'):
-            nueva_hora = button_id.replace('hora_', '')
+        elif state.get('step') == 'reagendando_hora' and (button_id.startswith('hora_') or button_id.startswith('hora_option_')):
+            # Manejar selección de hora (puede ser hora_ o hora_option_)
+            if button_id.startswith('hora_option_'):
+                # Es una respuesta numérica
+                horarios_disponibles = state.get('horarios_disponibles', [])
+                button_num = int(button_id.replace('hora_option_', '')) - 1
+                if 0 <= button_num < len(horarios_disponibles):
+                    slot = horarios_disponibles[button_num]
+                    nueva_hora = slot.get('horaInicio', slot.get('inicio', ''))
+                else:
+                    WhatsApp_service.send_text_message(from_number, "Opción inválida. Por favor selecciona una hora válida.")
+                    return True
+            else:
+                nueva_hora = button_id.replace('hora_', '')
+            
             cita_id = state.get('cita_id')
             nueva_fecha = state.get('nueva_fecha')
+            
+            # Obtener user_id del estado si está disponible (para web)
+            user_id = state.get('user_id')
 
-            success = citas_service.reagendar_cita(from_number, cita_id, nueva_fecha, nueva_hora)
+            success = citas_service.reagendar_cita(
+                from_number, 
+                cita_id, 
+                nueva_fecha, 
+                nueva_hora,
+                paciente_id=user_id,
+                whatsapp_service=WhatsApp_service
+            )
             
             if success:
-
                 del user_states[from_number]
-
                 WhatsApp_service.send_text_message(
                     from_number,
                     "Escribe *menu* para realizar otra acción."
@@ -580,7 +658,15 @@ def handle_cancelacion(from_number, text):
             cita_id = state.get('cita_id')
             
             if text_upper == 'SI' or text_upper == 'SÍ':
-                success = citas_service.cancelar_cita(from_number, cita_id)
+                # Obtener user_id del estado si está disponible (para web)
+                user_id = state.get('user_id')
+                
+                success = citas_service.cancelar_cita(
+                    from_number, 
+                    cita_id,
+                    paciente_id=user_id,
+                    whatsapp_service=WhatsApp_service
+                )
                 
                 if success:
                     del user_states[from_number]

@@ -131,6 +131,20 @@ class CitaRepository:
         """Obtiene el paciente por su número de teléfono"""
         return self.paciente_repo.buscar_por_telefono(telefono)
     
+    def obtener_paciente_por_id(self, paciente_id: str):
+        """Obtiene el paciente por su ID (uid)"""
+        return self.paciente_repo.buscar_por_id(paciente_id)
+    
+    def obtener_paciente(self, telefono: str = None, paciente_id: str = None):
+        """Obtiene el paciente por teléfono o ID, priorizando ID si está disponible"""
+        if paciente_id:
+            paciente = self.obtener_paciente_por_id(paciente_id)
+            if paciente:
+                return paciente
+        if telefono:
+            return self.obtener_paciente_por_telefono(telefono)
+        return None
+    
     def obtener_ultimo_consultorio_paciente(self, paciente_uid: str) -> Optional[Dict]:
         """Obtiene el último consultorio usado por el paciente basado en su última cita"""
         try:
@@ -219,16 +233,20 @@ class CitaRepository:
             print(f"Error obteniendo cita: {e}")
             return None
     
-    def crear_cita(self, usuario_whatsapp: str, datos_cita: dict) -> Optional[str]:
-        """Crea una nueva cita para el usuario"""
+    def crear_cita(self, usuario_whatsapp: str, datos_cita: dict, paciente_id: str = None) -> Optional[str]:
+        """Crea una nueva cita para el usuario. Puede usar paciente_id o buscar por teléfono"""
         try:
             from google.cloud.firestore import SERVER_TIMESTAMP
             from datetime import datetime
             
-            # Buscar paciente por teléfono
-            paciente = self.paciente_repo.buscar_por_telefono(usuario_whatsapp)
+            # Buscar paciente por ID o teléfono
+            if paciente_id:
+                paciente = self.paciente_repo.buscar_por_id(paciente_id)
+            else:
+                paciente = self.paciente_repo.buscar_por_telefono(usuario_whatsapp)
+            
             if not paciente:
-                print(f"No se encontró paciente con teléfono: {usuario_whatsapp}")
+                print(f"No se encontró paciente con teléfono: {usuario_whatsapp} o ID: {paciente_id}")
                 return None
             
             # Obtener último consultorio usado
@@ -291,6 +309,47 @@ class CitaRepository:
             print(f"Error creando cita: {e}")
             return None
     
+    def actualizar_cita_por_id(self, paciente_id: str, cita_id: str, nueva_fecha: str, nueva_hora: str) -> bool:
+        """Actualiza una cita por paciente_id y cita_id"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Convertir fecha string a timestamp
+            fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
+            fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+            
+            # Calcular hora fin
+            hora_obj = datetime.strptime(nueva_hora, '%H:%M')
+            hora_fin_obj = (hora_obj + timedelta(minutes=30)).time()
+            hora_fin = hora_fin_obj.strftime('%H:%M')
+            
+            # Actualizar en subcolección del paciente
+            cita_ref = self.db.collection('pacientes')\
+                              .document(paciente_id)\
+                              .collection('citas')\
+                              .document(cita_id)
+            
+            cita_ref.update({
+                'fecha': fecha_timestamp,
+                'horaInicio': nueva_hora,
+                'horaFin': hora_fin,
+                'updatedAt': datetime.now()
+            })
+            
+            # También actualizar en colección global
+            self.db.collection('citas').document(cita_id).update({
+                'fecha': fecha_timestamp,
+                'horaInicio': nueva_hora,
+                'horaFin': hora_fin,
+                'updatedAt': datetime.now()
+            })
+            
+            print(f"Cita {cita_id} actualizada")
+            return True
+        except Exception as e:
+            print(f"Error actualizando cita: {e}")
+            return False
+    
     def actualizar_cita(self, usuario_whatsapp: str, cita_id: str, nueva_fecha: str, nueva_hora: str) -> bool:
         """Actualiza una cita existente"""
         try:
@@ -339,6 +398,25 @@ class CitaRepository:
             
         except Exception as e:
             print(f"Error actualizando cita: {e}")
+            return False
+    
+    def eliminar_cita_por_id(self, paciente_id: str, cita_id: str) -> bool:
+        """Elimina una cita por paciente_id y cita_id"""
+        try:
+            # Eliminar de subcolección del paciente
+            cita_ref = self.db.collection('pacientes')\
+                              .document(paciente_id)\
+                              .collection('citas')\
+                              .document(cita_id)
+            cita_ref.delete()
+            
+            # También eliminar de colección global
+            self.db.collection('citas').document(cita_id).delete()
+            
+            print(f"Cita {cita_id} eliminada")
+            return True
+        except Exception as e:
+            print(f"Error eliminando cita: {e}")
             return False
     
     def eliminar_cita(self, usuario_whatsapp: str, cita_id: str) -> bool:
