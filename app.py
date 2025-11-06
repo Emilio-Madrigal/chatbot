@@ -15,50 +15,91 @@ user_states={}
 def verify_webhook():
     """Verificación de webhook para Twilio (opcional, Twilio no requiere GET)"""
     # Twilio no usa verificación GET como Meta, pero mantenemos por compatibilidad
+    print("GET request recibido en /webhook")
     return "OK", 200
+
+@app.route('/health',methods=['GET'])
+def health_check():
+    """Endpoint para verificar que el servidor está corriendo"""
+    return jsonify({
+        "status": "ok",
+        "service": "chatbot-whatsapp",
+        "twilio_configured": bool(Config.TWILIO_ACCOUNT_SID)
+    }), 200
     
 @app.route('/webhook',methods=['POST'])
 def webhook():
     """Webhook para recibir mensajes de Twilio"""
     try:
+        # Log de depuración - ver qué está llegando
+        print("="*60)
+        print("WEBHOOK RECIBIDO")
+        print("="*60)
+        print(f"Request method: {request.method}")
+        print(f"Content-Type: {request.content_type}")
+        print(f"Form data: {dict(request.form)}")
+        print(f"Values: {dict(request.values)}")
+        print("="*60)
+        
         # Twilio envía datos como form-data, no JSON
-        from_number = request.values.get('From', '')
-        message_body = request.values.get('Body', '')
-        message_sid = request.values.get('MessageSid', '')
-        num_media = request.values.get('NumMedia', '0')
+        from_number = request.values.get('From', '') or request.form.get('From', '')
+        message_body = request.values.get('Body', '') or request.form.get('Body', '')
+        message_sid = request.values.get('MessageSid', '') or request.form.get('MessageSid', '')
+        num_media = request.values.get('NumMedia', '0') or request.form.get('NumMedia', '0')
         
         print(f"Webhook Twilio recibido:")
         print(f"  From: {from_number}")
         print(f"  Body: {message_body}")
         print(f"  MessageSid: {message_sid}")
         
+        # Si no hay datos, puede ser que Twilio esté enviando en otro formato
+        if not from_number and not message_body:
+            print("ADVERTENCIA: No se recibieron datos del webhook")
+            # Intentar leer como JSON por si acaso
+            try:
+                json_data = request.get_json()
+                print(f"Datos JSON recibidos: {json_data}")
+            except:
+                pass
+        
         # Limpiar el número (Twilio envía como whatsapp:+521234567890)
         # Extraer solo el número sin el prefijo whatsapp:
-        if from_number.startswith('whatsapp:'):
+        if from_number and from_number.startswith('whatsapp:'):
             from_number = from_number.replace('whatsapp:', '')
         
         # Procesar el mensaje
         if message_body:
+            print(f"Procesando mensaje: {message_body}")
             # Detectar si es una respuesta a botones (número)
             if message_body.strip().isdigit():
                 # Es una respuesta numérica a botones
+                print(f"Es respuesta numérica: {message_body.strip()}")
                 handle_button_response_extended(from_number, f"button_{message_body.strip()}")
             else:
                 # Es un mensaje de texto normal
+                print(f"Es mensaje de texto: {message_body}")
                 handle_text_message_extended(from_number, message_body)
+        else:
+            print("ADVERTENCIA: message_body está vacío")
         
         # Responder a Twilio (requerido)
         response = """<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Message></Message>
 </Response>"""
+        print("Respondiendo a Twilio con XML")
         return response, 200, {'Content-Type': 'text/xml'}
         
     except Exception as e:
-        print(f"Error en webhook Twilio: {e}")
+        print(f"ERROR en webhook Twilio: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({"status":"error","message":str(e)}),500
+        # Aún así responder a Twilio para que no reintente
+        response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message></Message>
+</Response>"""
+        return response, 200, {'Content-Type': 'text/xml'}
 
 def process_message(message_data):
     """Función legacy para compatibilidad (no se usa con Twilio)"""
