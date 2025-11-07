@@ -120,6 +120,10 @@ class PacienteRepository:
         except Exception as e:
             print(f"Error obteniendo paciente {uid}: {e}")
             return None
+    
+    def buscar_por_id(self, paciente_id: str) -> Optional[Paciente]:
+        """Alias para obtener_por_uid para compatibilidad con código existente"""
+        return self.obtener_por_uid(paciente_id)
 
 
 class CitaRepository:
