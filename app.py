@@ -3,6 +3,7 @@ from flask_cors import CORS
 from config import Config
 from services.whatsapp_service import WhatsAppService
 from services.citas_service import CitasService
+from services.conversation_manager import ConversationManager
 from datetime import datetime
 import json
 
@@ -21,6 +22,7 @@ CORS(app, resources={
 
 WhatsApp_service=WhatsAppService()
 citas_service=CitasService()
+conversation_manager=ConversationManager()  # Nuevo gestor de conversaciones con ML
 user_states={}
 
 @app.route('/webhook',methods=['GET'])
@@ -46,7 +48,7 @@ def web_chat_options():
 
 @app.route('/api/web/chat', methods=['POST'])
 def web_chat():
-    """Endpoint para el chat web"""
+    """Endpoint para el chat web con ML mejorado"""
     try:
         print(f"WEB CHAT REQUEST - Headers: {dict(request.headers)}")
         print(f"WEB CHAT REQUEST - Origin: {request.headers.get('Origin', 'No Origin')}")
@@ -69,8 +71,20 @@ def web_chat():
 
         print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}, User ID: {user_id}, Phone: {phone}")
 
-        # Procesar el mensaje usando la lógica existente del bot
-        bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
+        # Procesar el mensaje usando el nuevo sistema de ML
+        try:
+            response_data = conversation_manager.process_message(
+                session_id=session_id,
+                message=message_body,
+                user_id=user_id,
+                phone=phone,
+                user_name=user_name
+            )
+            bot_response_text = response_data.get('response', '')
+        except Exception as ml_error:
+            print(f"Error en ML, usando fallback: {ml_error}")
+            # Fallback al sistema anterior si ML falla
+            bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
         # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
         if not bot_response_text or bot_response_text.strip() == "" or bot_response_text.strip() == "...":
@@ -188,9 +202,37 @@ def webhook():
                 print(f"Es respuesta numérica: {message_body.strip()}")
                 handle_button_response_extended(from_number, f"button_{message_body.strip()}")
             else:
-                # Es un mensaje de texto normal
+                # Es un mensaje de texto normal - usar ML mejorado
                 print(f"Es mensaje de texto: {message_body}")
-                handle_text_message_extended(from_number, message_body)
+                try:
+                    # Intentar obtener user_id desde Firestore usando el teléfono
+                    from services.actions_service import ActionsService
+                    actions_service = ActionsService()
+                    user_info = actions_service.get_user_info(phone=from_number)
+                    user_id = user_info.get('uid') if user_info else None
+                    user_name = user_info.get('nombre') if user_info else None
+                    
+                    # Intentar usar el nuevo sistema de ML
+                    response_data = conversation_manager.process_message(
+                        session_id=from_number,
+                        message=message_body,
+                        user_id=user_id,  # Obtener desde Firestore
+                        phone=from_number,
+                        user_name=user_name
+                    )
+                    response_text = response_data.get('response', '')
+                    
+                    if response_text:
+                        WhatsApp_service.send_text_message(from_number, response_text)
+                    else:
+                        # Fallback al sistema anterior
+                        handle_text_message_extended(from_number, message_body)
+                except Exception as ml_error:
+                    print(f"Error en ML para WhatsApp, usando fallback: {ml_error}")
+                    import traceback
+                    traceback.print_exc()
+                    # Fallback al sistema anterior si ML falla
+                    handle_text_message_extended(from_number, message_body)
         else:
             print("ADVERTENCIA: message_body está vacío")
         
