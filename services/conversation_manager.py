@@ -133,7 +133,7 @@ class ConversationManager:
         
         # En modo menú, solo procesar intenciones básicas
         if intent in ['saludar', 'ayuda']:
-            entities = self.ml_service.extract_entities(message, intent)
+            entities = self.ml_service.extract_entities(message, intent, context)
             response_data = self._handle_intent(session_id, intent, entities, context)
             if response_data.get('response'):
                 self.add_to_history(session_id, 'assistant', response_data['response'])

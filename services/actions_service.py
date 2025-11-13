@@ -175,7 +175,7 @@ class ActionsService:
             return []
     
     def get_available_times(self, user_id: str = None, phone: str = None,
-                           fecha: str = None) -> List[str]:
+                           fecha: str = None, nombre_dentista: str = None) -> List[str]:
         """Obtiene horarios disponibles para una fecha"""
         try:
             # Obtener paciente
