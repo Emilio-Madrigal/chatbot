@@ -504,18 +504,16 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 'motivo': motivo,
                 'nombre_cliente': nombre
             })
-                
-                # Obtener horarios disponibles
-                # Si hay nombre de dentista en entidades, buscar ese dentista específico
-                nombre_dentista = entities.get('nombre_dentista')
-                horarios = self.actions_service.get_available_times(
-                    user_id=user_id,
-                    phone=phone,
-                    fecha=fecha,
-                    nombre_dentista=nombre_dentista
-                )
-                
-                if horarios:
+            
+            # Obtener horarios disponibles
+            horarios = self.actions_service.get_available_times(
+                user_id=user_id,
+                phone=phone,
+                fecha=fecha,
+                nombre_dentista=entities.get('nombre_dentista')
+            )
+            
+            if horarios:
                     horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
                     # Guardar horarios en el contexto
                     context['entities']['horarios_disponibles'] = horarios
