@@ -240,10 +240,12 @@ IMPORTANTE: Responde SOLO con el nombre de la intención en minúsculas, sin pun
             return None
         
         # Obtener fecha actual para contexto
-        from datetime import datetime
+        from datetime import datetime, timedelta
         fecha_actual = datetime.now()
         fecha_hoy = fecha_actual.strftime('%Y-%m-%d')
         dia_semana_hoy = fecha_actual.strftime('%A')  # Monday, Tuesday, etc.
+        fecha_manana = (fecha_actual + timedelta(days=1)).strftime('%Y-%m-%d')
+        fecha_pasado_manana = (fecha_actual + timedelta(days=2)).strftime('%Y-%m-%d')
         
         system_prompt = f"""Eres un extractor de entidades experto para un chatbot de citas dentales.
 
@@ -253,8 +255,8 @@ CONTEXTO ACTUAL:
 
 Extrae las siguientes entidades del mensaje del usuario:
 - fecha: SIEMPRE en formato YYYY-MM-DD. Convierte fechas relativas:
-  * "mañana" o "tomorrow" = {fecha_actual + timedelta(days=1).strftime('%Y-%m-%d')}
-  * "pasado mañana" = {fecha_actual + timedelta(days=2).strftime('%Y-%m-%d')}
+  * "mañana" o "tomorrow" = {fecha_manana}
+  * "pasado mañana" = {fecha_pasado_manana}
   * "hoy" o "today" = {fecha_hoy}
   * Días de la semana: calcula la fecha del próximo día mencionado
 - hora: SIEMPRE en formato HH:MM (24 horas). Convierte:
@@ -270,7 +272,7 @@ IMPORTANTE:
 - Si no puedes determinar la fecha exacta, usa null
 - Responde SOLO con un JSON válido
 
-Ejemplo: {{"fecha": "{fecha_actual + timedelta(days=1).strftime('%Y-%m-%d')}", "hora": "10:00", "nombre_dentista": "emilio", "motivo": "dolor de muela", "numero_cita": null}}"""
+Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emilio", "motivo": "dolor de muela", "numero_cita": null}}"""
         
         context_info = ""
         if context:
