@@ -492,10 +492,11 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             )
             
             if result.get('success'):
-                # Obtener nombre del dentista usado
-                dentista_usado = entities.get('nombre_dentista', 'tu dentista')
+                # Obtener nombre del dentista usado (del resultado, no de entities)
+                dentista_usado = result.get('dentista_name', entities.get('nombre_dentista', 'tu dentista'))
+                consultorio_usado = result.get('consultorio_name', 'Consultorio')
                 self.update_conversation_context(session_id, {'step': 'inicial', 'mode': current_mode})
-                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
+                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n🏥 Consultorio: {consultorio_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
                 print(f"✅ Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
                 return {
                     'response': response_text,

@@ -400,7 +400,9 @@ class ActionsService:
                 return {
                     'success': True,
                     'cita_id': cita_id,
-                    'message': 'Cita agendada exitosamente'
+                    'message': 'Cita agendada exitosamente',
+                    'dentista_name': consultorio_final.get('dentistaName', 'Dentista'),
+                    'consultorio_name': consultorio_final.get('consultorioName', 'Consultorio')
                 }
             else:
                 return {
