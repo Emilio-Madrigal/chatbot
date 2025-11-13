@@ -316,9 +316,11 @@ class CitaRepository:
             
             # Calcular hora fin (asumiendo 30 minutos por defecto)
             from datetime import timedelta
-            hora_obj = datetime.strptime(hora_inicio, '%H:%M')
-            hora_fin_obj = (hora_obj + timedelta(minutes=30)).time()
-            hora_fin = hora_fin_obj.strftime('%H:%M')
+            # Parsear hora y extraer solo el time object
+            hora_dt = datetime.strptime(hora_inicio, '%H:%M')
+            hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
+            hora_fin_dt = hora_dt + timedelta(minutes=30)
+            hora_fin = hora_fin_dt.strftime('%H:%M')
             
             # Convertir fecha a timestamp
             fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
@@ -499,9 +501,10 @@ class CitaRepository:
             fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
             
             # Calcular hora fin
-            hora_obj = datetime.strptime(nueva_hora, '%H:%M')
-            hora_fin_obj = (hora_obj + timedelta(minutes=30)).time()
-            hora_fin = hora_fin_obj.strftime('%H:%M')
+            hora_dt = datetime.strptime(nueva_hora, '%H:%M')
+            hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
+            hora_fin_dt = hora_dt + timedelta(minutes=30)
+            hora_fin = hora_fin_dt.strftime('%H:%M')
             
             # Actualizar en subcolección del paciente
             cita_ref = self.db.collection('pacientes')\
