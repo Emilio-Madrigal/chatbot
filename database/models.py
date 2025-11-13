@@ -369,12 +369,55 @@ class CitaRepository:
             doc_ref.set(cita_data)
             cita_id = doc_ref.id
             
-            # También crear en colección global de citas
+            # También crear en colección global de citas (Citas con mayúscula, como la web)
+            # Preparar datos completos como la web
+            fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+            
             cita_global_data = {
-                **cita_data,
-                'uid': paciente.uid
+                'id': cita_id,
+                'pacienteId': paciente.uid,
+                'pacienteCitaId': cita_id,
+                'patientName': datos_cita.get('nombre_cliente', paciente.nombreCompleto or 'Paciente'),
+                'patientPhone': paciente.telefono or usuario_whatsapp,
+                'patientEmail': paciente.email or '',
+                'patientAge': '',  # Se puede agregar si está disponible
+                'dentistaId': ultimo_consultorio['dentistaId'],
+                'dentistaName': ultimo_consultorio['dentistaName'],
+                'dentistaSpecialty': '',  # Se puede obtener del dentista
+                'consultorioId': ultimo_consultorio['consultorioId'],
+                'consultorioName': ultimo_consultorio['consultorioName'],
+                'consultorioAddress': {},  # Se puede obtener del consultorio
+                'fechaHora': fecha_hora_completa,  # Timestamp completo
+                'appointmentDate': fecha_hora_completa.isoformat(),
+                'appointmentTime': hora_inicio,
+                'Duracion': 30,  # Por defecto 30 minutos
+                'duracion': 30,
+                'Motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'appointmentReason': datos_cita.get('descripcion', 'Consulta general'),
+                'tratamientoId': '',
+                'tratamientoNombre': '',
+                'tratamientoPrecio': 0,
+                'estado': 'confirmado',
+                'status': 'confirmado',
+                'paymentMethod': 'cash',  # Por defecto efectivo
+                'paymentStatus': 'pending',
+                'validacionesCompletadas': {
+                    'otpVerified': False,  # En chatbot no se requiere OTP
+                    'conflictsChecked': True,
+                    'limitChecked': True,
+                    'blockedDaysChecked': True,
+                    'validatedAt': datetime.now().isoformat()
+                },
+                'otpVerified': False,
+                'otpVerifiedAt': None,
+                'confirmationId': f"confirm_{ultimo_consultorio['dentistaId']}_{fecha_hora_completa.isoformat()}_{int(datetime.now().timestamp() * 1000)}",
+                'fechaConfirmacion': datetime.now().isoformat(),
+                'sharedMedicalHistory': None,
+                'createdAt': SERVER_TIMESTAMP,
+                'updatedAt': SERVER_TIMESTAMP
             }
-            self.db.collection('citas').document(cita_id).set(cita_global_data)
+            self.db.collection('Citas').document(cita_id).set(cita_global_data)
             
             print(f"Cita creada: {cita_id}")
             return cita_id
@@ -410,11 +453,17 @@ class CitaRepository:
                 'updatedAt': datetime.now()
             })
             
-            # También actualizar en colección global
-            self.db.collection('citas').document(cita_id).update({
+            # También actualizar en colección global (Citas con mayúscula)
+            nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+            self.db.collection('Citas').document(cita_id).update({
                 'fecha': fecha_timestamp,
+                'fechaHora': nueva_fecha_hora_completa,
+                'appointmentDate': nueva_fecha_hora_completa.isoformat(),
+                'appointmentTime': nueva_hora,
                 'horaInicio': nueva_hora,
                 'horaFin': hora_fin,
+                'estado': 'confirmado',
+                'status': 'confirmado',
                 'updatedAt': datetime.now()
             })
             
@@ -456,14 +505,19 @@ class CitaRepository:
                       'updatedAt': SERVER_TIMESTAMP
                   })
             
-            # Actualizar en colección global
-            self.db.collection('citas')\
+            # Actualizar en colección global (Citas con mayúscula)
+            nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+            self.db.collection('Citas')\
                   .document(cita_id)\
                   .update({
                       'fecha': fecha_timestamp,
+                      'fechaHora': nueva_fecha_hora_completa,
+                      'appointmentDate': nueva_fecha_hora_completa.isoformat(),
+                      'appointmentTime': nueva_hora,
                       'horaInicio': nueva_hora,
                       'horaFin': hora_fin,
                       'estado': 'confirmado',
+                      'status': 'confirmado',
                       'updatedAt': SERVER_TIMESTAMP
                   })
             
@@ -484,8 +538,8 @@ class CitaRepository:
                               .document(cita_id)
             cita_ref.delete()
             
-            # También eliminar de colección global
-            self.db.collection('citas').document(cita_id).delete()
+            # También eliminar de colección global (Citas con mayúscula)
+            self.db.collection('Citas').document(cita_id).delete()
             
             print(f"Cita {cita_id} eliminada")
             return True
@@ -520,17 +574,32 @@ class CitaRepository:
                   })
             
             print(f"Cita {cita_id} cancelada en subcolección")
-            global_query = self.db.collection('citas')\
-                                 .where('pacienteId', '==', paciente_uid)\
-                                 .where('uid', '==', paciente_uid)\
-                                 .limit(1)
+            # Actualizar en colección global (Citas con mayúscula)
+            # Buscar por pacienteId y cita_id
+            cita_global_ref = self.db.collection('Citas').document(cita_id)
+            cita_global_doc = cita_global_ref.get()
             
-            for doc in global_query.stream():
-                self.db.collection('citas').document(doc.id).update({
+            if cita_global_doc.exists:
+                cita_global_ref.update({
                     'estado': 'cancelada',
+                    'status': 'cancelada',
                     'updatedAt': SERVER_TIMESTAMP
                 })
-                print(f"Cita actualizada en colección global")
+                print(f"Cita actualizada en colección global Citas")
+            else:
+                # Fallback: buscar por pacienteId
+                global_query = self.db.collection('Citas')\
+                                     .where('pacienteId', '==', paciente_uid)\
+                                     .where('id', '==', cita_id)\
+                                     .limit(1)
+                
+                for doc in global_query.stream():
+                    self.db.collection('Citas').document(doc.id).update({
+                        'estado': 'cancelada',
+                        'status': 'cancelada',
+                        'updatedAt': SERVER_TIMESTAMP
+                    })
+                    print(f"Cita actualizada en colección global Citas (fallback)")
             
             return True
             
@@ -796,23 +865,62 @@ class CitaRepository:
             
             print(f"Cita {cita_id} reagendada en subcolección")
 
-            global_query = self.db.collection('citas')\
-                                 .where('pacienteId', '==', paciente_uid)\
-                                 .limit(10)
+            # Actualizar en colección global (Citas con mayúscula)
+            # Intentar actualizar directamente por ID
+            cita_global_ref = self.db.collection('Citas').document(cita_id)
+            cita_global_doc = cita_global_ref.get()
             
-            cita_encontrada = False
-            for doc in global_query.stream():
-                doc_data = doc.to_dict()
-                self.db.collection('citas').document(doc.id).update({
+            if cita_global_doc.exists:
+                # Calcular fechaHora completa
+                from datetime import datetime
+                if isinstance(nueva_fecha, str):
+                    fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
+                else:
+                    fecha_dt = nueva_fecha
+                hora_obj = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+                
+                cita_global_ref.update({
                     'fecha': nueva_fecha,
+                    'fechaHora': nueva_fecha_hora_completa,
+                    'appointmentDate': nueva_fecha_hora_completa.isoformat(),
+                    'appointmentTime': nueva_hora_inicio,
                     'horaInicio': nueva_hora_inicio,
                     'horaFin': nueva_hora_fin,
                     'estado': 'confirmado',
+                    'status': 'confirmado',
                     'updatedAt': SERVER_TIMESTAMP
                 })
-                cita_encontrada = True
-                print(f"Cita actualizada en colección global: {doc.id}")
-                break 
+                print(f"Cita actualizada en colección global Citas: {cita_id}")
+            else:
+                # Fallback: buscar por pacienteId
+                global_query = self.db.collection('Citas')\
+                                     .where('pacienteId', '==', paciente_uid)\
+                                     .where('id', '==', cita_id)\
+                                     .limit(1)
+                
+                for doc in global_query.stream():
+                    from datetime import datetime
+                    if isinstance(nueva_fecha, str):
+                        fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
+                    else:
+                        fecha_dt = nueva_fecha
+                    hora_obj = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                    nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+                    
+                    self.db.collection('Citas').document(doc.id).update({
+                        'fecha': nueva_fecha,
+                        'fechaHora': nueva_fecha_hora_completa,
+                        'appointmentDate': nueva_fecha_hora_completa.isoformat(),
+                        'appointmentTime': nueva_hora_inicio,
+                        'horaInicio': nueva_hora_inicio,
+                        'horaFin': nueva_hora_fin,
+                        'estado': 'confirmado',
+                        'status': 'confirmado',
+                        'updatedAt': SERVER_TIMESTAMP
+                    })
+                    print(f"Cita actualizada en colección global Citas (fallback): {doc.id}")
+                    break 
             
             return True
             
