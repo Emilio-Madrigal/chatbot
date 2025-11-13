@@ -514,24 +514,22 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             )
             
             if horarios:
-                    horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
-                    # Guardar horarios en el contexto
-                    context['entities']['horarios_disponibles'] = horarios
-                    self.update_conversation_context(session_id, {
-                        'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
-                    })
-                    return {
-                        'response': f"📅 Fecha seleccionada: {fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres? (Escribe el número o la hora)",
-                        'action': None,
-                        'next_step': 'selecionando_hora',
-                        'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
-                    }
-                else:
-                    return {
-                        'response': f"❌ Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
-                        'action': None,
-                        'next_step': 'seleccionando_fecha'
-                    }
+                horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
+                self.update_conversation_context(session_id, {
+                    'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
+                })
+                return {
+                    'response': f"📅 Fecha seleccionada: {fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres? (Escribe el número o la hora)",
+                    'action': None,
+                    'next_step': 'selecionando_hora',
+                    'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
+                }
+            else:
+                return {
+                    'response': f"❌ Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
+                    'action': None,
+                    'next_step': 'seleccionando_fecha'
+                }
         
         # Si no tenemos fecha, pedir fecha
         fechas = self.actions_service.get_available_dates(user_id=user_id, phone=phone, count=5)
