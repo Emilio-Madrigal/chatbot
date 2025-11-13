@@ -152,50 +152,93 @@ class CitaRepository:
     def obtener_ultimo_consultorio_paciente(self, paciente_uid: str) -> Optional[Dict]:
         """Obtiene el último consultorio usado por el paciente basado en su última cita"""
         try:
+            # Intentar buscar en la colección principal de Citas
+            print(f"Buscando último consultorio para paciente: {paciente_uid}")
+            citas_ref = self.db.collection('Citas')
+            query = citas_ref.where('pacienteId', '==', paciente_uid)\
+                            .order_by('createdAt', direction='DESCENDING')\
+                            .limit(1)
+            
+            for doc in query.stream():
+                cita_data = doc.to_dict()
+                consultorio_id = cita_data.get('consultorioID') or cita_data.get('consultorioId')
+                dentista_id = cita_data.get('dentistaId')
+                if consultorio_id and dentista_id:
+                    print(f"Encontrado último consultorio: {consultorio_id}, dentista: {dentista_id}")
+                    return {
+                        'consultorioId': consultorio_id,
+                        'consultorioName': cita_data.get('consultorioName', 'Consultorio'),
+                        'dentistaId': dentista_id,
+                        'dentistaName': cita_data.get('dentistaName', 'Dentista')
+                    }
+            
+            # Si no se encuentra en Citas, intentar en subcolección de pacientes
+            print("No se encontró en Citas, buscando en subcolección de pacientes...")
             citas_ref = self.db.collection('pacientes')\
                               .document(paciente_uid)\
                               .collection('citas')
-            # Ordenar solo por createdAt para evitar necesidad de índice compuesto
             query = citas_ref.order_by('createdAt', direction='DESCENDING')\
                             .limit(1)
             
             for doc in query.stream():
                 cita_data = doc.to_dict()
                 consultorio_id = cita_data.get('consultorioID') or cita_data.get('consultorioId')
-                if consultorio_id:
+                dentista_id = cita_data.get('dentistaId')
+                if consultorio_id and dentista_id:
+                    print(f"Encontrado último consultorio en subcolección: {consultorio_id}")
                     return {
                         'consultorioId': consultorio_id,
-                        'consultorioName': cita_data.get('consultorioName'),
-                        'dentistaId': cita_data.get('dentistaId'),
-                        'dentistaName': cita_data.get('dentistaName')
+                        'consultorioName': cita_data.get('consultorioName', 'Consultorio'),
+                        'dentistaId': dentista_id,
+                        'dentistaName': cita_data.get('dentistaName', 'Dentista')
                     }
             
             # Si no hay citas previas, buscar cualquier consultorio activo
+            print("No se encontraron citas previas, usando consultorio por defecto")
             return self._obtener_consultorio_por_defecto()
             
         except Exception as e:
             print(f"Error obteniendo último consultorio: {e}")
+            import traceback
+            traceback.print_exc()
             # Fallback: buscar cualquier consultorio activo
             return self._obtener_consultorio_por_defecto()
     
     def _obtener_consultorio_por_defecto(self) -> Optional[Dict]:
         """Obtiene un consultorio activo por defecto si no hay historial"""
         try:
-            consultorios_ref = self.db.collection('consultorios')
+            print("Buscando consultorio por defecto...")
+            consultorios_ref = self.db.collection('consultorio')
             query = consultorios_ref.where('activo', '==', True).limit(1)
             
             for doc in query.stream():
                 consultorio_data = doc.to_dict()
+                print(f"Consultorio encontrado: {doc.id}, nombre: {consultorio_data.get('nombre')}")
                 # Buscar el dentista asociado
                 dentista_id = consultorio_data.get('dentistaId')
+                if not dentista_id:
+                    # Intentar buscar en la subcolección de dentistas
+                    dentistas_ref = self.db.collection('consultorio')\
+                                          .document(doc.id)\
+                                          .collection('dentistas')\
+                                          .where('activo', '==', True)\
+                                          .limit(1)
+                    for dentista_doc in dentistas_ref.stream():
+                        dentista_data = dentista_doc.to_dict()
+                        dentista_id = dentista_data.get('dentistaId')
+                        if dentista_id:
+                            print(f"Dentista encontrado en subcolección: {dentista_id}")
+                            break
+                
                 if dentista_id:
                     return {
                         'consultorioId': doc.id,
                         'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
                         'dentistaId': dentista_id,
-                        'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                        'dentistaName': consultorio_data.get('dentistaName', consultorio_data.get('nombre', 'Dentista'))
                     }
             
+            print("No se encontró ningún consultorio activo")
             return None
         except Exception as e:
             print(f"Error obteniendo consultorio por defecto: {e}")
@@ -504,34 +547,50 @@ class CitaRepository:
             dias_semana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
             dia_nombre = dias_semana[fecha_dt.weekday()]
             
-            print(f"Buscando horarios para {dia_nombre} (consultorio: {consultorio_id})")
+            print(f"Buscando horarios para {dia_nombre} (consultorio: {consultorio_id}, dentista: {dentista_id})")
             
-            # Intentar buscar por campo 'dia' primero
-            horarios_ref = self.db.collection('consultorio')\
-                                 .document(consultorio_id)\
-                                 .collection('horarios')\
-                                 .where('dia', '==', dia_nombre)\
-                                 .where('activo', '==', True)\
-                                 .limit(1)
-            
+            # Intentar buscar por ID del documento primero (más directo)
+            horarios_doc_ref = self.db.collection('consultorio')\
+                                     .document(consultorio_id)\
+                                     .collection('horarios')\
+                                     .document(dia_nombre)
+            horarios_doc_snap = horarios_doc_ref.get()
             horarios_doc = None
-            for doc in horarios_ref.stream():
-                horarios_doc = doc.to_dict()
-                break
             
-            # Si no se encuentra por campo 'dia', intentar buscar por ID del documento
+            if horarios_doc_snap.exists:
+                horarios_doc = horarios_doc_snap.to_dict()
+                print(f"Horarios encontrados por ID del documento para {dia_nombre}")
+            else:
+                # Si no se encuentra por ID, intentar buscar por campo 'dia'
+                print(f"No se encontró por ID, intentando por campo 'dia'...")
+                horarios_ref = self.db.collection('consultorio')\
+                                     .document(consultorio_id)\
+                                     .collection('horarios')\
+                                     .where('dia', '==', dia_nombre)\
+                                     .where('activo', '==', True)\
+                                     .limit(1)
+                
+                for doc in horarios_ref.stream():
+                    horarios_doc = doc.to_dict()
+                    print(f"Horarios encontrados por campo 'dia' para {dia_nombre}")
+                    break
+            
             if not horarios_doc:
-                print(f"No se encontró por campo 'dia', intentando por ID del documento...")
-                horarios_doc_ref = self.db.collection('consultorio')\
+                print(f"⚠️ No se encontró documento de horarios para {dia_nombre}")
+                # Intentar listar todos los documentos de horarios para debug
+                try:
+                    all_horarios = self.db.collection('consultorio')\
                                          .document(consultorio_id)\
                                          .collection('horarios')\
-                                         .document(dia_nombre)
-                horarios_doc_snap = horarios_doc_ref.get()
-                if horarios_doc_snap.exists:
-                    horarios_doc = horarios_doc_snap.to_dict()
+                                         .stream()
+                    dias_disponibles = [doc.id for doc in all_horarios]
+                    print(f"Días disponibles en horarios: {dias_disponibles}")
+                except Exception as e:
+                    print(f"Error listando horarios: {e}")
+                return []
             
-            if not horarios_doc or 'horarios' not in horarios_doc:
-                print(f"No hay horarios configurados para {dia_nombre}")
+            if 'horarios' not in horarios_doc:
+                print(f"⚠️ Documento de horarios no tiene campo 'horarios': {list(horarios_doc.keys())}")
                 return []
             
             # horarios es un array, tomar el primer elemento
