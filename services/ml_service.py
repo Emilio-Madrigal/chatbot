@@ -28,6 +28,10 @@ class MLService:
         self.openai_api_key = os.getenv("OPENAI_API_KEY", "")
         self.use_openai = bool(self.openai_api_key)
         
+        # Modelo de OpenAI a usar (configurable mediante variable de entorno)
+        # Opciones: "gpt-4o-mini" (económico, recomendado), "gpt-3.5-turbo" (más barato), "gpt-4o" (más potente, más caro)
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        
         # Cache para evitar llamadas repetidas
         self.cache = {}
     
@@ -89,8 +93,8 @@ class MLService:
             else:
                 messages_list = messages
             
-            # Usar modelo más potente: gpt-4o-mini (mejor que gpt-3.5-turbo, más económico que gpt-4)
-            model_to_use = model or "gpt-4o-mini"
+            # Usar modelo configurado o el pasado como parámetro
+            model_to_use = model or self.openai_model
             
             response = client.chat.completions.create(
                 model=model_to_use,
