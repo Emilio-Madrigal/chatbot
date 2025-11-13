@@ -118,20 +118,35 @@ class ActionsService:
                 # Usar el primer consultorio disponible
                 consultorio_id = consultorios[0]['id']
                 # Buscar dentista asociado
-                consultorio_doc = self.db.collection('consultorios').document(consultorio_id).get()
+                consultorio_doc = self.db.collection('consultorio').document(consultorio_id).get()
                 if consultorio_doc.exists:
                     consultorio_data = consultorio_doc.to_dict()
-                    dentista_id = consultorio_data.get('dentistaId')
+                    # Buscar dentista en la subcolección dentistas
+                    dentistas_ref = self.db.collection('consultorio')\
+                                         .document(consultorio_id)\
+                                         .collection('dentistas')\
+                                         .where('activo', '==', True)\
+                                         .limit(1)
+                    dentista_id = None
+                    dentista_name = None
+                    for dentista_doc in dentistas_ref.stream():
+                        dentista_data = dentista_doc.to_dict()
+                        dentista_id = dentista_data.get('dentistaId')
+                        dentista_name = dentista_data.get('nombreCompleto', 'Dentista')
+                        break
+                    
                     if dentista_id:
                         ultimo_consultorio = {
                             'consultorioId': consultorio_id,
                             'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
                             'dentistaId': dentista_id,
-                            'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                            'dentistaName': dentista_name or consultorio_data.get('dentistaName', 'Dentista')
                         }
                     else:
+                        print(f"No se encontró dentista activo para consultorio {consultorio_id}")
                         return []
                 else:
+                    print(f"Consultorio {consultorio_id} no existe")
                     return []
             
             # Obtener fechas disponibles
@@ -185,20 +200,35 @@ class ActionsService:
                 # Usar el primer consultorio disponible
                 consultorio_id = consultorios[0]['id']
                 # Buscar dentista asociado
-                consultorio_doc = self.db.collection('consultorios').document(consultorio_id).get()
+                consultorio_doc = self.db.collection('consultorio').document(consultorio_id).get()
                 if consultorio_doc.exists:
                     consultorio_data = consultorio_doc.to_dict()
-                    dentista_id = consultorio_data.get('dentistaId')
+                    # Buscar dentista en la subcolección dentistas
+                    dentistas_ref = self.db.collection('consultorio')\
+                                         .document(consultorio_id)\
+                                         .collection('dentistas')\
+                                         .where('activo', '==', True)\
+                                         .limit(1)
+                    dentista_id = None
+                    dentista_name = None
+                    for dentista_doc in dentistas_ref.stream():
+                        dentista_data = dentista_doc.to_dict()
+                        dentista_id = dentista_data.get('dentistaId')
+                        dentista_name = dentista_data.get('nombreCompleto', 'Dentista')
+                        break
+                    
                     if dentista_id:
                         ultimo_consultorio = {
                             'consultorioId': consultorio_id,
                             'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
                             'dentistaId': dentista_id,
-                            'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                            'dentistaName': dentista_name or consultorio_data.get('dentistaName', 'Dentista')
                         }
                     else:
+                        print(f"No se encontró dentista activo para consultorio {consultorio_id}")
                         return []
                 else:
+                    print(f"Consultorio {consultorio_id} no existe")
                     return []
             
             # Convertir fecha a timestamp
@@ -454,7 +484,7 @@ class ActionsService:
     def get_consultorios_info(self, limit: int = 10) -> List[Dict]:
         """Obtiene información de consultorios disponibles"""
         try:
-            consultorios_ref = self.db.collection('consultorios')
+            consultorios_ref = self.db.collection('consultorio')
             query = consultorios_ref.where('activo', '==', True).limit(limit)
             
             consultorios = []
