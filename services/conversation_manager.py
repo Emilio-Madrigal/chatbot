@@ -154,25 +154,37 @@ class ConversationManager:
         intent = intent_result['intent']
         confidence = intent_result['confidence']
         
-        # Extraer entidades con ML
-        entities = self.ml_service.extract_entities(message, intent)
+        # Extraer entidades con contexto mejorado
+        entities = self.ml_service.extract_entities(message, intent, context)
         
         # Actualizar contexto
         context['intent'] = intent
         context['entities'].update(entities)
         
+        # Obtener historial de conversación para contexto mejorado
+        conversation_history = context.get('history', [])
+        
         # Si la intención es clara y confiable, procesarla directamente
         if confidence > 0.7 and intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita', 'ver_citas']:
             response_data = self._handle_intent(session_id, intent, entities, context)
+            # Mejorar respuesta con IA si es genérica
+            if response_data.get('response') and len(response_data['response']) < 100:
+                ai_response = self.ml_service.generate_response(
+                    intent, entities, context, context.get('user_data'), conversation_history
+                )
+                if ai_response and len(ai_response) > len(response_data['response']):
+                    response_data['response'] = ai_response
         else:
-            # Generar respuesta usando ML para conversación natural
-            response = self.ml_service.generate_response(intent, entities, context, context.get('user_data'))
+            # Generar respuesta usando ML mejorado con historial completo
+            response = self.ml_service.generate_response(
+                intent, entities, context, context.get('user_data'), conversation_history
+            )
             
             # Si la intención es agendar/reagendar/cancelar pero no es clara, intentar procesarla
             if intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita']:
                 response_data = self._handle_intent(session_id, intent, entities, context)
-                # Si la respuesta es genérica, usar la del ML
-                if response_data.get('response') and len(response_data['response']) < 50:
+                # Mejorar respuesta con IA
+                if response and len(response) > len(response_data.get('response', '')):
                     response_data['response'] = response
             else:
                 # Para otras intenciones, usar respuesta generada por ML
