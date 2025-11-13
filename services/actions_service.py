@@ -109,7 +109,30 @@ class ActionsService:
             # Obtener último consultorio usado
             ultimo_consultorio = self.cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
             if not ultimo_consultorio:
-                return []
+                print(f"No se encontró último consultorio para paciente {paciente.uid}, buscando consultorio por defecto")
+                # Buscar cualquier consultorio activo
+                consultorios = self.get_consultorios_info(limit=1)
+                if not consultorios:
+                    print("No hay consultorios activos disponibles")
+                    return []
+                # Usar el primer consultorio disponible
+                consultorio_id = consultorios[0]['id']
+                # Buscar dentista asociado
+                consultorio_doc = self.db.collection('consultorios').document(consultorio_id).get()
+                if consultorio_doc.exists:
+                    consultorio_data = consultorio_doc.to_dict()
+                    dentista_id = consultorio_data.get('dentistaId')
+                    if dentista_id:
+                        ultimo_consultorio = {
+                            'consultorioId': consultorio_id,
+                            'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
+                            'dentistaId': dentista_id,
+                            'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                        }
+                    else:
+                        return []
+                else:
+                    return []
             
             # Obtener fechas disponibles
             fecha_base = datetime.now()
@@ -153,7 +176,30 @@ class ActionsService:
             # Obtener último consultorio usado
             ultimo_consultorio = self.cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
             if not ultimo_consultorio:
-                return []
+                print(f"No se encontró último consultorio para paciente {paciente.uid}, buscando consultorio por defecto")
+                # Buscar cualquier consultorio activo
+                consultorios = self.get_consultorios_info(limit=1)
+                if not consultorios:
+                    print("No hay consultorios activos disponibles")
+                    return []
+                # Usar el primer consultorio disponible
+                consultorio_id = consultorios[0]['id']
+                # Buscar dentista asociado
+                consultorio_doc = self.db.collection('consultorios').document(consultorio_id).get()
+                if consultorio_doc.exists:
+                    consultorio_data = consultorio_doc.to_dict()
+                    dentista_id = consultorio_data.get('dentistaId')
+                    if dentista_id:
+                        ultimo_consultorio = {
+                            'consultorioId': consultorio_id,
+                            'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
+                            'dentistaId': dentista_id,
+                            'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                        }
+                    else:
+                        return []
+                else:
+                    return []
             
             # Convertir fecha a timestamp
             if isinstance(fecha, str):

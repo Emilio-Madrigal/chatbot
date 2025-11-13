@@ -155,23 +155,50 @@ class CitaRepository:
             citas_ref = self.db.collection('pacientes')\
                               .document(paciente_uid)\
                               .collection('citas')
-            # Ordenar por fecha descendente y tomar la primera
-            query = citas_ref.order_by('fecha', direction='DESCENDING')\
-                            .order_by('createdAt', direction='DESCENDING')\
+            # Ordenar solo por createdAt para evitar necesidad de índice compuesto
+            query = citas_ref.order_by('createdAt', direction='DESCENDING')\
                             .limit(1)
             
             for doc in query.stream():
                 cita_data = doc.to_dict()
-                return {
-                    'consultorioId': cita_data.get('consultorioID'),
-                    'consultorioName': cita_data.get('consultorioName'),
-                    'dentistaId': cita_data.get('dentistaId'),
-                    'dentistaName': cita_data.get('dentistaName')
-                }
+                consultorio_id = cita_data.get('consultorioID') or cita_data.get('consultorioId')
+                if consultorio_id:
+                    return {
+                        'consultorioId': consultorio_id,
+                        'consultorioName': cita_data.get('consultorioName'),
+                        'dentistaId': cita_data.get('dentistaId'),
+                        'dentistaName': cita_data.get('dentistaName')
+                    }
+            
+            # Si no hay citas previas, buscar cualquier consultorio activo
+            return self._obtener_consultorio_por_defecto()
+            
+        except Exception as e:
+            print(f"Error obteniendo último consultorio: {e}")
+            # Fallback: buscar cualquier consultorio activo
+            return self._obtener_consultorio_por_defecto()
+    
+    def _obtener_consultorio_por_defecto(self) -> Optional[Dict]:
+        """Obtiene un consultorio activo por defecto si no hay historial"""
+        try:
+            consultorios_ref = self.db.collection('consultorios')
+            query = consultorios_ref.where('activo', '==', True).limit(1)
+            
+            for doc in query.stream():
+                consultorio_data = doc.to_dict()
+                # Buscar el dentista asociado
+                dentista_id = consultorio_data.get('dentistaId')
+                if dentista_id:
+                    return {
+                        'consultorioId': doc.id,
+                        'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
+                        'dentistaId': dentista_id,
+                        'dentistaName': consultorio_data.get('dentistaName', 'Dentista')
+                    }
             
             return None
         except Exception as e:
-            print(f"Error obteniendo último consultorio: {e}")
+            print(f"Error obteniendo consultorio por defecto: {e}")
             return None
     
     def obtener_citas_usuario(self, usuario_whatsapp: str) -> List[Cita]:

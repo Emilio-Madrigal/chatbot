@@ -64,6 +64,7 @@ class ConversationManager:
         """
         # Obtener contexto
         context = self.get_conversation_context(session_id)
+        current_step = context.get('step', 'inicial')
         
         # Actualizar datos del usuario si están disponibles
         if user_id or phone:
@@ -75,6 +76,16 @@ class ConversationManager:
         
         # Agregar mensaje al historial
         self.add_to_history(session_id, 'user', message)
+        
+        # Manejar respuestas numéricas primero (1, 2, 3, etc.)
+        message_clean = message.strip()
+        if message_clean.isdigit():
+            button_num = int(message_clean)
+            response_data = self._handle_numeric_response(session_id, button_num, context, user_id, phone)
+            if response_data:
+                if response_data.get('response'):
+                    self.add_to_history(session_id, 'assistant', response_data['response'])
+                return response_data
         
         # Clasificar intención usando ML
         intent_result = self.ml_service.classify_intent(message, context)
@@ -97,6 +108,90 @@ class ConversationManager:
         
         return response_data
     
+    def _handle_numeric_response(self, session_id: str, button_num: int, 
+                                context: Dict, user_id: str, phone: str) -> Optional[Dict]:
+        """Maneja respuestas numéricas según el contexto actual"""
+        current_step = context.get('step', 'inicial')
+        
+        # Mapear según el contexto
+        if current_step == 'menu_principal' or current_step == 'inicial' or current_step == 'ayuda':
+            if button_num == 1:
+                self.update_conversation_context(session_id, {'step': 'agendando'})
+                return self._handle_schedule_appointment(session_id, {}, context, user_id, phone)
+            elif button_num == 2:
+                self.update_conversation_context(session_id, {'step': 'viendo_citas'})
+                return self._handle_view_appointments(context, user_id, phone)
+            elif button_num == 3:
+                self.update_conversation_context(session_id, {'step': 'reagendando'})
+                return self._handle_reschedule_appointment(session_id, {}, context, user_id, phone)
+            elif button_num == 4:
+                self.update_conversation_context(session_id, {'step': 'cancelando'})
+                return self._handle_cancel_appointment(session_id, {}, context, user_id, phone)
+            elif button_num == 5:
+                self.update_conversation_context(session_id, {'step': 'menu_principal'})
+                return self._handle_help(context, {})
+            else:
+                return {
+                    'response': 'Opción inválida. Por favor selecciona un número del 1 al 5.',
+                    'action': None,
+                    'next_step': current_step
+                }
+        elif current_step == 'seleccionando_fecha' or current_step == 'reagendando_fecha' or current_step == 'agendando':
+            # Obtener fechas disponibles del contexto o buscarlas
+            fechas = context.get('entities', {}).get('fechas_disponibles', [])
+            if not fechas:
+                # Si no hay fechas en el contexto, buscarlas
+                fechas = self.actions_service.get_available_dates(user_id=user_id, phone=phone, count=5)
+            
+            if fechas and 0 <= button_num - 1 < len(fechas):
+                fecha = fechas[button_num - 1]
+                entities = {'fecha': fecha, 'numero_cita': button_num}
+                context['entities']['fechas_disponibles'] = fechas
+                if current_step == 'reagendando_fecha':
+                    return self._handle_reschedule_appointment(session_id, entities, context, user_id, phone)
+                else:
+                    return self._handle_select_date(session_id, entities, context, user_id, phone)
+        elif current_step == 'selecionando_hora' or current_step == 'reagendando_hora':
+            # Obtener horarios disponibles del contexto
+            horarios = context.get('entities', {}).get('horarios_disponibles', [])
+            if horarios and 0 <= button_num - 1 < len(horarios):
+                hora = horarios[button_num - 1]
+                entities = {'hora': hora, 'numero_cita': button_num}
+                if current_step == 'reagendando_hora':
+                    return self._handle_reschedule_appointment(session_id, entities, context, user_id, phone)
+                else:
+                    return self._handle_select_time(session_id, entities, context, user_id, phone)
+        elif current_step == 'seleccionando_cita_reagendar' or current_step == 'reagendando':
+            # Obtener citas del contexto o buscarlas
+            citas = context.get('entities', {}).get('citas', [])
+            if not citas:
+                citas = self.actions_service.get_user_appointments(user_id=user_id, phone=phone, status='confirmado')
+                context['entities']['citas'] = citas
+            
+            if citas and 0 <= button_num - 1 < len(citas):
+                cita_id = citas[button_num - 1]['id']
+                self.update_conversation_context(session_id, {
+                    'step': 'reagendando_fecha',
+                    'cita_id': cita_id
+                })
+                return self._handle_reschedule_appointment(session_id, {}, context, user_id, phone)
+        elif current_step == 'seleccionando_cita_cancelar' or current_step == 'cancelando':
+            # Obtener citas del contexto o buscarlas
+            citas = context.get('entities', {}).get('citas', [])
+            if not citas:
+                citas = self.actions_service.get_user_appointments(user_id=user_id, phone=phone, status='confirmado')
+                context['entities']['citas'] = citas
+            
+            if citas and 0 <= button_num - 1 < len(citas):
+                cita_id = citas[button_num - 1]['id']
+                self.update_conversation_context(session_id, {
+                    'step': 'confirmando_cancelacion',
+                    'cita_id': cita_id
+                })
+                return self._handle_cancel_appointment(session_id, {}, context, user_id, phone)
+        
+        return None
+    
     def _handle_intent(self, session_id: str, intent: str, entities: Dict, 
                       context: Dict) -> Dict:
         """Maneja cada intención y genera la respuesta apropiada"""
@@ -107,10 +202,14 @@ class ConversationManager:
         
         # Manejar según intención
         if intent == 'saludar':
-            return self._handle_greeting(context)
+            result = self._handle_greeting(context)
+            self.update_conversation_context(session_id, {'step': 'menu_principal'})
+            return result
         
         elif intent == 'ayuda' or intent == 'consultar_informacion':
-            return self._handle_help(context, entities)
+            result = self._handle_help(context, entities)
+            self.update_conversation_context(session_id, {'step': 'menu_principal'})
+            return result
         
         elif intent == 'agendar_cita':
             return self._handle_schedule_appointment(session_id, entities, context, user_id, phone)
@@ -147,7 +246,22 @@ class ConversationManager:
     
     def _handle_greeting(self, context: Dict) -> Dict:
         """Maneja saludos"""
-        response = self.ml_service.generate_response('saludar', {}, context, context.get('user_data'))
+        # Necesitamos el session_id para actualizar el contexto
+        # Lo pasamos desde _handle_intent
+        user_data = context.get('user_data', {})
+        nombre = user_data.get('nombre', '')
+        saludo = f"Hola {nombre}, " if nombre else "Hola, "
+        
+        response = f"""{saludo}Puedo ayudarte con:
+
+1️⃣ Agendar una cita
+2️⃣ Ver tus citas
+3️⃣ Reagendar una cita
+4️⃣ Cancelar una cita
+5️⃣ Información sobre nuestros servicios
+
+¿Qué te gustaría hacer?"""
+        
         return {
             'response': response,
             'action': None,
@@ -162,7 +276,18 @@ class ConversationManager:
             answer = self.ml_service.answer_question(question)
             response = answer
         else:
-            response = self.ml_service.generate_response('ayuda', entities, context, context.get('user_data'))
+            user_data = context.get('user_data', {})
+            nombre = user_data.get('nombre', '')
+            saludo = f"Hola {nombre}, " if nombre else "Hola, "
+            response = f"""{saludo}Puedo ayudarte con:
+
+1️⃣ Agendar una cita
+2️⃣ Ver tus citas
+3️⃣ Reagendar una cita
+4️⃣ Cancelar una cita
+5️⃣ Información sobre nuestros servicios
+
+¿Qué te gustaría hacer?"""
         
         return {
             'response': response,
@@ -213,7 +338,8 @@ class ConversationManager:
             if fecha:
                 self.update_conversation_context(session_id, {
                     'step': 'selecionando_hora',
-                    'fecha_seleccionada': fecha
+                    'fecha_seleccionada': fecha,
+                    'entities': {'fecha': fecha}
                 })
                 
                 # Obtener horarios disponibles
@@ -225,6 +351,11 @@ class ConversationManager:
                 
                 if horarios:
                     horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
+                    # Guardar horarios en el contexto
+                    context['entities']['horarios_disponibles'] = horarios
+                    self.update_conversation_context(session_id, {
+                        'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
+                    })
                     return {
                         'response': f"📅 Fecha seleccionada: {fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres? (Escribe el número o la hora)",
                         'action': None,
@@ -241,8 +372,22 @@ class ConversationManager:
         # Si no tenemos fecha, pedir fecha
         fechas = self.actions_service.get_available_dates(user_id=user_id, phone=phone, count=5)
         if fechas:
-            fechas_text = "\n".join([f"{i+1}. {f}" for i, f in enumerate(fechas)])
-            self.update_conversation_context(session_id, {'step': 'seleccionando_fecha'})
+            from datetime import datetime, timedelta
+            # Formatear fechas para mostrar
+            fechas_formateadas = []
+            for fecha_str in fechas:
+                try:
+                    fecha_obj = datetime.strptime(fecha_str, '%Y-%m-%d')
+                    fecha_display = fecha_obj.strftime('%d/%m/%Y')
+                    fechas_formateadas.append(fecha_display)
+                except:
+                    fechas_formateadas.append(fecha_str)
+            
+            fechas_text = "\n".join([f"{i+1}. {f}" for i, f in enumerate(fechas_formateadas)])
+            self.update_conversation_context(session_id, {
+                'step': 'seleccionando_fecha',
+                'entities': {'fechas_disponibles': fechas}
+            })
             return {
                 'response': f"📅 ¡Perfecto! Te ayudo a agendar tu cita.\n\nFechas disponibles:\n{fechas_text}\n\n¿Qué fecha prefieres? (Escribe el número o la fecha)",
                 'action': None,
@@ -251,7 +396,7 @@ class ConversationManager:
             }
         else:
             return {
-                'response': "❌ Lo siento, no hay fechas disponibles en este momento.\n\nPor favor contacta directamente con el consultorio o intenta más tarde.\n\nEscribe *menu* para ver otras opciones.",
+                'response': "❌ Lo siento, no hay fechas disponibles en este momento.\n\nEsto puede deberse a que:\n• No tienes un consultorio asociado\n• No hay horarios configurados\n\nPor favor contacta directamente con el consultorio o intenta más tarde.\n\nEscribe *menu* para ver otras opciones.",
                 'action': None,
                 'next_step': 'menu_principal'
             }
@@ -449,18 +594,26 @@ class ConversationManager:
         
         if not citas:
             return {
-                'response': "No tienes citas programadas actualmente.\n\nEscribe *agendar cita* para agendar una nueva.",
+                'response': "No tienes citas programadas actualmente.\n\nEscribe *1* o *agendar cita* para agendar una nueva.",
                 'action': None,
                 'next_step': 'menu_principal'
             }
         
-        citas_text = "\n".join([
-            f"📅 {c['fecha']} ⏰ {c['hora']}\n👤 {c['nombre']}\n🏥 {c['consultorio']}\n📝 {c['motivo']}\n📊 Estado: {c['estado']}\n"
-            for c in citas
-        ])
+        # Formatear fechas para mostrar
+        citas_text = []
+        for i, c in enumerate(citas, 1):
+            fecha_display = c['fecha']
+            try:
+                from datetime import datetime
+                fecha_obj = datetime.strptime(c['fecha'], '%Y-%m-%d')
+                fecha_display = fecha_obj.strftime('%d/%m/%Y')
+            except:
+                pass
+            
+            citas_text.append(f"{i}. 📅 {fecha_display} ⏰ {c['hora']}\n   👤 {c['nombre']}\n   🏥 {c['consultorio']}\n   📝 {c['motivo']}\n   📊 Estado: {c['estado']}")
         
         return {
-            'response': f"📋 Tus Citas Programadas:\n\n{citas_text}\n\n¿Necesitas hacer algún cambio? Escribe *reagendar* o *cancelar*.",
+            'response': f"📋 Tus Citas Programadas:\n\n" + "\n\n".join(citas_text) + "\n\n¿Necesitas hacer algún cambio? Escribe *3* para reagendar o *4* para cancelar.",
             'action': None,
             'next_step': 'menu_principal'
         }
@@ -517,7 +670,12 @@ class ConversationManager:
                     hora = horarios[hora_num]
         
         fecha = context.get('fecha_seleccionada')
-        nombre = context.get('user_data', {}).get('nombre', 'Paciente')
+        if not fecha:
+            # Intentar obtener de entidades
+            fecha = entities.get('fecha')
+        
+        user_data = context.get('user_data', {})
+        nombre = user_data.get('nombre', 'Paciente') if user_data else 'Paciente'
         motivo = context.get('motivo', 'Consulta general')
         
         if hora and fecha:
@@ -533,10 +691,24 @@ class ConversationManager:
             
             if result['success']:
                 self.update_conversation_context(session_id, {'step': 'inicial'})
+                # Formatear fecha para mostrar
+                try:
+                    from datetime import datetime
+                    fecha_obj = datetime.strptime(fecha, '%Y-%m-%d')
+                    fecha_display = fecha_obj.strftime('%d/%m/%Y')
+                except:
+                    fecha_display = fecha
+                
                 return {
-                    'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n\nTe enviaremos un recordatorio antes de tu cita.",
+                    'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha_display}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n\nTe enviaremos un recordatorio antes de tu cita.",
                     'action': 'appointment_created',
                     'next_step': 'inicial'
+                }
+            else:
+                return {
+                    'response': f"❌ No pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente.",
+                    'action': None,
+                    'next_step': 'selecionando_hora'
                 }
         
         return {
