@@ -487,7 +487,8 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 fecha=fecha,
                 hora=hora,
                 nombre_cliente=nombre,
-                motivo=motivo
+                motivo=motivo,
+                nombre_dentista=entities.get('nombre_dentista')  # Pasar nombre del dentista si se mencionó
             )
             
             if result['success']:

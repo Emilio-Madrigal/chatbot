@@ -282,9 +282,78 @@ class ActionsService:
             print(f"Error obteniendo horarios disponibles: {e}")
             return []
     
+    def buscar_dentista_por_nombre(self, nombre_dentista: str, consultorio_id: str = None) -> Optional[Dict]:
+        """Busca un dentista por nombre en el sistema"""
+        try:
+            if not nombre_dentista:
+                return None
+            
+            nombre_lower = nombre_dentista.lower().strip()
+            print(f"🔍 Buscando dentista por nombre: '{nombre_dentista}'")
+            
+            # Si hay consultorio_id, buscar primero en ese consultorio
+            if consultorio_id:
+                dentistas_ref = self.db.collection('consultorio')\
+                                      .document(consultorio_id)\
+                                      .collection('dentistas')\
+                                      .where('activo', '==', True)
+                
+                for doc in dentistas_ref.stream():
+                    data = doc.to_dict()
+                    nombre_completo = data.get('nombreCompleto', '').lower()
+                    nombre_simple = data.get('nombre', '').lower()
+                    
+                    # Buscar coincidencias parciales
+                    if (nombre_lower in nombre_completo or 
+                        nombre_lower in nombre_simple or
+                        nombre_completo.startswith(nombre_lower) or
+                        nombre_simple.startswith(nombre_lower)):
+                        print(f"✅ Dentista encontrado en consultorio: {data.get('nombreCompleto')} (ID: {data.get('dentistaId')})")
+                        return {
+                            'dentistaId': data.get('dentistaId'),
+                            'dentistaName': data.get('nombreCompleto', nombre_dentista),
+                            'consultorioId': consultorio_id
+                        }
+            
+            # Si no se encontró en el consultorio específico, buscar en toda la colección de dentistas
+            dentistas_ref = self.db.collection('dentistas')\
+                                  .where('activo', '==', True)
+            
+            for doc in dentistas_ref.stream():
+                data = doc.to_dict()
+                nombre_completo = data.get('nombreCompleto', '').lower()
+                nombre_simple = data.get('nombre', '').lower()
+                
+                # Buscar coincidencias parciales
+                if (nombre_lower in nombre_completo or 
+                    nombre_lower in nombre_simple or
+                    nombre_completo.startswith(nombre_lower) or
+                    nombre_simple.startswith(nombre_lower)):
+                    print(f"✅ Dentista encontrado en colección global: {data.get('nombreCompleto')} (ID: {doc.id})")
+                    # Buscar en qué consultorio está asociado
+                    consultorios_ref = doc.reference.collection('consultorios')
+                    for consultorio_doc in consultorios_ref.stream():
+                        consultorio_data = consultorio_doc.to_dict()
+                        if consultorio_data.get('activo', False):
+                            return {
+                                'dentistaId': doc.id,
+                                'dentistaName': data.get('nombreCompleto', nombre_dentista),
+                                'consultorioId': consultorio_data.get('consultorioID')
+                            }
+            
+            print(f"⚠️ No se encontró dentista con nombre '{nombre_dentista}'")
+            return None
+            
+        except Exception as e:
+            print(f"Error buscando dentista por nombre: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
     def create_appointment(self, user_id: str = None, phone: str = None,
                           fecha: str = None, hora: str = None,
-                          nombre_cliente: str = None, motivo: str = None) -> Dict:
+                          nombre_cliente: str = None, motivo: str = None,
+                          nombre_dentista: str = None) -> Dict:
         """Crea una nueva cita"""
         try:
             # Validar datos requeridos
@@ -325,7 +394,7 @@ class ActionsService:
             
             # Crear cita
             usuario_whatsapp = phone or paciente.telefono
-            cita_id = self.cita_repo.crear_cita(usuario_whatsapp, datos_cita, paciente_id=paciente.uid)
+            cita_id = self.cita_repo.crear_cita(usuario_whatsapp, datos_cita, paciente_id=paciente.uid, consultorio_especifico=consultorio_final)
             
             if cita_id:
                 return {

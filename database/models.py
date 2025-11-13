@@ -288,7 +288,7 @@ class CitaRepository:
             print(f"Error obteniendo cita: {e}")
             return None
     
-    def crear_cita(self, usuario_whatsapp: str, datos_cita: dict, paciente_id: str = None) -> Optional[str]:
+    def crear_cita(self, usuario_whatsapp: str, datos_cita: dict, paciente_id: str = None, consultorio_especifico: dict = None) -> Optional[str]:
         """Crea una nueva cita para el usuario. Puede usar paciente_id o buscar por teléfono"""
         try:
             from google.cloud.firestore import SERVER_TIMESTAMP
@@ -304,11 +304,15 @@ class CitaRepository:
                 print(f"No se encontró paciente con teléfono: {usuario_whatsapp} o ID: {paciente_id}")
                 return None
             
-            # Obtener último consultorio usado
-            ultimo_consultorio = self.obtener_ultimo_consultorio_paciente(paciente.uid)
-            if not ultimo_consultorio:
-                print(f"No se encontró consultorio previo para el paciente")
-                return None
+            # Usar consultorio específico si se proporciona, sino obtener último consultorio usado
+            if consultorio_especifico:
+                ultimo_consultorio = consultorio_especifico
+                print(f"✅ Usando consultorio específico: {ultimo_consultorio.get('consultorioName')} - {ultimo_consultorio.get('dentistaName')}")
+            else:
+                ultimo_consultorio = self.obtener_ultimo_consultorio_paciente(paciente.uid)
+                if not ultimo_consultorio:
+                    print(f"No se encontró consultorio previo para el paciente")
+                    return None
             
             # Convertir fecha string a timestamp
             fecha_str = datos_cita.get('fecha')
