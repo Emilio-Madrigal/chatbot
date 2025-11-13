@@ -384,12 +384,29 @@ class ActionsService:
                     'error': 'No se encontró un consultorio previo. Por favor agenda desde la web primero.'
                 }
             
+            # Si se mencionó un dentista específico, buscar y usar ese consultorio/dentista
+            consultorio_final = ultimo_consultorio
+            if nombre_dentista:
+                dentista_encontrado = self.buscar_dentista_por_nombre(nombre_dentista, ultimo_consultorio['consultorioId'])
+                if dentista_encontrado:
+                    print(f"✅ Usando dentista mencionado: {dentista_encontrado['dentistaName']}")
+                    consultorio_final = {
+                        'consultorioId': dentista_encontrado['consultorioId'],
+                        'consultorioName': ultimo_consultorio.get('consultorioName', 'Consultorio'),
+                        'dentistaId': dentista_encontrado['dentistaId'],
+                        'dentistaName': dentista_encontrado['dentistaName']
+                    }
+                else:
+                    print(f"⚠️ No se encontró dentista con nombre '{nombre_dentista}', usando dentista por defecto")
+            
             # Preparar datos de la cita
+            payment_method = 'cash'  # Por defecto efectivo desde chatbot
             datos_cita = {
                 'fecha': fecha,
                 'hora': hora,
                 'nombre_cliente': nombre_cliente or paciente.nombreCompleto or 'Paciente',
-                'descripcion': motivo or 'Consulta general'
+                'descripcion': motivo or 'Consulta general',
+                'metodo_pago': payment_method
             }
             
             # Crear cita
@@ -397,12 +414,17 @@ class ActionsService:
             cita_id = self.cita_repo.crear_cita(usuario_whatsapp, datos_cita, paciente_id=paciente.uid, consultorio_especifico=consultorio_final)
             
             if cita_id:
+                # Calcular payment_deadline para incluir en la respuesta
+                payment_deadline = self._calculate_payment_deadline(payment_method)
+                
                 return {
                     'success': True,
                     'cita_id': cita_id,
                     'message': 'Cita agendada exitosamente',
                     'dentista_name': consultorio_final.get('dentistaName', 'Dentista'),
-                    'consultorio_name': consultorio_final.get('consultorioName', 'Consultorio')
+                    'consultorio_name': consultorio_final.get('consultorioName', 'Consultorio'),
+                    'payment_method': payment_method,
+                    'payment_deadline': payment_deadline
                 }
             else:
                 return {
@@ -596,4 +618,43 @@ class ActionsService:
         except Exception as e:
             print(f"Error obteniendo consultorios: {e}")
             return []
+    
+    def _calculate_payment_deadline(self, payment_method: str):
+        """
+        Calcula la fecha de expiración de pago según el método de pago.
+        
+        Configuración por defecto:
+        - Efectivo/cash: 24 horas
+        - Tarjeta/stripe: null (pago inmediato)
+        - Transferencia: 2 horas
+        
+        Returns:
+            datetime o None si no aplica
+        """
+        from datetime import datetime, timedelta
+        
+        payment_method_lower = payment_method.lower() if payment_method else 'cash'
+        
+        # Configuración de tiempos límite (en horas)
+        deadlines_config = {
+            'cash': 24,
+            'efectivo': 24,
+            'card': None,
+            'tarjeta': None,
+            'stripe': None,
+            'transfer': 2,
+            'transferencia': 2
+        }
+        
+        hours = deadlines_config.get(payment_method_lower, 24)
+        
+        # Si es pago inmediato, no hay deadline
+        if hours is None:
+            return None
+        
+        # Calcular fecha de expiración
+        now = datetime.now()
+        deadline = now + timedelta(hours=hours)
+        
+        return deadline
 

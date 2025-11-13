@@ -496,7 +496,23 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 dentista_usado = result.get('dentista_name', entities.get('nombre_dentista', 'tu dentista'))
                 consultorio_usado = result.get('consultorio_name', 'Consultorio')
                 self.update_conversation_context(session_id, {'step': 'inicial', 'mode': current_mode})
-                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n🏥 Consultorio: {consultorio_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
+                
+                # Agregar información de pago si aplica
+                payment_info = ""
+                payment_deadline = result.get('payment_deadline')
+                payment_method = result.get('payment_method', 'cash')
+                
+                if payment_deadline and payment_method.lower() in ['cash', 'efectivo']:
+                    # Calcular horas restantes
+                    from datetime import datetime
+                    if isinstance(payment_deadline, str):
+                        deadline_dt = datetime.fromisoformat(payment_deadline)
+                    else:
+                        deadline_dt = payment_deadline
+                    hours_remaining = int((deadline_dt - datetime.now()).total_seconds() / 3600)
+                    payment_info = f"\n\n⚠️ IMPORTANTE: Esta cita requiere confirmación de pago en efectivo dentro de las próximas {hours_remaining} horas. De lo contrario, será cancelada automáticamente."
+                
+                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n🏥 Consultorio: {consultorio_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}{payment_info}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
                 print(f"✅ Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
                 return {
                     'response': response_text,

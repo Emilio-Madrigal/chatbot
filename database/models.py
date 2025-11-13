@@ -357,6 +357,10 @@ class CitaRepository:
             confirmation_id = str(uuid.uuid4())
             fecha_confirmacion_str = datetime.now().isoformat()
             
+            # Calcular fecha de expiración de pago según método de pago
+            payment_method = datos_cita.get('metodo_pago', 'cash')
+            payment_deadline = self._calculate_payment_deadline(payment_method)
+            
             # Preparar datos completos de la cita (iguales que la web)
             cita_data = {
                 # Información del paciente
@@ -405,8 +409,9 @@ class CitaRepository:
                 'status': 'programada',
                 
                 # Método de pago
-                'paymentMethod': 'cash',
+                'paymentMethod': payment_method,
                 'paymentStatus': 'pending',
+                'paymentDeadline': payment_deadline,  # Fecha de expiración de pago
                 
                 # Validaciones (simulamos las mismas que la web)
                 'validacionesCompletadas': {
@@ -469,8 +474,9 @@ class CitaRepository:
                 'tratamientoPrecio': 0,
                 'estado': 'confirmado',
                 'status': 'confirmado',
-                'paymentMethod': 'cash',  # Por defecto efectivo
+                'paymentMethod': payment_method,
                 'paymentStatus': 'pending',
+                'paymentDeadline': payment_deadline,  # Fecha de expiración de pago
                 'validacionesCompletadas': {
                     'otpVerified': False,  # En chatbot no se requiere OTP
                     'conflictsChecked': True,
@@ -1000,3 +1006,45 @@ class CitaRepository:
         except Exception as e:
             print(f"Error reagendando cita: {e}")
             return False
+    
+    def _calculate_payment_deadline(self, payment_method: str):
+        """
+        Calcula la fecha de expiración de pago según el método de pago.
+        
+        Configuración por defecto:
+        - Efectivo/cash: 24 horas
+        - Tarjeta/stripe: null (pago inmediato)
+        - Transferencia: 2 horas
+        - Otros: 24 horas
+        
+        Returns:
+            datetime o None si no aplica (pago inmediato)
+        """
+        from datetime import datetime, timedelta
+        
+        payment_method_lower = payment_method.lower() if payment_method else 'cash'
+        
+        # Configuración de tiempos límite (en horas)
+        deadlines_config = {
+            'cash': 24,
+            'efectivo': 24,
+            'card': None,  # Pago inmediato
+            'tarjeta': None,
+            'stripe': None,
+            'transfer': 2,
+            'transferencia': 2,
+            'paypal': 2,
+            'mercadopago': 2
+        }
+        
+        hours = deadlines_config.get(payment_method_lower, 24)  # Por defecto 24 horas
+        
+        # Si es pago inmediato, no hay deadline
+        if hours is None:
+            return None
+        
+        # Calcular fecha de expiración
+        now = datetime.now()
+        deadline = now + timedelta(hours=hours)
+        
+        return deadline
