@@ -1012,34 +1012,35 @@ class CitaRepository:
         Calcula la fecha de expiración de pago según el método de pago.
         
         Configuración por defecto:
-        - Efectivo/cash: 24 horas
-        - Tarjeta/stripe: null (pago inmediato)
-        - Transferencia: 2 horas
-        - Otros: 24 horas
+        - Efectivo/cash: None (se paga al momento de la cita, el dentista lo marca como pagado)
+        - Tarjeta/stripe: None (pago inmediato online)
+        - Transferencia: 2 horas (debe confirmar con comprobante)
+        - PayPal/MercadoPago: 2 horas
         
         Returns:
-            datetime o None si no aplica (pago inmediato)
+            datetime o None si no aplica
         """
         from datetime import datetime, timedelta
         
         payment_method_lower = payment_method.lower() if payment_method else 'cash'
         
         # Configuración de tiempos límite (en horas)
+        # None = sin límite de tiempo (se paga en persona o inmediatamente)
         deadlines_config = {
-            'cash': 24,
-            'efectivo': 24,
-            'card': None,  # Pago inmediato
+            'cash': None,  # Efectivo: se paga al momento de la cita
+            'efectivo': None,
+            'card': None,  # Tarjeta: pago inmediato
             'tarjeta': None,
             'stripe': None,
-            'transfer': 2,
+            'transfer': 2,  # Transferencia: 2 horas para enviar comprobante
             'transferencia': 2,
             'paypal': 2,
             'mercadopago': 2
         }
         
-        hours = deadlines_config.get(payment_method_lower, 24)  # Por defecto 24 horas
+        hours = deadlines_config.get(payment_method_lower, None)
         
-        # Si es pago inmediato, no hay deadline
+        # Si es None, no hay deadline
         if hours is None:
             return None
         

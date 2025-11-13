@@ -332,6 +332,27 @@ class ConversationManager:
         elif intent == 'seleccionar_hora':
             return self._handle_select_time(session_id, entities, context, user_id, phone)
         
+        elif intent == 'confirmar_pago':
+            return self._handle_confirm_payment(session_id, entities, context, user_id, phone)
+        
+        elif intent == 'consultar_tiempo_pago':
+            return self._handle_check_payment_time(context, user_id, phone)
+        
+        elif intent == 'consultar_servicios':
+            return self._handle_services_info(context)
+        
+        elif intent == 'ver_historial':
+            return self._handle_appointment_history(context, user_id, phone)
+        
+        elif intent == 'confirmar_pago':
+            return self._handle_confirm_payment(context, user_id, phone)
+        
+        elif intent == 'consultar_tiempo_pago':
+            return self._handle_check_payment_time(context, user_id, phone)
+        
+        elif intent == 'informacion_servicios':
+            return self._handle_services_info(context, entities)
+        
         elif intent == 'despedirse':
             return {
                 'response': '¡Hasta luego! Que tengas un excelente día. 🦷',
@@ -502,7 +523,8 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 payment_deadline = result.get('payment_deadline')
                 payment_method = result.get('payment_method', 'cash')
                 
-                if payment_deadline and payment_method.lower() in ['cash', 'efectivo']:
+                # Solo mostrar advertencia si hay deadline (transferencias, paypal, etc)
+                if payment_deadline and payment_method.lower() in ['transfer', 'transferencia', 'paypal', 'mercadopago']:
                     # Calcular horas restantes
                     from datetime import datetime
                     if isinstance(payment_deadline, str):
@@ -510,7 +532,9 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                     else:
                         deadline_dt = payment_deadline
                     hours_remaining = int((deadline_dt - datetime.now()).total_seconds() / 3600)
-                    payment_info = f"\n\n⚠️ IMPORTANTE: Esta cita requiere confirmación de pago en efectivo dentro de las próximas {hours_remaining} horas. De lo contrario, será cancelada automáticamente."
+                    payment_info = f"\n\n⚠️ IMPORTANTE: Esta cita requiere confirmación de pago por {payment_method} dentro de las próximas {hours_remaining} horas. De lo contrario, será cancelada automáticamente."
+                elif payment_method.lower() in ['cash', 'efectivo']:
+                    payment_info = f"\n\n💰 Método de pago: Efectivo (se paga al momento de la cita)"
                 
                 response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n🏥 Consultorio: {consultorio_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}{payment_info}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
                 print(f"✅ Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
@@ -913,4 +937,586 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             'action': None,
             'next_step': 'selecionando_hora'
         }
+    
+    def _handle_confirm_payment(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Maneja confirmación de pago por parte del paciente"""
+        try:
+            # Obtener citas con pago pendiente
+            citas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone,
+                status='confirmado'
+            )
+            
+            # Filtrar citas con pago pendiente
+            citas_pendientes = [c for c in citas if c.get('estado_pago') == 'pendiente' or c.get('paymentStatus') == 'pending']
+            
+            if not citas_pendientes:
+                return {
+                    'response': "No tienes citas con pago pendiente. 👍\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Si solo hay una cita pendiente, procesarla directamente
+            if len(citas_pendientes) == 1:
+                cita = citas_pendientes[0]
+                # Aquí normalmente se integraría con un sistema de pagos
+                # Por ahora, solo confirmamos manualmente
+                response = f"""✅ ¡Excelente! He registrado tu confirmación de pago.
+
+📅 Cita: {cita.get('fecha', 'N/A')} - {cita.get('hora', 'N/A')}
+👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}
+💰 Estado: Pago confirmado
+
+Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
+
+¿Necesitas ayuda con algo más?"""
+                
+                return {
+                    'response': response,
+                    'action': 'payment_confirmed',
+                    'next_step': 'inicial'
+                }
+            
+            # Si hay múltiples citas, pedir que especifique cuál
+            citas_text = "\n".join([
+                f"{i+1}. {c.get('fecha', 'N/A')} - {c.get('hora', 'N/A')} ({c.get('dentista', 'N/A')})"
+                for i, c in enumerate(citas_pendientes)
+            ])
+            
+            return {
+                'response': f"Tienes {len(citas_pendientes)} citas con pago pendiente:\n\n{citas_text}\n\n¿Para cuál cita quieres confirmar el pago? (Escribe el número)",
+                'action': None,
+                'next_step': 'confirmando_pago'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_confirm_payment: {e}")
+            return {
+                'response': "❌ Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+    
+    def _handle_check_payment_time(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Maneja consulta de tiempo restante para pagar"""
+        try:
+            # Obtener citas con pago pendiente
+            citas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone,
+                status='confirmado'
+            )
+            
+            # Filtrar citas con pago pendiente
+            citas_pendientes = [c for c in citas if c.get('estado_pago') == 'pendiente' or c.get('paymentStatus') == 'pending']
+            
+            if not citas_pendientes:
+                return {
+                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día. 👍",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Calcular tiempo restante para cada cita
+            from datetime import datetime
+            response_text = "⏰ **Tiempo restante para pagar tus citas:**\n\n"
+            
+            for i, cita in enumerate(citas_pendientes, 1):
+                fecha = cita.get('fecha', 'N/A')
+                hora = cita.get('hora', 'N/A')
+                
+                # Intentar obtener payment_deadline
+                payment_deadline = cita.get('paymentDeadline') or cita.get('payment_deadline')
+                
+                if payment_deadline:
+                    try:
+                        if isinstance(payment_deadline, str):
+                            deadline_dt = datetime.fromisoformat(payment_deadline)
+                        else:
+                            deadline_dt = payment_deadline
+                        
+                        now = datetime.now()
+                        diff = deadline_dt - now
+                        
+                        if diff.total_seconds() <= 0:
+                            tiempo_restante = "⚠️ **¡EXPIRADO!** La cita será cancelada pronto"
+                        else:
+                            horas = int(diff.total_seconds() / 3600)
+                            minutos = int((diff.total_seconds() % 3600) / 60)
+                            
+                            if horas > 0:
+                                tiempo_restante = f"{horas}h {minutos}min restantes"
+                            else:
+                                tiempo_restante = f"{minutos} minutos restantes"
+                            
+                            # Agregar emoji según urgencia
+                            if horas <= 2:
+                                tiempo_restante = f"🔴 {tiempo_restante} ¡URGENTE!"
+                            elif horas <= 12:
+                                tiempo_restante = f"🟡 {tiempo_restante}"
+                            else:
+                                tiempo_restante = f"🟢 {tiempo_restante}"
+                    except:
+                        tiempo_restante = "24 horas (aprox.)"
+                else:
+                    tiempo_restante = "24 horas (aprox.)"
+                
+                response_text += f"{i}. 📅 {fecha} - ⏰ {hora}\n   {tiempo_restante}\n\n"
+            
+            response_text += "💡 Escribe *'ya pagué'* cuando hayas completado el pago."
+            
+            return {
+                'response': response_text,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_check_payment_time: {e}")
+            return {
+                'response': "❌ Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+    
+    def _handle_services_info(self, context: Dict, entities: Dict = None) -> Dict:
+        """Maneja consulta de información de servicios"""
+        servicios = """🦷 **Servicios Dentales Disponibles:**
+
+**Servicios Generales:**
+• 🔍 Consulta general y diagnóstico
+• 🧼 Limpieza dental (profilaxis)
+• ⚡ Blanqueamiento dental
+• 🦷 Resinas (empastes estéticos)
+• 🔧 Extracciones simples y complejas
+
+**Especialidades:**
+• 📐 Ortodoncia (brackets y alineadores)
+• 🦴 Endodoncia (tratamiento de conductos)
+• 👑 Prótesis dentales
+• 🔬 Periodoncia (encías)
+• 👶 Odontopediatría (niños)
+• 🏗️ Implantes dentales
+
+**Tratamientos Estéticos:**
+• ✨ Carillas dentales
+• 💎 Diseño de sonrisa
+• 🎨 Contorneado estético
+
+💰 **Precios:**
+Los precios varían según el tratamiento. Para obtener un presupuesto exacto, agenda una consulta de evaluación.
+
+📅 ¿Te gustaría agendar una cita para alguno de estos servicios?"""
+        
+        return {
+            'response': servicios,
+            'action': None,
+            'next_step': 'inicial'
+        }
+    
+    def _handle_appointment_history(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Maneja consulta de historial de citas"""
+        try:
+            # Obtener todas las citas del usuario (incluyendo completadas y canceladas)
+            citas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone,
+                status=None  # Obtener todas, sin filtro de estado
+            )
+            
+            if not citas:
+                return {
+                    'response': "📋 No tienes historial de citas aún.\n\n¿Te gustaría agendar tu primera cita? Escribe *'agendar cita'* para comenzar.",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Separar por estado
+            proximas = []
+            pasadas = []
+            canceladas = []
+            
+            from datetime import datetime
+            now = datetime.now()
+            
+            for cita in citas:
+                estado = cita.get('estado', '').lower()
+                fecha_str = cita.get('fecha', '')
+                
+                try:
+                    fecha_cita = datetime.strptime(fecha_str, '%Y-%m-%d')
+                    es_futura = fecha_cita >= now
+                except:
+                    es_futura = True
+                
+                if estado == 'cancelada':
+                    canceladas.append(cita)
+                elif es_futura and estado in ['confirmado', 'programada', 'pendiente']:
+                    proximas.append(cita)
+                else:
+                    pasadas.append(cita)
+            
+            response_text = "📋 **Tu Historial de Citas:**\n\n"
+            
+            # Citas próximas
+            if proximas:
+                response_text += "**🔜 Próximas Citas:**\n"
+                for i, cita in enumerate(proximas[:3], 1):
+                    fecha = cita.get('fecha', 'N/A')
+                    hora = cita.get('hora', 'N/A')
+                    dentista = cita.get('dentista', 'N/A')
+                    motivo = cita.get('descripcion', cita.get('motivo', 'Consulta'))
+                    response_text += f"{i}. 📅 {fecha} - ⏰ {hora}\n   👨‍⚕️ {dentista}\n   💬 {motivo}\n\n"
+            
+            # Citas pasadas
+            if pasadas:
+                response_text += "\n**📚 Citas Anteriores:**\n"
+                for i, cita in enumerate(pasadas[:3], 1):
+                    fecha = cita.get('fecha', 'N/A')
+                    dentista = cita.get('dentista', 'N/A')
+                    response_text += f"{i}. 📅 {fecha} - 👨‍⚕️ {dentista} ✅\n"
+            
+            # Estadísticas
+            total = len(citas)
+            completadas = len(pasadas)
+            canceladas_count = len(canceladas)
+            
+            response_text += f"\n📊 **Resumen:**\n"
+            response_text += f"• Total de citas: {total}\n"
+            response_text += f"• Citas completadas: {completadas}\n"
+            if canceladas_count > 0:
+                response_text += f"• Citas canceladas: {canceladas_count}\n"
+            
+            response_text += "\n¿Necesitas hacer algo con alguna de tus citas?"
+            
+            return {
+                'response': response_text,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_appointment_history: {e}")
+            return {
+                'response': "❌ Hubo un error al consultar tu historial. Por favor intenta nuevamente.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+
+    def _handle_confirm_payment(self, session_id: str, entities: Dict, context: Dict,
+                                user_id: str, phone: str) -> Dict:
+        """Maneja la confirmación de pago por parte del usuario"""
+        try:
+            # Obtener citas pendientes de pago del usuario
+            citas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone,
+                status='confirmado'
+            )
+            
+            if not citas:
+                return {
+                    'response': "No tienes citas pendientes de confirmación de pago.\n\nSi crees que esto es un error, por favor contacta con el consultorio.",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Filtrar solo las que tienen pago pendiente
+            citas_pendientes = [c for c in citas if c.get('payment_status') == 'pending' or c.get('paymentStatus') == 'pending']
+            
+            if not citas_pendientes:
+                return {
+                    'response': "Todas tus citas ya tienen el pago confirmado. ✅\n\n¿Necesitas algo más?",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Si solo hay una cita pendiente, confirmarla directamente
+            if len(citas_pendientes) == 1:
+                cita = citas_pendientes[0]
+                response = f"📋 Cita pendiente de confirmación:\n\n"
+                response += f"📅 Fecha: {cita.get('fecha', 'N/A')}\n"
+                response += f"⏰ Hora: {cita.get('hora', 'N/A')}\n"
+                response += f"👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}\n\n"
+                response += "⚠️ Importante: Para confirmar tu pago, por favor contacta directamente con el consultorio para verificar y actualizar el estado de tu pago.\n\n"
+                response += "Una vez confirmado, tu cita quedará asegurada y no será cancelada. 🦷"
+                
+                return {
+                    'response': response,
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Si hay múltiples citas, mostrarlas
+            citas_text = []
+            for i, c in enumerate(citas_pendientes, 1):
+                citas_text.append(f"{i}. 📅 {c.get('fecha', 'N/A')} ⏰ {c.get('hora', 'N/A')}")
+            
+            response = f"Tienes {len(citas_pendientes)} citas pendientes de pago:\n\n"
+            response += "\n".join(citas_text)
+            response += "\n\n⚠️ Para confirmar el pago de cualquiera de estas citas, por favor contacta directamente con el consultorio."
+            
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_confirm_payment: {e}")
+            return {
+                'response': "Lo siento, hubo un error al verificar tus citas. Por favor intenta nuevamente o contacta con el consultorio.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+    
+    def _handle_check_payment_time(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Maneja la consulta sobre tiempo restante para pagar"""
+        try:
+            # Obtener citas con pago pendiente
+            citas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone,
+                status='confirmado'
+            )
+            
+            if not citas:
+                return {
+                    'response': "No tienes citas programadas en este momento.\n\n¿Te gustaría agendar una? Escribe 'agendar cita'.",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Filtrar citas con pago pendiente
+            from datetime import datetime
+            citas_pendientes = []
+            for c in citas:
+                payment_status = c.get('payment_status') or c.get('paymentStatus')
+                payment_deadline = c.get('payment_deadline') or c.get('paymentDeadline')
+                
+                if payment_status == 'pending' and payment_deadline:
+                    # Calcular tiempo restante
+                    if isinstance(payment_deadline, str):
+                        deadline_dt = datetime.fromisoformat(payment_deadline)
+                    else:
+                        deadline_dt = payment_deadline
+                    
+                    hours_remaining = int((deadline_dt - datetime.now()).total_seconds() / 3600)
+                    
+                    if hours_remaining > 0:
+                        citas_pendientes.append({
+                            'fecha': c.get('fecha', 'N/A'),
+                            'hora': c.get('hora', 'N/A'),
+                            'hours_remaining': hours_remaining,
+                            'deadline': deadline_dt
+                        })
+            
+            if not citas_pendientes:
+                return {
+                    'response': "✅ Todas tus citas están confirmadas o no requieren pago pendiente.\n\n¿Necesitas algo más?",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Mostrar información de tiempo restante
+            response = "⏰ **Tiempo restante para pagar tus citas:**\n\n"
+            
+            for i, c in enumerate(citas_pendientes, 1):
+                hours = c['hours_remaining']
+                if hours > 24:
+                    dias = hours // 24
+                    horas_extra = hours % 24
+                    time_text = f"{dias} día{'s' if dias > 1 else ''}"
+                    if horas_extra > 0:
+                        time_text += f" y {horas_extra} hora{'s' if horas_extra > 1 else ''}"
+                elif hours > 1:
+                    time_text = f"{hours} horas"
+                else:
+                    time_text = f"{hours} hora"
+                
+                # Emoji según urgencia
+                if hours <= 2:
+                    emoji = "🔴"
+                elif hours <= 12:
+                    emoji = "🟡"
+                else:
+                    emoji = "🟢"
+                
+                response += f"{emoji} **Cita {i}:**\n"
+                response += f"   📅 {c['fecha']} a las {c['hora']}\n"
+                response += f"   ⏰ Tiempo restante: **{time_text}**\n\n"
+            
+            response += "💡 **Tip:** Confirma tu pago cuanto antes para asegurar tu cita."
+            
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_check_payment_time: {e}")
+            return {
+                'response': "Lo siento, hubo un error al consultar el tiempo de pago. Por favor intenta nuevamente.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+    
+    def _handle_services_info(self, context: Dict) -> Dict:
+        """Maneja consultas sobre servicios disponibles"""
+        try:
+            # Obtener información de servicios desde ActionsService
+            dentistas = self.actions_service.get_dentists_info(limit=5)
+            consultorios = self.actions_service.get_consultorios_info(limit=3)
+            
+            response = "🦷 **Servicios de Densora**\n\n"
+            response += "En Densora ofrecemos una amplia gama de servicios dentales:\n\n"
+            
+            # Servicios principales
+            response += "**Servicios Principales:**\n"
+            response += "• 🧹 Limpieza dental\n"
+            response += "• 🦷 Ortodoncia (brackets, alineadores)\n"
+            response += "• 💎 Estética dental (blanqueamiento, carillas)\n"
+            response += "• 🔧 Endodoncia (tratamiento de conductos)\n"
+            response += "• 🦴 Implantes dentales\n"
+            response += "• 👶 Odontopediatría (niños)\n"
+            response += "• 🦷 Prótesis dentales\n"
+            response += "• 🔍 Consulta general\n\n"
+            
+            # Información de dentistas disponibles
+            if dentistas:
+                response += "**Nuestros Especialistas:**\n"
+                for d in dentistas[:3]:
+                    nombre = d.get('nombre', 'N/A')
+                    especialidad = d.get('especialidad', 'Odontología General')
+                    calificacion = d.get('calificacion', 0)
+                    response += f"• Dr(a). {nombre} - {especialidad}"
+                    if calificacion > 0:
+                        response += f" ⭐ {calificacion:.1f}"
+                    response += "\n"
+                response += "\n"
+            
+            # Información de consultorios
+            if consultorios:
+                response += "**Nuestros Consultorios:**\n"
+                for c in consultorios[:2]:
+                    nombre = c.get('nombre', 'N/A')
+                    response += f"• 🏥 {nombre}\n"
+                response += "\n"
+            
+            response += "📞 **¿Listo para agendar?**\n"
+            response += "Escribe 'agendar cita' y te ayudo a encontrar el mejor horario para ti. 🦷"
+            
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_services_info: {e}")
+            return {
+                'response': "🦷 **Servicios de Densora**\n\nEn Densora ofrecemos:\n• Limpieza dental\n• Ortodoncia\n• Estética dental\n• Endodoncia\n• Implantes\n• Odontopediatría\n• Y más...\n\n¿Te gustaría agendar una cita? Escribe 'agendar cita'.",
+                'action': None,
+                'next_step': 'inicial'
+            }
+    
+    def _handle_appointment_history(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Maneja la consulta del historial completo de citas"""
+        try:
+            # Obtener todas las citas del usuario (incluyendo pasadas)
+            citas_activas = self.actions_service.get_user_appointments(
+                user_id=user_id,
+                phone=phone
+            )
+            
+            if not citas_activas:
+                return {
+                    'response': "No tienes citas registradas en tu historial.\n\n¿Te gustaría agendar tu primera cita? Escribe 'agendar cita'.",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
+            
+            # Separar citas por estado
+            from datetime import datetime
+            proximas = []
+            pasadas = []
+            canceladas = []
+            
+            now = datetime.now()
+            
+            for c in citas_activas:
+                estado = c.get('estado', '').lower()
+                fecha_str = c.get('fecha', '')
+                
+                # Intentar parsear la fecha
+                try:
+                    if isinstance(fecha_str, str) and '-' in fecha_str:
+                        fecha_dt = datetime.strptime(fecha_str, '%Y-%m-%d')
+                    else:
+                        fecha_dt = None
+                except:
+                    fecha_dt = None
+                
+                if estado == 'cancelada':
+                    canceladas.append(c)
+                elif fecha_dt and fecha_dt < now:
+                    pasadas.append(c)
+                else:
+                    proximas.append(c)
+            
+            # Construir respuesta
+            response = "📋 **Tu Historial de Citas**\n\n"
+            
+            # Citas próximas
+            if proximas:
+                response += f"**🔜 Próximas ({len(proximas)}):**\n"
+                for c in proximas[:5]:  # Máximo 5
+                    fecha = c.get('fecha', 'N/A')
+                    hora = c.get('hora', 'N/A')
+                    dentista = c.get('dentista', 'N/A')
+                    motivo = c.get('motivo', 'Consulta')
+                    estado = c.get('estado', 'N/A')
+                    
+                    # Emoji de estado de pago
+                    payment_status = c.get('payment_status') or c.get('paymentStatus')
+                    payment_emoji = "💳" if payment_status == 'paid' else "⏰"
+                    
+                    response += f"  {payment_emoji} {fecha} - {hora}\n"
+                    response += f"     Dr(a). {dentista}\n"
+                    response += f"     {motivo}\n\n"
+            
+            # Citas pasadas
+            if pasadas:
+                response += f"**✅ Completadas ({len(pasadas)}):**\n"
+                for c in pasadas[:3]:  # Máximo 3
+                    fecha = c.get('fecha', 'N/A')
+                    dentista = c.get('dentista', 'N/A')
+                    response += f"  • {fecha} - Dr(a). {dentista}\n"
+                response += "\n"
+            
+            # Citas canceladas
+            if canceladas:
+                response += f"**❌ Canceladas ({len(canceladas)})**\n\n"
+            
+            # Resumen
+            total = len(citas_activas)
+            response += f"📊 **Total de citas:** {total}\n\n"
+            response += "¿Necesitas agendar una nueva cita? Escribe 'agendar cita'."
+            
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'inicial'
+            }
+            
+        except Exception as e:
+            print(f"Error en _handle_appointment_history: {e}")
+            return {
+                'response': "Lo siento, hubo un error al consultar tu historial. Por favor intenta nuevamente.",
+                'action': None,
+                'next_step': 'inicial'
+            }
 
