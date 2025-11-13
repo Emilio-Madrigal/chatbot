@@ -500,11 +500,14 @@ class CitaRepository:
             from datetime import datetime, timedelta
 
             fecha_dt = datetime.fromtimestamp(fecha_timestamp.timestamp())
-            dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+            # Usar minúsculas para coincidir con la estructura de la BD
+            dias_semana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
             dia_nombre = dias_semana[fecha_dt.weekday()]
             
-            print(f"Buscando horarios para {dia_nombre}")
-            horarios_ref = self.db.collection('consultorios')\
+            print(f"Buscando horarios para {dia_nombre} (consultorio: {consultorio_id})")
+            
+            # Intentar buscar por campo 'dia' primero
+            horarios_ref = self.db.collection('consultorio')\
                                  .document(consultorio_id)\
                                  .collection('horarios')\
                                  .where('dia', '==', dia_nombre)\
@@ -516,25 +519,108 @@ class CitaRepository:
                 horarios_doc = doc.to_dict()
                 break
             
+            # Si no se encuentra por campo 'dia', intentar buscar por ID del documento
+            if not horarios_doc:
+                print(f"No se encontró por campo 'dia', intentando por ID del documento...")
+                horarios_doc_ref = self.db.collection('consultorio')\
+                                         .document(consultorio_id)\
+                                         .collection('horarios')\
+                                         .document(dia_nombre)
+                horarios_doc_snap = horarios_doc_ref.get()
+                if horarios_doc_snap.exists:
+                    horarios_doc = horarios_doc_snap.to_dict()
+            
             if not horarios_doc or 'horarios' not in horarios_doc:
                 print(f"No hay horarios configurados para {dia_nombre}")
                 return []
-            hora_inicio_consultorio = horarios_doc['horarios']['inicio']  # "09:00"
-            hora_fin_consultorio = horarios_doc['horarios']['fin']  # "18:00"
+            
+            # horarios es un array, tomar el primer elemento
+            horarios_array = horarios_doc['horarios']
+            if not horarios_array or len(horarios_array) == 0:
+                print(f"Array de horarios vacío para {dia_nombre}")
+                return []
+            
+            # Tomar el primer bloque de horarios (puede haber múltiples bloques)
+            primer_horario = horarios_array[0]
+            hora_inicio_consultorio = primer_horario.get('inicio', '09:00')  # "09:00"
+            hora_fin_consultorio = primer_horario.get('fin', '18:00')  # "18:00"
             
             print(f"Horario consultorio: {hora_inicio_consultorio} - {hora_fin_consultorio}")
-            citas_existentes = self.db.collection('citas')\
-                                     .where('dentistaId', '==', dentista_id)\
-                                     .where('fecha', '==', fecha_timestamp)\
-                                     .where('estado', 'in', ['confirmado', 'en proceso'])\
-                                     .stream()
+            
+            # Convertir fecha_timestamp a formato compatible con Firestore
+            # Las citas usan fechaHora como timestamp, pero también pueden usar fecha como string
+            fecha_str = fecha_dt.strftime('%Y-%m-%d')
+            
+            # Buscar citas existentes - intentar múltiples formatos
+            citas_existentes = []
+            
+            # Buscar por fechaHora (timestamp)
+            try:
+                citas_por_timestamp = self.db.collection('Citas')\
+                                             .where('dentistaId', '==', dentista_id)\
+                                             .where('estado', 'in', ['confirmado', 'en proceso', 'pendiente'])\
+                                             .stream()
+                for doc in citas_por_timestamp:
+                    cita_data = doc.to_dict()
+                    # Verificar si la fecha coincide
+                    fecha_hora = cita_data.get('fechaHora')
+                    if fecha_hora:
+                        # Convertir timestamp a fecha
+                        if hasattr(fecha_hora, 'date'):
+                            cita_fecha = fecha_hora.date()
+                        elif isinstance(fecha_hora, dict) and '_seconds' in fecha_hora:
+                            from datetime import datetime
+                            cita_fecha = datetime.fromtimestamp(fecha_hora['_seconds']).date()
+                        else:
+                            continue
+                        
+                        if cita_fecha == fecha_dt.date():
+                            citas_existentes.append(cita_data)
+            except Exception as e:
+                print(f"Error buscando citas por timestamp: {e}")
+            
+            # También buscar por appointmentDate (string)
+            try:
+                citas_por_fecha = self.db.collection('Citas')\
+                                        .where('dentistaId', '==', dentista_id)\
+                                        .where('appointmentDate', '>=', f"{fecha_str}T00:00:00")\
+                                        .where('appointmentDate', '<=', f"{fecha_str}T23:59:59")\
+                                        .where('estado', 'in', ['confirmado', 'en proceso', 'pendiente'])\
+                                        .stream()
+                for doc in citas_por_fecha:
+                    cita_data = doc.to_dict()
+                    # Evitar duplicados
+                    if cita_data not in citas_existentes:
+                        citas_existentes.append(cita_data)
+            except Exception as e:
+                print(f"Error buscando citas por appointmentDate: {e}")
             horas_ocupadas = []
-            for doc in citas_existentes:
-                cita_data = doc.to_dict()
-                horas_ocupadas.append({
-                    'inicio': cita_data['horaInicio'],
-                    'fin': cita_data['horaFin']
-                })
+            for cita_data in citas_existentes:
+                # Obtener hora de inicio y fin de diferentes campos posibles
+                hora_inicio = cita_data.get('horaInicio') or cita_data.get('appointmentTime') or cita_data.get('hora')
+                duracion = cita_data.get('duracion') or cita_data.get('Duracion') or 30  # Default 30 min
+                
+                if hora_inicio:
+                    # Convertir hora_inicio a formato HH:MM si es necesario
+                    if isinstance(hora_inicio, str):
+                        # Si tiene formato "HH:MM" o similar
+                        if ':' in hora_inicio:
+                            hora_inicio_dt = datetime.strptime(hora_inicio, '%H:%M')
+                        else:
+                            # Intentar otros formatos
+                            try:
+                                hora_inicio_dt = datetime.strptime(hora_inicio, '%H:%M:%S')
+                            except:
+                                continue
+                    else:
+                        continue
+                    
+                    # Calcular hora fin
+                    hora_fin_dt = hora_inicio_dt + timedelta(minutes=duracion)
+                    horas_ocupadas.append({
+                        'inicio': hora_inicio_dt.strftime('%H:%M'),
+                        'fin': hora_fin_dt.strftime('%H:%M')
+                    })
             
             print(f"Horas ocupadas: {len(horas_ocupadas)}")
             slots_disponibles = []
@@ -584,10 +670,12 @@ class CitaRepository:
                 if fecha_actual.weekday() == 6:
                     continue
 
-                dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+                # Usar minúsculas para coincidir con la estructura de la BD
+                dias_semana = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo']
                 dia_nombre = dias_semana[fecha_actual.weekday()]
 
-                horarios_ref = self.db.collection('consultorios')\
+                # Intentar buscar por campo 'dia' primero
+                horarios_ref = self.db.collection('consultorio')\
                                      .document(consultorio_id)\
                                      .collection('horarios')\
                                      .where('dia', '==', dia_nombre)\
@@ -595,9 +683,28 @@ class CitaRepository:
                                      .limit(1)
                 
                 tiene_horario = False
+                horarios_doc = None
                 for doc in horarios_ref.stream():
-                    tiene_horario = True
+                    horarios_doc = doc.to_dict()
+                    if horarios_doc and 'horarios' in horarios_doc:
+                        horarios_array = horarios_doc['horarios']
+                        if horarios_array and len(horarios_array) > 0:
+                            tiene_horario = True
                     break
+                
+                # Si no se encuentra por campo 'dia', intentar buscar por ID del documento
+                if not tiene_horario:
+                    horarios_doc_ref = self.db.collection('consultorio')\
+                                             .document(consultorio_id)\
+                                             .collection('horarios')\
+                                             .document(dia_nombre)
+                    horarios_doc_snap = horarios_doc_ref.get()
+                    if horarios_doc_snap.exists:
+                        horarios_doc = horarios_doc_snap.to_dict()
+                        if horarios_doc and 'horarios' in horarios_doc:
+                            horarios_array = horarios_doc['horarios']
+                            if horarios_array and len(horarios_array) > 0:
+                                tiene_horario = True
                 
                 if tiene_horario:
 
