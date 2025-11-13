@@ -27,7 +27,7 @@ class ConversationManager:
                 'entities': {},
                 'user_data': {},
                 'history': [],
-                'mode': 'menu',  # 'menu' o 'agente'
+                'mode': 'agente',  # 'menu' o 'agente' - Por defecto 'agente' para ser inteligente
                 'created_at': datetime.now()
             }
         return self.conversations[session_id]
@@ -127,11 +127,22 @@ class ConversationManager:
                     self.add_to_history(session_id, 'assistant', response_data['response'])
                 return response_data
         
-        # Si no es número, usar ML básico para detectar intención
+        # Si no es número, usar ML para detectar intención
         intent_result = self.ml_service.classify_intent(message, context)
         intent = intent_result['intent']
+        confidence = intent_result.get('confidence', 0.5)
         
-        # En modo menú, solo procesar intenciones básicas
+        # Si detecta una intención clara de agendar/reagendar/cancelar/ver citas, procesarla
+        # Aunque esté en modo menú, si el usuario habla naturalmente, ayudarlo
+        if intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita', 'ver_citas'] and confidence > 0.6:
+            print(f"✅ Modo menú detectó intención clara: {intent} (confianza: {confidence})")
+            entities = self.ml_service.extract_entities(message, intent, context)
+            response_data = self._handle_intent(session_id, intent, entities, context)
+            if response_data.get('response'):
+                self.add_to_history(session_id, 'assistant', response_data['response'])
+            return response_data
+        
+        # En modo menú, procesar intenciones básicas
         if intent in ['saludar', 'ayuda']:
             entities = self.ml_service.extract_entities(message, intent, context)
             response_data = self._handle_intent(session_id, intent, entities, context)

@@ -75,6 +75,8 @@ def web_chat():
         mode = data.get('mode', None)  # 'menu' o 'agente'
         
         # Procesar el mensaje usando el nuevo sistema de ML
+        bot_response_text = ''
+        current_mode = None
         try:
             response_data = conversation_manager.process_message(
                 session_id=session_id,
@@ -86,10 +88,13 @@ def web_chat():
             )
             bot_response_text = response_data.get('response', '')
             current_mode = response_data.get('mode', None)
+            print(f"✅ ML procesó correctamente - Response: {bot_response_text[:100]}...")
         except Exception as ml_error:
-            print(f"Error en ML, usando fallback: {ml_error}")
+            print(f"❌ Error en ML, usando fallback: {ml_error}")
+            import traceback
+            traceback.print_exc()
             # Fallback al sistema anterior si ML falla
-        bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
+            bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
         # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
         if not bot_response_text or bot_response_text.strip() == "" or bot_response_text.strip() == "...":
