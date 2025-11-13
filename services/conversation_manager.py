@@ -406,9 +406,32 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         """Maneja el agendamiento de citas"""
         current_step = context.get('step', 'inicial')
         
+        # Validar y convertir fecha si es relativa
+        fecha = entities.get('fecha') or context.get('entities', {}).get('fecha') or context.get('fecha_seleccionada')
+        if fecha:
+            from datetime import datetime, timedelta
+            if isinstance(fecha, str):
+                fecha_lower = fecha.lower().strip()
+                # Si es fecha relativa, convertirla
+                if fecha_lower in ['mañana', 'tomorrow']:
+                    fecha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                elif fecha_lower in ['pasado mañana', 'day after tomorrow']:
+                    fecha = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+                elif fecha_lower in ['hoy', 'today']:
+                    fecha = datetime.now().strftime('%Y-%m-%d')
+                # Validar formato
+                try:
+                    datetime.strptime(fecha, '%Y-%m-%d')
+                except ValueError:
+                    # Si no es formato válido, pedir fecha específica
+                    return {
+                        'response': "❌ No pude entender la fecha que mencionaste. Por favor, proporciona la fecha en formato día/mes/año (ej: 14/11/2025) o di 'mañana', 'hoy', etc.",
+                        'action': None,
+                        'next_step': 'seleccionando_fecha'
+                    }
+        
         # Si ya tenemos fecha y hora, crear la cita
         if current_step == 'selecionando_hora' and entities.get('hora'):
-            fecha = context.get('entities', {}).get('fecha') or context.get('fecha_seleccionada')
             hora = entities.get('hora')
             nombre = context.get('nombre_cliente') or context.get('user_data', {}).get('nombre', 'Paciente')
             motivo = entities.get('motivo') or context.get('motivo', 'Consulta general')

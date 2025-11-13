@@ -233,7 +233,30 @@ class ActionsService:
             
             # Convertir fecha a timestamp
             if isinstance(fecha, str):
-                fecha_dt = datetime.strptime(fecha, '%Y-%m-%d')
+                # Si la fecha es relativa (mañana, hoy, etc.), convertirla primero
+                fecha_lower = fecha.lower().strip()
+                if fecha_lower in ['mañana', 'tomorrow', 'pasado mañana', 'hoy', 'today']:
+                    from datetime import timedelta
+                    if fecha_lower in ['mañana', 'tomorrow']:
+                        fecha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                    elif fecha_lower == 'pasado mañana':
+                        fecha = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+                    elif fecha_lower in ['hoy', 'today']:
+                        fecha = datetime.now().strftime('%Y-%m-%d')
+                
+                # Intentar parsear la fecha
+                try:
+                    fecha_dt = datetime.strptime(fecha, '%Y-%m-%d')
+                except ValueError:
+                    # Si no es formato YYYY-MM-DD, intentar otros formatos
+                    try:
+                        fecha_dt = datetime.strptime(fecha, '%d/%m/%Y')
+                    except ValueError:
+                        try:
+                            fecha_dt = datetime.strptime(fecha, '%d-%m-%Y')
+                        except ValueError:
+                            print(f"Error: No se pudo parsear la fecha '{fecha}'. Formato esperado: YYYY-MM-DD")
+                            raise ValueError(f"Formato de fecha inválido: {fecha}. Por favor proporciona la fecha en formato YYYY-MM-DD (ej: 2025-11-14)")
             else:
                 fecha_dt = fecha
             

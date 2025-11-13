@@ -239,17 +239,38 @@ IMPORTANTE: Responde SOLO con el nombre de la intención en minúsculas, sin pun
         if not self.use_openai:
             return None
         
-        system_prompt = """Eres un extractor de entidades experto para un chatbot de citas dentales.
+        # Obtener fecha actual para contexto
+        from datetime import datetime
+        fecha_actual = datetime.now()
+        fecha_hoy = fecha_actual.strftime('%Y-%m-%d')
+        dia_semana_hoy = fecha_actual.strftime('%A')  # Monday, Tuesday, etc.
+        
+        system_prompt = f"""Eres un extractor de entidades experto para un chatbot de citas dentales.
+
+CONTEXTO ACTUAL:
+- Fecha de hoy: {fecha_hoy} ({dia_semana_hoy})
+- Día de la semana: {fecha_actual.weekday()} (0=Lunes, 6=Domingo)
 
 Extrae las siguientes entidades del mensaje del usuario:
-- fecha: fecha mencionada (formato YYYY-MM-DD o relativa como "mañana", "pasado mañana", "el lunes")
-- hora: hora mencionada (formato HH:MM o relativa como "a las 3", "a las 10am")
-- nombre_dentista: nombre del dentista mencionado (ej: "doctor emilio", "dr. lopez")
+- fecha: SIEMPRE en formato YYYY-MM-DD. Convierte fechas relativas:
+  * "mañana" o "tomorrow" = {fecha_actual + timedelta(days=1).strftime('%Y-%m-%d')}
+  * "pasado mañana" = {fecha_actual + timedelta(days=2).strftime('%Y-%m-%d')}
+  * "hoy" o "today" = {fecha_hoy}
+  * Días de la semana: calcula la fecha del próximo día mencionado
+- hora: SIEMPRE en formato HH:MM (24 horas). Convierte:
+  * "10am" o "10 de la mañana" = "10:00"
+  * "3pm" o "3 de la tarde" = "15:00"
+  * "a las 10" = "10:00"
+- nombre_dentista: nombre del dentista mencionado (ej: "doctor emilio", "dr. lopez", "emilio")
 - motivo: motivo de la cita o descripción
 - numero_cita: número de cita si menciona "primera cita", "cita 2", etc.
 
-Responde SOLO con un JSON válido con las entidades encontradas. Si no encuentras una entidad, usa null.
-Ejemplo: {"fecha": "2025-11-15", "hora": "10:00", "nombre_dentista": "emilio", "motivo": null, "numero_cita": null}"""
+IMPORTANTE: 
+- SIEMPRE convierte fechas relativas a formato YYYY-MM-DD usando el contexto de hoy
+- Si no puedes determinar la fecha exacta, usa null
+- Responde SOLO con un JSON válido
+
+Ejemplo: {{"fecha": "{fecha_actual + timedelta(days=1).strftime('%Y-%m-%d')}", "hora": "10:00", "nombre_dentista": "emilio", "motivo": "dolor de muela", "numero_cita": null}}"""
         
         context_info = ""
         if context:
@@ -275,9 +296,52 @@ Ejemplo: {"fecha": "2025-11-15", "hora": "10:00", "nombre_dentista": "emilio", "
                 response = response.strip()
                 
                 entities = json.loads(response)
+                
+                # Validar y convertir fechas relativas si vienen como texto
+                if entities.get('fecha'):
+                    fecha = entities['fecha']
+                    if isinstance(fecha, str) and not fecha.replace('-', '').isdigit():
+                        # Es una fecha relativa, convertirla
+                        fecha_lower = fecha.lower().strip()
+                        if fecha_lower in ['mañana', 'tomorrow']:
+                            entities['fecha'] = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                        elif fecha_lower in ['pasado mañana', 'day after tomorrow']:
+                            entities['fecha'] = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+                        elif fecha_lower in ['hoy', 'today']:
+                            entities['fecha'] = datetime.now().strftime('%Y-%m-%d')
+                        else:
+                            # Intentar parsear como fecha relativa
+                            print(f"⚠️ Fecha extraída por IA no está en formato YYYY-MM-DD: {fecha}")
+                            entities['fecha'] = None  # Invalidar si no es formato correcto
+                
+                # Validar formato de hora
+                if entities.get('hora'):
+                    hora = entities['hora']
+                    if isinstance(hora, str) and ':' not in hora:
+                        # Intentar convertir formatos como "10am", "3pm", etc.
+                        import re
+                        hora_match = re.search(r'(\d{1,2})\s*(am|pm|de la mañana|de la tarde)', hora.lower())
+                        if hora_match:
+                            hora_num = int(hora_match.group(1))
+                            periodo = hora_match.group(2)
+                            if 'pm' in periodo or 'tarde' in periodo:
+                                if hora_num < 12:
+                                    hora_num += 12
+                            entities['hora'] = f"{hora_num:02d}:00"
+                        else:
+                            # Intentar extraer solo números
+                            hora_num = re.search(r'(\d{1,2})', hora)
+                            if hora_num:
+                                entities['hora'] = f"{int(hora_num.group(1)):02d}:00"
+                
                 return entities
+        except json.JSONDecodeError as e:
+            print(f"Error parseando JSON de entidades: {e}")
+            print(f"Respuesta recibida: {response}")
         except Exception as e:
             print(f"Error extrayendo entidades con IA: {e}")
+            import traceback
+            traceback.print_exc()
         
         return None
     
