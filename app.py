@@ -89,7 +89,7 @@ def web_chat():
         except Exception as ml_error:
             print(f"Error en ML, usando fallback: {ml_error}")
             # Fallback al sistema anterior si ML falla
-            bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
+        bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
         # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
         if not bot_response_text or bot_response_text.strip() == "" or bot_response_text.strip() == "...":
@@ -247,7 +247,7 @@ def webhook():
                     import traceback
                     traceback.print_exc()
                     # Fallback al sistema anterior si ML falla
-                    handle_text_message_extended(from_number, message_body)
+                handle_text_message_extended(from_number, message_body)
         else:
             print("ADVERTENCIA: message_body está vacío")
         

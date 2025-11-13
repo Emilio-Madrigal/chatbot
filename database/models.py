@@ -554,9 +554,10 @@ class CitaRepository:
             fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
             
             from datetime import timedelta
-            hora_obj = datetime.strptime(nueva_hora, '%H:%M')
-            hora_fin_obj = (hora_obj + timedelta(minutes=30)).time()
-            hora_fin = hora_fin_obj.strftime('%H:%M')
+            hora_dt = datetime.strptime(nueva_hora, '%H:%M')
+            hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
+            hora_fin_dt = hora_dt + timedelta(minutes=30)
+            hora_fin = hora_fin_dt.strftime('%H:%M')
             
             # Actualizar en subcolección
             self.db.collection('pacientes')\
@@ -943,7 +944,8 @@ class CitaRepository:
                     fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
                 else:
                     fecha_dt = nueva_fecha
-                hora_obj = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                hora_dt = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
                 nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
                 
                 cita_global_ref.update({
@@ -971,7 +973,8 @@ class CitaRepository:
                         fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
                     else:
                         fecha_dt = nueva_fecha
-                    hora_obj = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                    hora_dt = datetime.strptime(nueva_hora_inicio, '%H:%M')
+                    hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
                     nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
                     
                     self.db.collection('Citas').document(doc.id).update({
