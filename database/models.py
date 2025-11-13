@@ -152,28 +152,9 @@ class CitaRepository:
     def obtener_ultimo_consultorio_paciente(self, paciente_uid: str) -> Optional[Dict]:
         """Obtiene el último consultorio usado por el paciente basado en su última cita"""
         try:
-            # Intentar buscar en la colección principal de Citas
+            # Primero intentar en subcolección de pacientes (no requiere índice compuesto)
             print(f"Buscando último consultorio para paciente: {paciente_uid}")
-            citas_ref = self.db.collection('Citas')
-            query = citas_ref.where('pacienteId', '==', paciente_uid)\
-                            .order_by('createdAt', direction='DESCENDING')\
-                            .limit(1)
-            
-            for doc in query.stream():
-                cita_data = doc.to_dict()
-                consultorio_id = cita_data.get('consultorioID') or cita_data.get('consultorioId')
-                dentista_id = cita_data.get('dentistaId')
-                if consultorio_id and dentista_id:
-                    print(f"Encontrado último consultorio: {consultorio_id}, dentista: {dentista_id}")
-                    return {
-                        'consultorioId': consultorio_id,
-                        'consultorioName': cita_data.get('consultorioName', 'Consultorio'),
-                        'dentistaId': dentista_id,
-                        'dentistaName': cita_data.get('dentistaName', 'Dentista')
-                    }
-            
-            # Si no se encuentra en Citas, intentar en subcolección de pacientes
-            print("No se encontró en Citas, buscando en subcolección de pacientes...")
+            print("Buscando en subcolección de pacientes primero...")
             citas_ref = self.db.collection('pacientes')\
                               .document(paciente_uid)\
                               .collection('citas')

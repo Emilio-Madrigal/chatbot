@@ -26,7 +26,7 @@ twilio==9.0.0
 flask-cors==4.0.0
 
 # OpenAI (opcional, para ML mejorado)
-openai==1.3.0
+openai>=1.12.0
 
 # Para procesamiento de lenguaje natural
 nltk==3.8.1
