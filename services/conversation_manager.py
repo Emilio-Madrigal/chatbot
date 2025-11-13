@@ -27,6 +27,7 @@ class ConversationManager:
                 'entities': {},
                 'user_data': {},
                 'history': [],
+                'mode': 'menu',  # 'menu' o 'agente'
                 'created_at': datetime.now()
             }
         return self.conversations[session_id]
@@ -51,7 +52,7 @@ class ConversationManager:
     
     def process_message(self, session_id: str, message: str, 
                        user_id: str = None, phone: str = None,
-                       user_name: str = None) -> Dict:
+                       user_name: str = None, mode: str = None) -> Dict:
         """
         Procesa un mensaje del usuario y genera una respuesta
         
@@ -65,6 +66,13 @@ class ConversationManager:
         # Obtener contexto
         context = self.get_conversation_context(session_id)
         current_step = context.get('step', 'inicial')
+        current_mode = context.get('mode', 'menu')
+        
+        # Actualizar modo si se especifica
+        if mode and mode in ['menu', 'agente']:
+            context['mode'] = mode
+            current_mode = mode
+            self.update_conversation_context(session_id, {'mode': mode})
         
         # Actualizar datos del usuario si están disponibles
         if user_id or phone:
@@ -77,8 +85,40 @@ class ConversationManager:
         # Agregar mensaje al historial
         self.add_to_history(session_id, 'user', message)
         
-        # Manejar respuestas numéricas primero (1, 2, 3, etc.)
+        # Detectar cambio de modo
+        message_lower = message.lower().strip()
+        if 'modo agente' in message_lower or 'cambiar a agente' in message_lower:
+            self.update_conversation_context(session_id, {'mode': 'agente'})
+            return {
+                'response': '🤖 Modo Agente activado. Ahora puedes hablar conmigo de forma natural. ¿En qué puedo ayudarte?',
+                'action': 'mode_changed',
+                'next_step': 'inicial',
+                'mode': 'agente'
+            }
+        elif 'modo menú' in message_lower or 'modo menu' in message_lower or 'cambiar a menú' in message_lower or 'cambiar a menu' in message_lower:
+            self.update_conversation_context(session_id, {'mode': 'menu', 'step': 'menu_principal'})
+            return {
+                'response': '📋 Modo Menú activado. Usa números para navegar:\n\n1️⃣ Agendar una cita\n2️⃣ Ver tus citas\n3️⃣ Reagendar una cita\n4️⃣ Cancelar una cita\n5️⃣ Información\n\n¿Qué te gustaría hacer?',
+                'action': 'mode_changed',
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+        
+        # Procesar según el modo
+        if current_mode == 'menu':
+            # Modo Menú: Flujo guiado por números
+            return self._process_menu_mode(session_id, message, context, user_id, phone)
+        else:
+            # Modo Agente: ML completo, conversación natural
+            return self._process_agent_mode(session_id, message, context, user_id, phone)
+    
+    def _process_menu_mode(self, session_id: str, message: str, context: Dict,
+                          user_id: str, phone: str) -> Dict:
+        """Procesa mensajes en modo menú (flujo guiado)"""
         message_clean = message.strip()
+        current_step = context.get('step', 'inicial')
+        
+        # Manejar respuestas numéricas primero (1, 2, 3, etc.)
         if message_clean.isdigit():
             button_num = int(message_clean)
             response_data = self._handle_numeric_response(session_id, button_num, context, user_id, phone)
@@ -87,20 +127,60 @@ class ConversationManager:
                     self.add_to_history(session_id, 'assistant', response_data['response'])
                 return response_data
         
-        # Clasificar intención usando ML
+        # Si no es número, usar ML básico para detectar intención
+        intent_result = self.ml_service.classify_intent(message, context)
+        intent = intent_result['intent']
+        
+        # En modo menú, solo procesar intenciones básicas
+        if intent in ['saludar', 'ayuda']:
+            entities = self.ml_service.extract_entities(message, intent)
+            response_data = self._handle_intent(session_id, intent, entities, context)
+            if response_data.get('response'):
+                self.add_to_history(session_id, 'assistant', response_data['response'])
+            return response_data
+        
+        # Para otras intenciones, sugerir usar números
+        return {
+            'response': 'En modo menú, por favor usa números para navegar:\n\n1️⃣ Agendar una cita\n2️⃣ Ver tus citas\n3️⃣ Reagendar una cita\n4️⃣ Cancelar una cita\n5️⃣ Información\n\nO escribe "modo agente" para conversación natural.',
+            'action': None,
+            'next_step': current_step
+        }
+    
+    def _process_agent_mode(self, session_id: str, message: str, context: Dict,
+                           user_id: str, phone: str) -> Dict:
+        """Procesa mensajes en modo agente (ML completo)"""
+        # Clasificar intención usando ML completo
         intent_result = self.ml_service.classify_intent(message, context)
         intent = intent_result['intent']
         confidence = intent_result['confidence']
         
-        # Extraer entidades
+        # Extraer entidades con ML
         entities = self.ml_service.extract_entities(message, intent)
         
         # Actualizar contexto
         context['intent'] = intent
         context['entities'].update(entities)
         
-        # Procesar según la intención
-        response_data = self._handle_intent(session_id, intent, entities, context)
+        # Si la intención es clara y confiable, procesarla directamente
+        if confidence > 0.7 and intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita', 'ver_citas']:
+            response_data = self._handle_intent(session_id, intent, entities, context)
+        else:
+            # Generar respuesta usando ML para conversación natural
+            response = self.ml_service.generate_response(intent, entities, context, context.get('user_data'))
+            
+            # Si la intención es agendar/reagendar/cancelar pero no es clara, intentar procesarla
+            if intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita']:
+                response_data = self._handle_intent(session_id, intent, entities, context)
+                # Si la respuesta es genérica, usar la del ML
+                if response_data.get('response') and len(response_data['response']) < 50:
+                    response_data['response'] = response
+            else:
+                # Para otras intenciones, usar respuesta generada por ML
+                response_data = {
+                    'response': response,
+                    'action': None,
+                    'next_step': context.get('step', 'inicial')
+                }
         
         # Agregar respuesta al historial
         if response_data.get('response'):
@@ -251,8 +331,10 @@ class ConversationManager:
         user_data = context.get('user_data', {})
         nombre = user_data.get('nombre', '')
         saludo = f"Hola {nombre}, " if nombre else "Hola, "
+        current_mode = context.get('mode', 'menu')
         
-        response = f"""{saludo}Puedo ayudarte con:
+        if current_mode == 'menu':
+            response = f"""{saludo}Puedo ayudarte con:
 
 1️⃣ Agendar una cita
 2️⃣ Ver tus citas
@@ -260,12 +342,24 @@ class ConversationManager:
 4️⃣ Cancelar una cita
 5️⃣ Información sobre nuestros servicios
 
-¿Qué te gustaría hacer?"""
+¿Qué te gustaría hacer?
+
+💡 Escribe "modo agente" para conversación natural."""
+        else:
+            response = f"""{saludo}¡Bienvenido a Densora! 🦷
+
+Soy Densorita, tu asistente virtual. Puedo ayudarte a:
+• Agendar citas
+• Ver tus citas programadas
+• Reagendar o cancelar citas
+• Responder preguntas sobre nuestros servicios
+
+¿En qué puedo ayudarte hoy?"""
         
         return {
             'response': response,
             'action': None,
-            'next_step': 'menu_principal'
+            'next_step': 'menu_principal' if current_mode == 'menu' else 'inicial'
         }
     
     def _handle_help(self, context: Dict, entities: Dict) -> Dict:
