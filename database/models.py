@@ -344,18 +344,35 @@ class CitaRepository:
             fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
             
             # Crear documento de cita en subcolección del paciente
+            # Preparar fechaHora completa
+            fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
+            
             cita_data = {
                 'consultorioID': ultimo_consultorio['consultorioId'],
+                'consultorioId': ultimo_consultorio['consultorioId'],  # Ambos formatos
                 'consultorioName': ultimo_consultorio['consultorioName'],
                 'dentistaId': ultimo_consultorio['dentistaId'],
                 'dentistaName': ultimo_consultorio['dentistaName'],
                 'fecha': fecha_timestamp,
+                'fechaHora': fecha_hora_completa,  # Timestamp completo
+                'appointmentDate': fecha_hora_completa.isoformat(),
+                'appointmentTime': hora_inicio,
                 'horaInicio': hora_inicio,
                 'horaFin': hora_fin,
+                'Duracion': 30,
+                'duracion': 30,
                 'estado': 'confirmado',
-                'motivo': datos_cita.get('descripcion', ''),
+                'status': 'confirmado',
+                'motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'Motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'appointmentReason': datos_cita.get('descripcion', 'Consulta general'),
                 'pacienteId': paciente.uid,
                 'pacienteName': datos_cita.get('nombre_cliente', paciente.nombreCompleto),
+                'patientName': datos_cita.get('nombre_cliente', paciente.nombreCompleto),
+                'patientPhone': paciente.telefono or usuario_whatsapp,
+                'patientEmail': paciente.email or '',
+                'paymentMethod': 'cash',
+                'paymentStatus': 'pending',
                 'createdAt': SERVER_TIMESTAMP,
                 'updatedAt': SERVER_TIMESTAMP
             }
