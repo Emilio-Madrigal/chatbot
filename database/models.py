@@ -328,32 +328,97 @@ class CitaRepository:
             # Preparar fechaHora completa
             fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
             
+            # Obtener datos adicionales del consultorio para compatibilidad con web
+            consultorio_doc = self.db.collection('consultorio').document(ultimo_consultorio['consultorioId']).get()
+            consultorio_address = {}
+            consultorio_data_full = {}
+            if consultorio_doc.exists:
+                consultorio_data_full = consultorio_doc.to_dict()
+                consultorio_address = consultorio_data_full.get('direccion', {})
+            
+            # Obtener datos del dentista para especialidad
+            dentista_specialty = ''
+            try:
+                dentista_doc = self.db.collection('dentistas').document(ultimo_consultorio['dentistaId']).get()
+                if dentista_doc.exists:
+                    dentista_data = dentista_doc.to_dict()
+                    dentista_specialty = dentista_data.get('especialidad', '')
+            except:
+                pass
+            
+            # Generar ID de confirmación único
+            import uuid
+            confirmation_id = str(uuid.uuid4())
+            fecha_confirmacion_str = datetime.now().isoformat()
+            
+            # Preparar datos completos de la cita (iguales que la web)
             cita_data = {
-                'consultorioID': ultimo_consultorio['consultorioId'],
-                'consultorioId': ultimo_consultorio['consultorioId'],  # Ambos formatos
-                'consultorioName': ultimo_consultorio['consultorioName'],
-                'dentistaId': ultimo_consultorio['dentistaId'],
-                'dentistaName': ultimo_consultorio['dentistaName'],
-                'fecha': fecha_timestamp,
-                'fechaHora': fecha_hora_completa,  # Timestamp completo
-                'appointmentDate': fecha_hora_completa.isoformat(),
-                'appointmentTime': hora_inicio,
-                'horaInicio': hora_inicio,
-                'horaFin': hora_fin,
-                'Duracion': 30,
-                'duracion': 30,
-                'estado': 'confirmado',
-                'status': 'confirmado',
-                'motivo': datos_cita.get('descripcion', 'Consulta general'),
-                'Motivo': datos_cita.get('descripcion', 'Consulta general'),
-                'appointmentReason': datos_cita.get('descripcion', 'Consulta general'),
+                # Información del paciente
                 'pacienteId': paciente.uid,
                 'pacienteName': datos_cita.get('nombre_cliente', paciente.nombreCompleto),
                 'patientName': datos_cita.get('nombre_cliente', paciente.nombreCompleto),
                 'patientPhone': paciente.telefono or usuario_whatsapp,
                 'patientEmail': paciente.email or '',
+                'patientAge': '',  # No tenemos edad en el chatbot por ahora
+                
+                # Información del dentista
+                'dentistaId': ultimo_consultorio['dentistaId'],
+                'dentistaName': ultimo_consultorio['dentistaName'],
+                'dentistaSpecialty': dentista_specialty,
+                
+                # Información del consultorio
+                'consultorioID': ultimo_consultorio['consultorioId'],  # Formato legacy
+                'consultorioId': ultimo_consultorio['consultorioId'],
+                'consultorioName': ultimo_consultorio['consultorioName'],
+                'consultorioAddress': consultorio_address,
+                
+                # Fecha y hora
+                'fecha': fecha_timestamp,
+                'fechaHora': fecha_hora_completa,
+                'appointmentDate': fecha_hora_completa.strftime('%Y-%m-%d'),  # Solo fecha en formato string
+                'appointmentTime': hora_inicio,
+                'horaInicio': hora_inicio,
+                'horaFin': hora_fin,
+                
+                # Duración
+                'Duracion': 30,
+                'duracion': 30,
+                
+                # Motivo (todos los formatos)
+                'Motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'motivo': datos_cita.get('descripcion', 'Consulta general'),
+                'appointmentReason': datos_cita.get('descripcion', 'Consulta general'),
+                
+                # Tratamiento (vacío por ahora, chatbot no selecciona tratamientos específicos)
+                'tratamientoId': '',
+                'tratamientoNombre': '',
+                'tratamientoPrecio': 0,
+                
+                # Estado
+                'estado': 'programada',  # Igual que la web después de verificar OTP
+                'status': 'programada',
+                
+                # Método de pago
                 'paymentMethod': 'cash',
                 'paymentStatus': 'pending',
+                
+                # Validaciones (simulamos las mismas que la web)
+                'validacionesCompletadas': {
+                    'otpVerified': True,  # Chatbot no usa OTP pero lo marcamos como verificado
+                    'conflictsChecked': True,
+                    'limitChecked': True,
+                    'blockedDaysChecked': True,
+                    'validatedAt': fecha_confirmacion_str
+                },
+                'otpVerified': True,
+                'otpVerifiedAt': fecha_confirmacion_str,
+                'confirmationId': confirmation_id,
+                'fechaConfirmacion': fecha_confirmacion_str,
+                
+                # Historial médico compartido (null por ahora)
+                'sharedMedicalHistory': None,
+                
+                # Timestamps
                 'createdAt': SERVER_TIMESTAMP,
                 'updatedAt': SERVER_TIMESTAMP
             }
