@@ -491,16 +491,22 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 nombre_dentista=entities.get('nombre_dentista')  # Pasar nombre del dentista si se mencionó
             )
             
-            if result['success']:
+            if result.get('success'):
+                # Obtener nombre del dentista usado
+                dentista_usado = entities.get('nombre_dentista', 'tu dentista')
                 self.update_conversation_context(session_id, {'step': 'inicial', 'mode': current_mode})
+                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
+                print(f"✅ Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
                 return {
-                    'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷",
+                    'response': response_text,
                     'action': 'appointment_created',
                     'next_step': 'inicial'
                 }
             else:
+                error_msg = result.get('error', 'Error desconocido')
+                print(f"❌ Error creando cita: {error_msg}")
                 return {
-                    'response': f"❌ Lo siento, no pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente.",
+                    'response': f"❌ Lo siento, no pude agendar tu cita: {error_msg}\n\nPor favor intenta nuevamente.",
                     'action': None,
                     'next_step': 'inicial'
                 }
