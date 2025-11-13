@@ -437,10 +437,13 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 })
                 
                 # Obtener horarios disponibles
+                # Si hay nombre de dentista en entidades, buscar ese dentista específico
+                nombre_dentista = entities.get('nombre_dentista')
                 horarios = self.actions_service.get_available_times(
                     user_id=user_id,
                     phone=phone,
-                    fecha=fecha
+                    fecha=fecha,
+                    nombre_dentista=nombre_dentista
                 )
                 
                 if horarios:
