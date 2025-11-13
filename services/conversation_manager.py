@@ -403,11 +403,16 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
     
     def _handle_schedule_appointment(self, session_id: str, entities: Dict, 
                                    context: Dict, user_id: str, phone: str) -> Dict:
-        """Maneja el agendamiento de citas"""
+        """Maneja el agendamiento de citas - MODO INTELIGENTE"""
         current_step = context.get('step', 'inicial')
+        current_mode = context.get('mode', 'menu')
         
         # Validar y convertir fecha si es relativa
         fecha = entities.get('fecha') or context.get('entities', {}).get('fecha') or context.get('fecha_seleccionada')
+        hora = entities.get('hora') or context.get('hora_seleccionada')
+        nombre = entities.get('nombre_cliente') or context.get('nombre_cliente') or context.get('user_data', {}).get('nombre', 'Paciente')
+        motivo = entities.get('motivo') or context.get('motivo', 'Consulta general')
+        
         if fecha:
             from datetime import datetime, timedelta
             if isinstance(fecha, str):
@@ -415,10 +420,14 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 # Si es fecha relativa, convertirla
                 if fecha_lower in ['mañana', 'tomorrow']:
                     fecha = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+                    print(f"Fecha relativa convertida: 'mañana' -> {fecha}")
                 elif fecha_lower in ['pasado mañana', 'day after tomorrow']:
                     fecha = (datetime.now() + timedelta(days=2)).strftime('%Y-%m-%d')
+                    print(f"Fecha relativa convertida: 'pasado mañana' -> {fecha}")
                 elif fecha_lower in ['hoy', 'today']:
                     fecha = datetime.now().strftime('%Y-%m-%d')
+                    print(f"Fecha relativa convertida: 'hoy' -> {fecha}")
+                
                 # Validar formato
                 try:
                     datetime.strptime(fecha, '%Y-%m-%d')
@@ -430,46 +439,71 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                         'next_step': 'seleccionando_fecha'
                     }
         
-        # Si ya tenemos fecha y hora, crear la cita
-        if current_step == 'selecionando_hora' and entities.get('hora'):
-            hora = entities.get('hora')
-            nombre = context.get('nombre_cliente') or context.get('user_data', {}).get('nombre', 'Paciente')
-            motivo = entities.get('motivo') or context.get('motivo', 'Consulta general')
+        # ========== CASO 1: TENEMOS FECHA Y HORA ==========
+        # Si el usuario dio fecha Y hora desde el principio, CREAR LA CITA DIRECTAMENTE
+        if fecha and hora:
+            print(f"✅ CASO COMPLETO: Tenemos fecha ({fecha}) y hora ({hora}), creando cita directamente...")
             
-            if fecha and hora:
-                # Crear cita
-                result = self.actions_service.create_appointment(
-                    user_id=user_id,
-                    phone=phone,
-                    fecha=fecha,
-                    hora=hora,
-                    nombre_cliente=nombre,
-                    motivo=motivo
-                )
-                
-                if result['success']:
-                    self.update_conversation_context(session_id, {'step': 'inicial'})
-                    return {
-                        'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷",
-                        'action': 'appointment_created',
-                        'next_step': 'inicial'
-                    }
-                else:
-                    return {
-                        'response': f"❌ Lo siento, no pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente o escribe *menu* para ver las opciones.",
-                        'action': None,
-                        'next_step': current_step
-                    }
+            # Validar que la hora esté disponible
+            horarios_disponibles = self.actions_service.get_available_times(
+                user_id=user_id,
+                phone=phone,
+                fecha=fecha,
+                nombre_dentista=entities.get('nombre_dentista')
+            )
+            
+            if not horarios_disponibles:
+                return {
+                    'response': f"❌ Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
+                    'action': None,
+                    'next_step': 'seleccionando_fecha'
+                }
+            
+            # Verificar que la hora solicitada esté disponible
+            if hora not in horarios_disponibles:
+                horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios_disponibles[:5])])
+                return {
+                    'response': f"⚠️ La hora {hora} no está disponible para el {fecha}.\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
+                    'action': None,
+                    'next_step': 'selecionando_hora',
+                    'entities': {'fecha': fecha, 'horarios_disponibles': horarios_disponibles}
+                }
+            
+            # ¡CREAR LA CITA DIRECTAMENTE!
+            result = self.actions_service.create_appointment(
+                user_id=user_id,
+                phone=phone,
+                fecha=fecha,
+                hora=hora,
+                nombre_cliente=nombre,
+                motivo=motivo
+            )
+            
+            if result['success']:
+                self.update_conversation_context(session_id, {'step': 'inicial', 'mode': current_mode})
+                return {
+                    'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷",
+                    'action': 'appointment_created',
+                    'next_step': 'inicial'
+                }
+            else:
+                return {
+                    'response': f"❌ Lo siento, no pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente.",
+                    'action': None,
+                    'next_step': 'inicial'
+                }
         
-        # Si tenemos fecha pero no hora, pedir hora
-        if current_step == 'seleccionando_fecha' or entities.get('fecha'):
-            fecha = entities.get('fecha')
-            if fecha:
-                self.update_conversation_context(session_id, {
-                    'step': 'selecionando_hora',
-                    'fecha_seleccionada': fecha,
-                    'entities': {'fecha': fecha}
-                })
+        # ========== CASO 2: SOLO TENEMOS FECHA ==========
+        # Si tenemos fecha pero no hora, mostrar horarios disponibles
+        if fecha and not hora:
+            print(f"📅 CASO PARCIAL: Tenemos fecha ({fecha}) pero no hora, mostrando horarios...")
+            
+            self.update_conversation_context(session_id, {
+                'step': 'selecionando_hora',
+                'fecha_seleccionada': fecha,
+                'motivo': motivo,
+                'nombre_cliente': nombre
+            })
                 
                 # Obtener horarios disponibles
                 # Si hay nombre de dentista en entidades, buscar ese dentista específico
