@@ -33,14 +33,14 @@ class WhatsAppService:
                 from_=self.whatsapp_number,
                 to=to
             )
-            print(f"✅ Mensaje enviado via Twilio. SID: {message.sid}")
+            print(f"Mensaje enviado via Twilio. SID: {message.sid}")
             return {"status": "sent", "sid": message.sid}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)
             
             print("="*60)
-            print(f"❌ ERROR ENVIANDO MENSAJE VIA TWILIO")
+            print(f"ERROR ENVIANDO MENSAJE VIA TWILIO")
             print("="*60)
             print(f"Código de error: {error_code}")
             print(f"Mensaje: {error_msg}")
@@ -50,13 +50,13 @@ class WhatsAppService:
             
             # Error específico 63112: Cuenta de Meta deshabilitada
             if error_code == 63112:
-                print("⚠️ ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada")
+                print("ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada"),
                 print("   Revisa SOLUCION_ERROR_63112.md para más información")
             
             return None
         except Exception as e:
             print("="*60)
-            print(f"❌ ERROR INESPERADO ENVIANDO MENSAJE")
+            print(f"ERROR INESPERADO ENVIANDO MENSAJE")
             print("="*60)
             print(f"Error: {e}")
             import traceback
@@ -117,20 +117,20 @@ class WhatsAppService:
             error_msg = str(e)
             
             print("="*60)
-            print(f"❌ ERROR ENVIANDO PLANTILLA VIA TWILIO")
+            print(f"ERROR ENVIANDO PLANTILLA VIA TWILIO")
             print("="*60)
             print(f"Código de error: {error_code}")
             print(f"Mensaje: {error_msg}")
             print("="*60)
             
             if error_code == 63112:
-                print("⚠️ ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada")
+                print("ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada"),
                 print("   Revisa SOLUCION_ERROR_63112.md para más información")
             
             return None
         except Exception as e:
             print("="*60)
-            print(f"❌ ERROR INESPERADO ENVIANDO PLANTILLA")
+            print(f"ERROR INESPERADO ENVIANDO PLANTILLA")
             print("="*60)
             print(f"Error: {e}")
             import traceback
@@ -168,10 +168,10 @@ class WhatsAppService:
                         to=to,
                         content_sid=content_sid
                     )
-                    print(f"✅ Mensaje con botones interactivos enviado. SID: {message.sid}")
+                    print(f"Mensaje con botones interactivos enviado. SID: {message.sid}")
                     return {"status": "sent", "sid": message.sid}
                 except TwilioRestException as e:
-                    print(f"⚠️ Error usando Content Template, usando fallback: {e}")
+                    print(f"Error usando Content Template, usando fallback: {e}")
                     # Continuar con fallback
             
             # Fallback: Enviar como mensaje de texto con botones formateados
@@ -183,7 +183,7 @@ class WhatsAppService:
             for i, button in enumerate(buttons, 1):
                 message_text += f"{i}. {button['title']}\n"
             
-            message_text += "\n💡 Puedes escribir el número (1, 2, 3) o el texto exacto del botón."
+            message_text += "\nPuedes escribir el número (1, 2, 3) o el texto exacto del botón."
             
             result = self.send_text_message(to_number, message_text)
             
@@ -193,7 +193,7 @@ class WhatsAppService:
             return result
                 
         except Exception as e:
-            print(f"❌ Error enviando botones interactivos: {e}")
+            print(f"Error enviando botones interactivos: {e}")
             import traceback
             traceback.print_exc()
             # Fallback final a texto numerado
@@ -230,15 +230,15 @@ class WhatsAppService:
     
     def send_main_menu(self, to_number: str):
         buttons = [
-            {"id": "agendar_cita", "title": "📅 Agendar Cita"},
-            {"id": "ver_citas", "title": "👀 Ver Mis Citas"},
-            {"id": "gestionar_citas", "title": "⚙️ Gestionar"}
+            {"id": "agendar_cita", "title": "Agendar Cita"},
+            {"id": "ver_citas", "title": "Ver Mis Citas"},
+            {"id": "gestionar_citas", "title": "Gestionar"}
         ]
         
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_MENU_PRINCIPAL
         if content_sid:
-            print(f"✅ Usando Content Template para menú principal: {content_sid}")
+            print(f"Usando Content Template para menú principal: {content_sid}")
         
         return self.send_interactive_buttons(
             to_number,
@@ -250,19 +250,19 @@ class WhatsAppService:
     
     def send_management_menu(self, to_number: str):
         buttons = [
-            {"id": "reagendar_cita", "title": "🔄 Reagendar"},
-            {"id": "cancelar_cita", "title": "❌ Cancelar"},
-            {"id": "volver_menu", "title": "🏠 Menú Principal"}
+            {"id": "reagendar_cita", "title": "Reagendar"},
+            {"id": "cancelar_cita", "title": "Cancelar"},
+            {"id": "volver_menu", "title": "Menú Principal"}
         ]
         
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_GESTION
         if content_sid:
-            print(f"✅ Usando Content Template para menú de gestión: {content_sid}")
+            print(f"Usando Content Template para menú de gestión: {content_sid}")
         
         return self.send_interactive_buttons(
             to_number,
-            "⚙️ Gestionar Citas",
+            "Gestionar Citas",
             "¿Qué deseas realizar?",
             buttons,
             content_sid=content_sid if content_sid else None
@@ -308,7 +308,7 @@ class WhatsAppService:
         
         return self.send_interactive_buttons(
             to_number,
-            "📅 Selecciona una Fecha",
+            "Selecciona una Fecha",
             "¿Cuándo te gustaría agendar tu cita?",
             buttons,
             content_sid=content_sid if content_sid else None
@@ -359,7 +359,7 @@ class WhatsAppService:
         
         return self.send_interactive_buttons(
             to_number,
-            "⏰ Selecciona una Hora",
+            "Selecciona una Hora",
             f"Fecha elegida: *{fecha_formatted}*\n¿A qué hora prefieres tu cita?",
             buttons,
             content_sid=content_sid if content_sid else None
@@ -379,7 +379,7 @@ class WhatsAppService:
             rows.append({
                 "id": f"{action_type}_{cita.id}",
                 "title": f"{cita.nombre_cliente}",
-                "description": f"📅 {fecha_formatted} ⏰ {cita.hora}"
+                "description": f"{fecha_formatted} {cita.hora}"
             })
         
         sections = [{
@@ -395,7 +395,7 @@ class WhatsAppService:
         
         return self.send_list_message(
             to_number,
-            "📋 Mis Citas",
+            "Mis Citas",
             action_messages.get(action_type, "Selecciona una cita:"),
             "Ver Citas",
             sections
@@ -405,20 +405,20 @@ class WhatsAppService:
         from datetime import datetime
         fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
         
-        message = f"""📋 *DETALLES DE LA CITA*
+        message = f"""*DETALLES DE LA CITA*
 
-👤 *Cliente:* {cita.nombre_cliente}
-📅 *Fecha:* {fecha_formatted}
-⏰ *Hora:* {cita.hora}
-📝 *Descripción:* {cita.descripcion}
-📊 *Estado:* {cita.estado.title()}
+*Cliente:* {cita.nombre_cliente}
+*Fecha:* {fecha_formatted}
+*Hora:* {cita.hora}
+*Descripción:* {cita.descripcion}
+*Estado:* {cita.estado.title()}
 
 ¿Necesitas hacer algún cambio?"""
         
         buttons = [
-            {"id": f"reagendar_{cita.id}", "title": "🔄 Reagendar"},
-            {"id": f"cancelar_{cita.id}", "title": "❌ Cancelar"},
-            {"id": "volver_menu", "title": "🏠 Menú"}
+            {"id": f"reagendar_{cita.id}", "title": "Reagendar"},
+            {"id": f"cancelar_{cita.id}", "title": "Cancelar"},
+            {"id": "volver_menu", "title": "Menú"}
         ]
         
         self.send_text_message(to_number, message)
@@ -435,18 +435,16 @@ class WhatsAppService:
         fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
         
         if is_new:
-            emoji = "✅"
             action = "AGENDADA"
         else:
-            emoji = "🔄"
             action = "REAGENDADA"
         
-        message = f"""{emoji} *CITA {action} EXITOSAMENTE*
+        message = f"""*CITA {action} EXITOSAMENTE*
 
-👤 *Cliente:* {cita.nombre_cliente}
-📅 *Fecha:* {fecha_formatted}
-⏰ *Hora:* {cita.hora}
-📝 *Motivo:* {cita.descripcion}
+*Cliente:* {cita.nombre_cliente}
+*Fecha:* {fecha_formatted}
+*Hora:* {cita.hora}
+*Motivo:* {cita.descripcion}
 
 Te enviaré un recordatorio 1 día antes de tu cita.
 

@@ -1,5 +1,5 @@
 """
-💬 GESTOR DE CONVERSACIONES MEJORADO
+GESTOR DE CONVERSACIONES MEJORADO
 Maneja el contexto y flujo de conversación del chatbot con ML
 """
 
@@ -90,7 +90,7 @@ class ConversationManager:
         if 'modo agente' in message_lower or 'cambiar a agente' in message_lower:
             self.update_conversation_context(session_id, {'mode': 'agente'})
             return {
-                'response': '🤖 Modo Agente activado. Ahora puedes hablar conmigo de forma natural. ¿En qué puedo ayudarte?',
+                'response': 'Modo Agente activado. Ahora puedes hablar conmigo de forma natural. ¿En qué puedo ayudarte?',
                 'action': 'mode_changed',
                 'next_step': 'inicial',
                 'mode': 'agente'
@@ -98,7 +98,7 @@ class ConversationManager:
         elif 'modo menú' in message_lower or 'modo menu' in message_lower or 'cambiar a menú' in message_lower or 'cambiar a menu' in message_lower:
             self.update_conversation_context(session_id, {'mode': 'menu', 'step': 'menu_principal'})
             return {
-                'response': '📋 Modo Menú activado. Usa números para navegar:\n\n1️⃣ Agendar una cita\n2️⃣ Ver tus citas\n3️⃣ Reagendar una cita\n4️⃣ Cancelar una cita\n5️⃣ Información\n\n¿Qué te gustaría hacer?',
+                'response': 'Modo Menú activado. Usa números para navegar:\n\n1. Agendar una cita\n2. Ver tus citas\n3. Reagendar una cita\n4. Cancelar una cita\n5. Información\n\n¿Qué te gustaría hacer?',
                 'action': 'mode_changed',
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -135,7 +135,7 @@ class ConversationManager:
         # Si detecta una intención clara de agendar/reagendar/cancelar/ver citas, procesarla
         # Aunque esté en modo menú, si el usuario habla naturalmente, ayudarlo
         if intent in ['agendar_cita', 'reagendar_cita', 'cancelar_cita', 'ver_citas'] and confidence > 0.6:
-            print(f"✅ Modo menú detectó intención clara: {intent} (confianza: {confidence})")
+            print(f"Modo menú detectó intención clara: {intent} (confianza: {confidence})")
             entities = self.ml_service.extract_entities(message, intent, context)
             response_data = self._handle_intent(session_id, intent, entities, context)
             if response_data.get('response'):
@@ -152,7 +152,7 @@ class ConversationManager:
         
         # Para otras intenciones, sugerir usar números
         return {
-            'response': 'En modo menú, por favor usa números para navegar:\n\n1️⃣ Agendar una cita\n2️⃣ Ver tus citas\n3️⃣ Reagendar una cita\n4️⃣ Cancelar una cita\n5️⃣ Información\n\nO escribe "modo agente" para conversación natural.',
+            'response': 'En modo menú, por favor usa números para navegar:\n\n1. Agendar una cita\n2. Ver tus citas\n3. Reagendar una cita\n4. Cancelar una cita\n5. Información\n\nO escribe "modo agente" para conversación natural.',
             'action': None,
             'next_step': current_step
         }
@@ -355,7 +355,7 @@ class ConversationManager:
         
         elif intent == 'despedirse':
             return {
-                'response': '¡Hasta luego! Que tengas un excelente día. 🦷',
+                'response': '¡Hasta luego! Que tengas un excelente día.',
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -380,17 +380,17 @@ class ConversationManager:
         if current_mode == 'menu':
             response = f"""{saludo}Puedo ayudarte con:
 
-1️⃣ Agendar una cita
-2️⃣ Ver tus citas
-3️⃣ Reagendar una cita
-4️⃣ Cancelar una cita
-5️⃣ Información sobre nuestros servicios
+1. Agendar una cita
+2. Ver tus citas
+3. Reagendar una cita
+4. Cancelar una cita
+5. Información sobre nuestros servicios
 
 ¿Qué te gustaría hacer?
 
-💡 Escribe "modo agente" para conversación natural."""
+Escribe "modo agente" para conversación natural."""
         else:
-            response = f"""{saludo}¡Bienvenido a Densora! 🦷
+            response = f"""{saludo}¡Bienvenido a Densora!
 
 Soy Densorita, tu asistente virtual. Puedo ayudarte a:
 • Agendar citas
@@ -419,11 +419,11 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             saludo = f"Hola {nombre}, " if nombre else "Hola, "
             response = f"""{saludo}Puedo ayudarte con:
 
-1️⃣ Agendar una cita
-2️⃣ Ver tus citas
-3️⃣ Reagendar una cita
-4️⃣ Cancelar una cita
-5️⃣ Información sobre nuestros servicios
+1. Agendar una cita
+2. Ver tus citas
+3. Reagendar una cita
+4. Cancelar una cita
+5. Información sobre nuestros servicios
 
 ¿Qué te gustaría hacer?"""
         
@@ -466,7 +466,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 except ValueError:
                     # Si no es formato válido, pedir fecha específica
                     return {
-                        'response': "❌ No pude entender la fecha que mencionaste. Por favor, proporciona la fecha en formato día/mes/año (ej: 14/11/2025) o di 'mañana', 'hoy', etc.",
+                        'response': "No pude entender la fecha que mencionaste. Por favor, proporciona la fecha en formato día/mes/año (ej: 14/11/2025) o di 'mañana', 'hoy', etc.",
                         'action': None,
                         'next_step': 'seleccionando_fecha'
                     }
@@ -474,7 +474,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         # ========== CASO 1: TENEMOS FECHA Y HORA ==========
         # Si el usuario dio fecha Y hora desde el principio, CREAR LA CITA DIRECTAMENTE
         if fecha and hora:
-            print(f"✅ CASO COMPLETO: Tenemos fecha ({fecha}) y hora ({hora}), creando cita directamente...")
+            print(f"CASO COMPLETO: Tenemos fecha ({fecha}) y hora ({hora}), creando cita directamente...")
             
             # Validar que la hora esté disponible
             horarios_disponibles = self.actions_service.get_available_times(
@@ -486,7 +486,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             
             if not horarios_disponibles:
                 return {
-                    'response': f"❌ Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
+                    'response': f"Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
                     'action': None,
                     'next_step': 'seleccionando_fecha'
                 }
@@ -495,7 +495,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             if hora not in horarios_disponibles:
                 horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios_disponibles[:5])])
                 return {
-                    'response': f"⚠️ La hora {hora} no está disponible para el {fecha}.\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
+                    'response': f"La hora {hora} no está disponible para el {fecha}.\n\nHorarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
                     'action': None,
                     'next_step': 'selecionando_hora',
                     'entities': {'fecha': fecha, 'horarios_disponibles': horarios_disponibles}
@@ -532,12 +532,12 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                     else:
                         deadline_dt = payment_deadline
                     hours_remaining = int((deadline_dt - datetime.now()).total_seconds() / 3600)
-                    payment_info = f"\n\n⚠️ IMPORTANTE: Esta cita requiere confirmación de pago por {payment_method} dentro de las próximas {hours_remaining} horas. De lo contrario, será cancelada automáticamente."
+                    payment_info = f"\n\nIMPORTANTE: Esta cita requiere confirmación de pago por {payment_method} dentro de las próximas {hours_remaining} horas. De lo contrario, será cancelada automáticamente."
                 elif payment_method.lower() in ['cash', 'efectivo']:
-                    payment_info = f"\n\n💰 Método de pago: Efectivo (se paga al momento de la cita)"
+                    payment_info = f"\n\nMétodo de pago: Efectivo (se paga al momento de la cita)"
                 
-                response_text = f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha}\n⏰ Hora: {hora}\n👨‍⚕️ Dentista: {dentista_usado}\n🏥 Consultorio: {consultorio_usado}\n👤 Paciente: {nombre}\n💬 Motivo: {motivo}{payment_info}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora! 🦷"
-                print(f"✅ Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
+                response_text = f"¡Perfecto! Tu cita ha sido agendada exitosamente.\n\nFecha: {fecha}\nHora: {hora}\nDentista: {dentista_usado}\nConsultorio: {consultorio_usado}\nPaciente: {nombre}\nMotivo: {motivo}{payment_info}\n\nTe enviaremos un recordatorio antes de tu cita. ¡Gracias por usar Densora!"
+                print(f"Cita creada exitosamente, retornando respuesta: {response_text[:100]}...")
                 return {
                     'response': response_text,
                     'action': 'appointment_created',
@@ -545,9 +545,9 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 }
             else:
                 error_msg = result.get('error', 'Error desconocido')
-                print(f"❌ Error creando cita: {error_msg}")
+                print(f"Error creando cita: {error_msg}")
                 return {
-                    'response': f"❌ Lo siento, no pude agendar tu cita: {error_msg}\n\nPor favor intenta nuevamente.",
+                    'response': f"Lo siento, no pude agendar tu cita: {error_msg}\n\nPor favor intenta nuevamente.",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -555,7 +555,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         # ========== CASO 2: SOLO TENEMOS FECHA ==========
         # Si tenemos fecha pero no hora, mostrar horarios disponibles
         if fecha and not hora:
-            print(f"📅 CASO PARCIAL: Tenemos fecha ({fecha}) pero no hora, mostrando horarios...")
+            print(f"CASO PARCIAL: Tenemos fecha ({fecha}) pero no hora, mostrando horarios...")
             
             self.update_conversation_context(session_id, {
                 'step': 'selecionando_hora',
@@ -578,14 +578,14 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                     'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
                 })
                 return {
-                    'response': f"📅 Fecha seleccionada: {fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres? (Escribe el número o la hora)",
+                    'response': f"Fecha seleccionada: {fecha}\n\nHorarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres? (Escribe el número o la hora)",
                     'action': None,
                     'next_step': 'selecionando_hora',
                     'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
                 }
             else:
                 return {
-                    'response': f"❌ Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
+                    'response': f"Lo siento, no hay horarios disponibles para el {fecha}.\n\n¿Te gustaría elegir otra fecha?",
                     'action': None,
                     'next_step': 'seleccionando_fecha'
                 }
@@ -610,14 +610,14 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 'entities': {'fechas_disponibles': fechas}
             })
             return {
-                'response': f"📅 ¡Perfecto! Te ayudo a agendar tu cita.\n\nFechas disponibles:\n{fechas_text}\n\n¿Qué fecha prefieres? (Escribe el número o la fecha)",
+                'response': f"¡Perfecto! Te ayudo a agendar tu cita.\n\nFechas disponibles:\n{fechas_text}\n\n¿Qué fecha prefieres? (Escribe el número o la fecha)",
                 'action': None,
                 'next_step': 'seleccionando_fecha',
                 'entities': {'fechas_disponibles': fechas}
             }
         else:
             return {
-                'response': "❌ Lo siento, no hay fechas disponibles en este momento.\n\nEsto puede deberse a que:\n• No tienes un consultorio asociado\n• No hay horarios configurados\n\nPor favor contacta directamente con el consultorio o intenta más tarde.\n\nEscribe *menu* para ver otras opciones.",
+                'response': "Lo siento, no hay fechas disponibles en este momento.\n\nEsto puede deberse a que:\n• No tienes un consultorio asociado\n• No hay horarios configurados\n\nPor favor contacta directamente con el consultorio o intenta más tarde.\n\nEscribe *menu* para ver otras opciones.",
                 'action': None,
                 'next_step': 'menu_principal'
             }
@@ -645,13 +645,13 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 if result['success']:
                     self.update_conversation_context(session_id, {'step': 'inicial'})
                     return {
-                        'response': f"✅ ¡Perfecto! Tu cita ha sido reagendada exitosamente.\n\n📅 Nueva fecha: {nueva_fecha}\n⏰ Nueva hora: {nueva_hora}\n\nTe enviaremos un recordatorio antes de tu cita.",
+                        'response': f"¡Perfecto! Tu cita ha sido reagendada exitosamente.\n\nNueva fecha: {nueva_fecha}\nNueva hora: {nueva_hora}\n\nTe enviaremos un recordatorio antes de tu cita.",
                         'action': 'appointment_rescheduled',
                         'next_step': 'inicial'
                     }
                 else:
                     return {
-                        'response': f"❌ No pude reagendar tu cita: {result.get('error', 'Error desconocido')}",
+                        'response': f"No pude reagendar tu cita: {result.get('error', 'Error desconocido')}",
                         'action': None,
                         'next_step': current_step
                     }
@@ -676,7 +676,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 if horarios:
                     horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
                     return {
-                        'response': f"📅 Nueva fecha seleccionada: {nueva_fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
+                        'response': f"Nueva fecha seleccionada: {nueva_fecha}\n\nHorarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
                         'action': None,
                         'next_step': 'reagendando_hora',
                         'entities': {'fecha': nueva_fecha, 'horarios_disponibles': horarios}
@@ -710,7 +710,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 if fechas:
                     fechas_text = "\n".join([f"{i+1}. {f}" for i, f in enumerate(fechas)])
                     return {
-                        'response': f"🔄 Reagendando cita de {citas[cita_num]['fecha']} {citas[cita_num]['hora']}\n\n📅 Fechas disponibles:\n{fechas_text}\n\n¿Qué fecha prefieres?",
+                        'response': f"Reagendando cita de {citas[cita_num]['fecha']} {citas[cita_num]['hora']}\n\nFechas disponibles:\n{fechas_text}\n\n¿Qué fecha prefieres?",
                         'action': None,
                         'next_step': 'reagendando_fecha',
                         'entities': {'fechas_disponibles': fechas}
@@ -723,7 +723,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         ])
         
         return {
-            'response': f"🔄 Reagendar Cita\n\nTus citas programadas:\n{citas_text}\n\n¿Cuál cita quieres reagendar? (Escribe el número)",
+            'response': f"Reagendar Cita\n\nTus citas programadas:\n{citas_text}\n\n¿Cuál cita quieres reagendar? (Escribe el número)",
             'action': None,
             'next_step': 'seleccionando_cita_reagendar',
             'entities': {'citas': citas}
@@ -747,13 +747,13 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 if result['success']:
                     self.update_conversation_context(session_id, {'step': 'inicial'})
                     return {
-                        'response': "✅ Tu cita ha sido cancelada exitosamente.\n\nSi necesitas agendar una nueva cita, escribe *menu*.",
+                        'response': "Tu cita ha sido cancelada exitosamente.\n\nSi necesitas agendar una nueva cita, escribe *menu*.",
                         'action': 'appointment_cancelled',
                         'next_step': 'inicial'
                     }
                 else:
                     return {
-                        'response': f"❌ No pude cancelar tu cita: {result.get('error', 'Error desconocido')}",
+                        'response': f"No pude cancelar tu cita: {result.get('error', 'Error desconocido')}",
                         'action': None,
                         'next_step': current_step
                     }
@@ -775,7 +775,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 })
                 
                 return {
-                    'response': f"⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\n📅 {citas[cita_num]['fecha']} {citas[cita_num]['hora']}\n👤 {citas[cita_num]['nombre']}\n\nResponde *SI* para confirmar o *NO* para mantenerla.",
+                    'response': f"¿Estás seguro de que quieres cancelar esta cita?\n\n{citas[cita_num]['fecha']} {citas[cita_num]['hora']}\n{citas[cita_num]['nombre']}\n\nResponde *SI* para confirmar o *NO* para mantenerla.",
                     'action': None,
                     'next_step': 'confirmando_cancelacion'
                 }
@@ -800,7 +800,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         ])
         
         return {
-            'response': f"❌ Cancelar Cita\n\nTus citas programadas:\n{citas_text}\n\n¿Cuál cita quieres cancelar? (Escribe el número)",
+            'response': f"Cancelar Cita\n\nTus citas programadas:\n{citas_text}\n\n¿Cuál cita quieres cancelar? (Escribe el número)",
             'action': None,
             'next_step': 'seleccionando_cita_cancelar',
             'entities': {'citas': citas}
@@ -831,10 +831,10 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             except:
                 pass
             
-            citas_text.append(f"{i}. 📅 {fecha_display} ⏰ {c['hora']}\n   👤 {c['nombre']}\n   🏥 {c['consultorio']}\n   📝 {c['motivo']}\n   📊 Estado: {c['estado']}")
+            citas_text.append(f"{i}. {fecha_display} {c['hora']}\n   {c['nombre']}\n   {c['consultorio']}\n   {c['motivo']}\n   Estado: {c['estado']}")
         
         return {
-            'response': f"📋 Tus Citas Programadas:\n\n" + "\n\n".join(citas_text) + "\n\n¿Necesitas hacer algún cambio? Escribe *3* para reagendar o *4* para cancelar.",
+            'response': f"Tus Citas Programadas:\n\n" + "\n\n".join(citas_text) + "\n\n¿Necesitas hacer algún cambio? Escribe *3* para reagendar o *4* para cancelar.",
             'action': None,
             'next_step': 'menu_principal'
         }
@@ -866,7 +866,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             if horarios:
                 horarios_text = "\n".join([f"{i+1}. {h}" for i, h in enumerate(horarios[:5])])
                 return {
-                    'response': f"📅 Fecha seleccionada: {fecha}\n\n⏰ Horarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
+                    'response': f"Fecha seleccionada: {fecha}\n\nHorarios disponibles:\n{horarios_text}\n\n¿Qué hora prefieres?",
                     'action': None,
                     'next_step': 'selecionando_hora',
                     'entities': {'fecha': fecha, 'horarios_disponibles': horarios}
@@ -921,13 +921,13 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                     fecha_display = fecha
                 
                 return {
-                    'response': f"✅ ¡Perfecto! Tu cita ha sido agendada exitosamente.\n\n📅 Fecha: {fecha_display}\n⏰ Hora: {hora}\n👤 Paciente: {nombre}\n\nTe enviaremos un recordatorio antes de tu cita.",
+                    'response': f"¡Perfecto! Tu cita ha sido agendada exitosamente.\n\nFecha: {fecha_display}\nHora: {hora}\nPaciente: {nombre}\n\nTe enviaremos un recordatorio antes de tu cita.",
                     'action': 'appointment_created',
                     'next_step': 'inicial'
                 }
             else:
                 return {
-                    'response': f"❌ No pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente.",
+                    'response': f"No pude agendar tu cita: {result.get('error', 'Error desconocido')}\n\nPor favor intenta nuevamente.",
                     'action': None,
                     'next_step': 'selecionando_hora'
                 }
@@ -953,7 +953,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             
             if not citas_pendientes:
                 return {
-                    'response': "No tienes citas con pago pendiente. 👍\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
+                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -963,13 +963,13 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 cita = citas_pendientes[0]
                 # Aquí normalmente se integraría con un sistema de pagos
                 # Por ahora, solo confirmamos manualmente
-                response = f"""✅ ¡Excelente! He registrado tu confirmación de pago.
+                response = f"""¡Excelente! He registrado tu confirmación de pago.
 
-📅 Cita: {cita.get('fecha', 'N/A')} - {cita.get('hora', 'N/A')}
-👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}
-💰 Estado: Pago confirmado
+Cita: {cita.get('fecha', 'N/A')} - {cita.get('hora', 'N/A')}
+Dentista: {cita.get('dentista', 'N/A')}
+Estado: Pago confirmado
 
-Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
+Tu cita ya está completamente confirmada. Te esperamos el día programado.
 
 ¿Necesitas ayuda con algo más?"""
                 
@@ -994,7 +994,7 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
         except Exception as e:
             print(f"Error en _handle_confirm_payment: {e}")
             return {
-                'response': "❌ Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
+                'response': "Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -1014,14 +1014,14 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
             
             if not citas_pendientes:
                 return {
-                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día. 👍",
+                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día.",
                     'action': None,
                     'next_step': 'inicial'
                 }
             
             # Calcular tiempo restante para cada cita
             from datetime import datetime
-            response_text = "⏰ **Tiempo restante para pagar tus citas:**\n\n"
+            response_text = "Tiempo restante para pagar tus citas:\n\n"
             
             for i, cita in enumerate(citas_pendientes, 1):
                 fecha = cita.get('fecha', 'N/A')
@@ -1041,7 +1041,7 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
                         diff = deadline_dt - now
                         
                         if diff.total_seconds() <= 0:
-                            tiempo_restante = "⚠️ **¡EXPIRADO!** La cita será cancelada pronto"
+                            tiempo_restante = "¡EXPIRADO! La cita será cancelada pronto"
                         else:
                             horas = int(diff.total_seconds() / 3600)
                             minutos = int((diff.total_seconds() % 3600) / 60)
@@ -1051,21 +1051,21 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
                             else:
                                 tiempo_restante = f"{minutos} minutos restantes"
                             
-                            # Agregar emoji según urgencia
+                            # Agregar indicador según urgencia
                             if horas <= 2:
-                                tiempo_restante = f"🔴 {tiempo_restante} ¡URGENTE!"
+                                tiempo_restante = f"{tiempo_restante} ¡URGENTE!"
                             elif horas <= 12:
-                                tiempo_restante = f"🟡 {tiempo_restante}"
+                                tiempo_restante = f"{tiempo_restante}"
                             else:
-                                tiempo_restante = f"🟢 {tiempo_restante}"
+                                tiempo_restante = f"{tiempo_restante}"
                     except:
                         tiempo_restante = "24 horas (aprox.)"
                 else:
                     tiempo_restante = "24 horas (aprox.)"
                 
-                response_text += f"{i}. 📅 {fecha} - ⏰ {hora}\n   {tiempo_restante}\n\n"
+                response_text += f"{i}. {fecha} - {hora}\n   {tiempo_restante}\n\n"
             
-            response_text += "💡 Escribe *'ya pagué'* cuando hayas completado el pago."
+            response_text += "Escribe *'ya pagué'* cuando hayas completado el pago."
             
             return {
                 'response': response_text,
@@ -1076,39 +1076,39 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado. 🦷
         except Exception as e:
             print(f"Error en _handle_check_payment_time: {e}")
             return {
-                'response': "❌ Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
+                'response': "Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
                 'action': None,
                 'next_step': 'inicial'
             }
     
     def _handle_services_info(self, context: Dict, entities: Dict = None) -> Dict:
         """Maneja consulta de información de servicios"""
-        servicios = """🦷 **Servicios Dentales Disponibles:**
+        servicios = """Servicios Dentales Disponibles:
 
-**Servicios Generales:**
-• 🔍 Consulta general y diagnóstico
-• 🧼 Limpieza dental (profilaxis)
-• ⚡ Blanqueamiento dental
-• 🦷 Resinas (empastes estéticos)
-• 🔧 Extracciones simples y complejas
+Servicios Generales:
+• Consulta general y diagnóstico
+• Limpieza dental (profilaxis)
+• Blanqueamiento dental
+• Resinas (empastes estéticos)
+• Extracciones simples y complejas
 
-**Especialidades:**
-• 📐 Ortodoncia (brackets y alineadores)
-• 🦴 Endodoncia (tratamiento de conductos)
-• 👑 Prótesis dentales
-• 🔬 Periodoncia (encías)
-• 👶 Odontopediatría (niños)
-• 🏗️ Implantes dentales
+Especialidades:
+• Ortodoncia (brackets y alineadores)
+• Endodoncia (tratamiento de conductos)
+• Prótesis dentales
+• Periodoncia (encías)
+• Odontopediatría (niños)
+• Implantes dentales
 
-**Tratamientos Estéticos:**
-• ✨ Carillas dentales
-• 💎 Diseño de sonrisa
-• 🎨 Contorneado estético
+Tratamientos Estéticos:
+• Carillas dentales
+• Diseño de sonrisa
+• Contorneado estético
 
-💰 **Precios:**
+Precios:
 Los precios varían según el tratamiento. Para obtener un presupuesto exacto, agenda una consulta de evaluación.
 
-📅 ¿Te gustaría agendar una cita para alguno de estos servicios?"""
+¿Te gustaría agendar una cita para alguno de estos servicios?"""
         
         return {
             'response': servicios,
@@ -1128,7 +1128,7 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             
             if not citas:
                 return {
-                    'response': "📋 No tienes historial de citas aún.\n\n¿Te gustaría agendar tu primera cita? Escribe *'agendar cita'* para comenzar.",
+                    'response': "No tienes historial de citas aún.\n\n¿Te gustaría agendar tu primera cita? Escribe *'agendar cita'* para comenzar.",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -1158,32 +1158,32 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                 else:
                     pasadas.append(cita)
             
-            response_text = "📋 **Tu Historial de Citas:**\n\n"
+            response_text = "Tu Historial de Citas:\n\n"
             
             # Citas próximas
             if proximas:
-                response_text += "**🔜 Próximas Citas:**\n"
+                response_text += "Próximas Citas:\n"
                 for i, cita in enumerate(proximas[:3], 1):
                     fecha = cita.get('fecha', 'N/A')
                     hora = cita.get('hora', 'N/A')
                     dentista = cita.get('dentista', 'N/A')
                     motivo = cita.get('descripcion', cita.get('motivo', 'Consulta'))
-                    response_text += f"{i}. 📅 {fecha} - ⏰ {hora}\n   👨‍⚕️ {dentista}\n   💬 {motivo}\n\n"
+                    response_text += f"{i}. {fecha} - {hora}\n   {dentista}\n   {motivo}\n\n"
             
             # Citas pasadas
             if pasadas:
-                response_text += "\n**📚 Citas Anteriores:**\n"
+                response_text += "\nCitas Anteriores:\n"
                 for i, cita in enumerate(pasadas[:3], 1):
                     fecha = cita.get('fecha', 'N/A')
                     dentista = cita.get('dentista', 'N/A')
-                    response_text += f"{i}. 📅 {fecha} - 👨‍⚕️ {dentista} ✅\n"
+                    response_text += f"{i}. {fecha} - {dentista}\n"
             
             # Estadísticas
             total = len(citas)
             completadas = len(pasadas)
             canceladas_count = len(canceladas)
             
-            response_text += f"\n📊 **Resumen:**\n"
+            response_text += f"\nResumen:\n"
             response_text += f"• Total de citas: {total}\n"
             response_text += f"• Citas completadas: {completadas}\n"
             if canceladas_count > 0:
@@ -1200,7 +1200,7 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
         except Exception as e:
             print(f"Error en _handle_appointment_history: {e}")
             return {
-                'response': "❌ Hubo un error al consultar tu historial. Por favor intenta nuevamente.",
+                'response': "Hubo un error al consultar tu historial. Por favor intenta nuevamente.",
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -1228,7 +1228,7 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             
             if not citas_pendientes:
                 return {
-                    'response': "Todas tus citas ya tienen el pago confirmado. ✅\n\n¿Necesitas algo más?",
+                    'response': "Todas tus citas ya tienen el pago confirmado.\n\n¿Necesitas algo más?",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -1236,12 +1236,12 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             # Si solo hay una cita pendiente, confirmarla directamente
             if len(citas_pendientes) == 1:
                 cita = citas_pendientes[0]
-                response = f"📋 Cita pendiente de confirmación:\n\n"
-                response += f"📅 Fecha: {cita.get('fecha', 'N/A')}\n"
-                response += f"⏰ Hora: {cita.get('hora', 'N/A')}\n"
-                response += f"👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}\n\n"
-                response += "⚠️ Importante: Para confirmar tu pago, por favor contacta directamente con el consultorio para verificar y actualizar el estado de tu pago.\n\n"
-                response += "Una vez confirmado, tu cita quedará asegurada y no será cancelada. 🦷"
+                response = f"Cita pendiente de confirmación:\n\n"
+                response += f"Fecha: {cita.get('fecha', 'N/A')}\n"
+                response += f"Hora: {cita.get('hora', 'N/A')}\n"
+                response += f"Dentista: {cita.get('dentista', 'N/A')}\n\n"
+                response += "Importante: Para confirmar tu pago, por favor contacta directamente con el consultorio para verificar y actualizar el estado de tu pago.\n\n"
+                response += "Una vez confirmado, tu cita quedará asegurada y no será cancelada."
                 
                 return {
                     'response': response,
@@ -1252,11 +1252,11 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             # Si hay múltiples citas, mostrarlas
             citas_text = []
             for i, c in enumerate(citas_pendientes, 1):
-                citas_text.append(f"{i}. 📅 {c.get('fecha', 'N/A')} ⏰ {c.get('hora', 'N/A')}")
+                citas_text.append(f"{i}. {c.get('fecha', 'N/A')} {c.get('hora', 'N/A')}")
             
             response = f"Tienes {len(citas_pendientes)} citas pendientes de pago:\n\n"
             response += "\n".join(citas_text)
-            response += "\n\n⚠️ Para confirmar el pago de cualquiera de estas citas, por favor contacta directamente con el consultorio."
+            response += "\n\nPara confirmar el pago de cualquiera de estas citas, por favor contacta directamente con el consultorio."
             
             return {
                 'response': response,
@@ -1315,13 +1315,13 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             
             if not citas_pendientes:
                 return {
-                    'response': "✅ Todas tus citas están confirmadas o no requieren pago pendiente.\n\n¿Necesitas algo más?",
+                    'response': "Todas tus citas están confirmadas o no requieren pago pendiente.\n\n¿Necesitas algo más?",
                     'action': None,
                     'next_step': 'inicial'
                 }
             
             # Mostrar información de tiempo restante
-            response = "⏰ **Tiempo restante para pagar tus citas:**\n\n"
+            response = "Tiempo restante para pagar tus citas:\n\n"
             
             for i, c in enumerate(citas_pendientes, 1):
                 hours = c['hours_remaining']
@@ -1336,19 +1336,19 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                 else:
                     time_text = f"{hours} hora"
                 
-                # Emoji según urgencia
+                # Indicador según urgencia
                 if hours <= 2:
-                    emoji = "🔴"
+                    indicador = "URGENTE:"
                 elif hours <= 12:
-                    emoji = "🟡"
+                    indicador = ""
                 else:
-                    emoji = "🟢"
+                    indicador = ""
                 
-                response += f"{emoji} **Cita {i}:**\n"
-                response += f"   📅 {c['fecha']} a las {c['hora']}\n"
-                response += f"   ⏰ Tiempo restante: **{time_text}**\n\n"
+                response += f"Cita {i}:\n"
+                response += f"   {c['fecha']} a las {c['hora']}\n"
+                response += f"   Tiempo restante: {time_text}\n\n"
             
-            response += "💡 **Tip:** Confirma tu pago cuanto antes para asegurar tu cita."
+            response += "Tip: Confirma tu pago cuanto antes para asegurar tu cita."
             
             return {
                 'response': response,
@@ -1371,19 +1371,19 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             dentistas = self.actions_service.get_dentists_info(limit=5)
             consultorios = self.actions_service.get_consultorios_info(limit=3)
             
-            response = "🦷 **Servicios de Densora**\n\n"
+            response = "Servicios de Densora\n\n"
             response += "En Densora ofrecemos una amplia gama de servicios dentales:\n\n"
             
             # Servicios principales
-            response += "**Servicios Principales:**\n"
-            response += "• 🧹 Limpieza dental\n"
-            response += "• 🦷 Ortodoncia (brackets, alineadores)\n"
-            response += "• 💎 Estética dental (blanqueamiento, carillas)\n"
-            response += "• 🔧 Endodoncia (tratamiento de conductos)\n"
-            response += "• 🦴 Implantes dentales\n"
-            response += "• 👶 Odontopediatría (niños)\n"
-            response += "• 🦷 Prótesis dentales\n"
-            response += "• 🔍 Consulta general\n\n"
+            response += "Servicios Principales:\n"
+            response += "• Limpieza dental\n"
+            response += "• Ortodoncia (brackets, alineadores)\n"
+            response += "• Estética dental (blanqueamiento, carillas)\n"
+            response += "• Endodoncia (tratamiento de conductos)\n"
+            response += "• Implantes dentales\n"
+            response += "• Odontopediatría (niños)\n"
+            response += "• Prótesis dentales\n"
+            response += "• Consulta general\n\n"
             
             # Información de dentistas disponibles
             if dentistas:
@@ -1400,14 +1400,14 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             
             # Información de consultorios
             if consultorios:
-                response += "**Nuestros Consultorios:**\n"
+                response += "Nuestros Consultorios:\n"
                 for c in consultorios[:2]:
                     nombre = c.get('nombre', 'N/A')
-                    response += f"• 🏥 {nombre}\n"
+                    response += f"• {nombre}\n"
                 response += "\n"
             
-            response += "📞 **¿Listo para agendar?**\n"
-            response += "Escribe 'agendar cita' y te ayudo a encontrar el mejor horario para ti. 🦷"
+            response += "¿Listo para agendar?\n"
+            response += "Escribe 'agendar cita' y te ayudo a encontrar el mejor horario para ti."
             
             return {
                 'response': response,
@@ -1418,7 +1418,7 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
         except Exception as e:
             print(f"Error en _handle_services_info: {e}")
             return {
-                'response': "🦷 **Servicios de Densora**\n\nEn Densora ofrecemos:\n• Limpieza dental\n• Ortodoncia\n• Estética dental\n• Endodoncia\n• Implantes\n• Odontopediatría\n• Y más...\n\n¿Te gustaría agendar una cita? Escribe 'agendar cita'.",
+                'response': "Servicios de Densora\n\nEn Densora ofrecemos:\n• Limpieza dental\n• Ortodoncia\n• Estética dental\n• Endodoncia\n• Implantes\n• Odontopediatría\n• Y más...\n\n¿Te gustaría agendar una cita? Escribe 'agendar cita'.",
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -1468,11 +1468,11 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                     proximas.append(c)
             
             # Construir respuesta
-            response = "📋 **Tu Historial de Citas**\n\n"
+            response = "Tu Historial de Citas\n\n"
             
             # Citas próximas
             if proximas:
-                response += f"**🔜 Próximas ({len(proximas)}):**\n"
+                response += f"Próximas ({len(proximas)}):\n"
                 for c in proximas[:5]:  # Máximo 5
                     fecha = c.get('fecha', 'N/A')
                     hora = c.get('hora', 'N/A')
@@ -1480,17 +1480,17 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                     motivo = c.get('motivo', 'Consulta')
                     estado = c.get('estado', 'N/A')
                     
-                    # Emoji de estado de pago
+                    # Indicador de estado de pago
                     payment_status = c.get('payment_status') or c.get('paymentStatus')
-                    payment_emoji = "💳" if payment_status == 'paid' else "⏰"
+                    payment_indicator = "[Pagado]" if payment_status == 'paid' else "[Pendiente]"
                     
-                    response += f"  {payment_emoji} {fecha} - {hora}\n"
+                    response += f"  {payment_indicator} {fecha} - {hora}\n"
                     response += f"     Dr(a). {dentista}\n"
                     response += f"     {motivo}\n\n"
             
             # Citas pasadas
             if pasadas:
-                response += f"**✅ Completadas ({len(pasadas)}):**\n"
+                response += f"Completadas ({len(pasadas)}):\n"
                 for c in pasadas[:3]:  # Máximo 3
                     fecha = c.get('fecha', 'N/A')
                     dentista = c.get('dentista', 'N/A')
@@ -1499,11 +1499,11 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             
             # Citas canceladas
             if canceladas:
-                response += f"**❌ Canceladas ({len(canceladas)})**\n\n"
+                response += f"Canceladas ({len(canceladas)})\n\n"
             
             # Resumen
             total = len(citas_activas)
-            response += f"📊 **Total de citas:** {total}\n\n"
+            response += f"Total de citas: {total}\n\n"
             response += "¿Necesitas agendar una nueva cita? Escribe 'agendar cita'."
             
             return {

@@ -1,5 +1,5 @@
 """
-🧠 SERVICIO DE MACHINE LEARNING AVANZADO PARA CHATBOT
+SERVICIO DE MACHINE LEARNING AVANZADO PARA CHATBOT
 Usa modelos potentes de OpenAI y Hugging Face para procesamiento de lenguaje natural avanzado
 """
 
@@ -61,16 +61,16 @@ class MLService:
                 return response.json()
             elif response.status_code == 503:
                 # Modelo cargándose, esperar un poco
-                print(f"⚠️ Modelo {model} cargándose, esperando...")
+                print(f"Modelo {model} cargándose, esperando...")
                 import time
                 time.sleep(5)
                 return self._call_huggingface(model, inputs, task)
             else:
-                print(f"❌ Error llamando Hugging Face: {response.status_code} - {response.text}")
+                print(f"Error llamando Hugging Face: {response.status_code} - {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"❌ Error en _call_huggingface: {e}")
+            print(f"Error en _call_huggingface: {e}")
             return None
     
     def _call_openai(self, prompt: str, system_prompt: str = None, 
@@ -106,7 +106,7 @@ class MLService:
             return response.choices[0].message.content.strip()
             
         except Exception as e:
-            print(f"❌ Error llamando OpenAI: {e}")
+            print(f"Error llamando OpenAI: {e}")
             import traceback
             traceback.print_exc()
             return None
@@ -313,7 +313,7 @@ Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emili
                             entities['fecha'] = datetime.now().strftime('%Y-%m-%d')
                         else:
                             # Intentar parsear como fecha relativa
-                            print(f"⚠️ Fecha extraída por IA no está en formato YYYY-MM-DD: {fecha}")
+                            print(f"Fecha extraída por IA no está en formato YYYY-MM-DD: {fecha}")
                             entities['fecha'] = None  # Invalidar si no es formato correcto
                 
                 # Validar formato de hora
@@ -524,7 +524,7 @@ Tu personalidad:
 - Eres proactivo y ayudas a resolver problemas
 - Mantienes un tono positivo y alentador
 - Eres breve pero completo en tus respuestas
-- Usas emojis de forma moderada y apropiada
+- No uses emojis en tus respuestas
 
 Tu objetivo es ayudar a los pacientes a:
 - Agendar, reagendar y cancelar citas
@@ -589,8 +589,8 @@ IMPORTANTE: Responde de forma natural, como si fueras un asistente humano real."
             'cancelar_cita': f"{saludo}Entiendo que quieres cancelar una cita. ¿Cuál cita quieres cancelar?",
             'ver_citas': f"{saludo}Te muestro tus citas programadas...",
             'consultar_informacion': f"{saludo}¡Claro! ¿Sobre qué te gustaría saber? Puedo ayudarte con:\n• Agendar citas\n• Ver tus citas\n• Reagendar o cancelar\n• Información sobre servicios",
-            'saludar': f"{saludo}¡Bienvenido a Densora! 🦷\n\nSoy Densorita, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
-            'ayuda': f"{saludo}Puedo ayudarte con:\n\n1️⃣ Agendar una cita\n2️⃣ Ver tus citas\n3️⃣ Reagendar una cita\n4️⃣ Cancelar una cita\n5️⃣ Información sobre nuestros servicios\n\n¿Qué te gustaría hacer?",
+            'saludar': f"{saludo}¡Bienvenido a Densora!\n\nSoy Densorita, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
+            'ayuda': f"{saludo}Puedo ayudarte con:\n\n1. Agendar una cita\n2. Ver tus citas\n3. Reagendar una cita\n4. Cancelar una cita\n5. Información sobre nuestros servicios\n\n¿Qué te gustaría hacer?",
             'otro': f"{saludo}Lo siento, no entendí completamente. ¿Podrías ser más específico?\n\nEscribe *menu* para ver las opciones disponibles."
         }
         

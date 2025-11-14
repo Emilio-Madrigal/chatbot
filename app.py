@@ -88,9 +88,9 @@ def web_chat():
             )
             bot_response_text = response_data.get('response', '')
             current_mode = response_data.get('mode', None)
-            print(f"✅ ML procesó correctamente - Response: {bot_response_text[:100]}...")
+            print(f"ML procesó correctamente - Response: {bot_response_text[:100]}...")
         except Exception as ml_error:
-            print(f"❌ Error en ML, usando fallback: {ml_error}")
+            print(f"Error en ML, usando fallback: {ml_error}")
             import traceback
             traceback.print_exc()
             # Fallback al sistema anterior si ML falla
@@ -171,11 +171,11 @@ def webhook():
             
             if current_step == 'menu_principal':
                 button_text_to_id = {
-                    '📅 Agendar Cita': 'agendar_cita',
                     'Agendar Cita': 'agendar_cita',
-                    '👀 Ver Mis Citas': 'ver_citas',
+                    'Agendar Cita': 'agendar_cita',
                     'Ver Mis Citas': 'ver_citas',
-                    '⚙️ Gestionar': 'gestionar_citas',
+                    'Ver Mis Citas': 'ver_citas',
+                    'Gestionar': 'gestionar_citas',
                     'Gestionar': 'gestionar_citas'
                 }
             elif current_step in ['seleccionando_fecha', 'reagendando_fecha']:
@@ -206,7 +206,7 @@ def webhook():
             message_clean = message_body.strip()
             if message_clean in button_text_to_id:
                 button_id = button_text_to_id[message_clean]
-                print(f"✅ Botón detectado por texto: '{message_clean}' -> {button_id}")
+                print(f"Botón detectado por texto: '{message_clean}' -> {button_id}")
                 handle_button_response_extended(from_number, button_id)
             elif message_body.strip().isdigit():
                 # Es una respuesta numérica a botones
@@ -362,7 +362,7 @@ def handle_text_message(from_number,text):
                 )
         else:
             WhatsApp_service.send_text_message(
-                from_number,"👋 ¡Hola! Soy tu asistente densorita.\n\nEscribe *menu* para ver las opciones disponibles."
+                from_number,"¡Hola! Soy tu asistente densorita.\n\nEscribe *menu* para ver las opciones disponibles."
             )
     except Exception as e:
         print(f"error manejando mensaje de texto: {e}")
@@ -567,7 +567,7 @@ def handle_button_response(from_number,button_id):
             
             WhatsApp_service.send_text_message(
                 from_number,
-                f"📅 *Fecha:* {fecha_formatted}\n⏰ *Hora:* {hora_seleccionada}\n\n👤 ¿Cuál es el *nombre completo* del paciente?"
+                f"*Fecha:* {fecha_formatted}\n*Hora:* {hora_seleccionada}\n\n¿Cuál es el *nombre completo* del paciente?"
                 )
         elif button_id.startswith('reagendar_'):
             cita_id=button_id.replace('reagendar_','')
@@ -612,7 +612,7 @@ def handle_button_response(from_number,button_id):
             phone = state.get('phone')
             
             WhatsApp_service.send_text_message(
-                from_number,"⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla."
+                from_number,"¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla.",
             )
             user_states[from_number]={
                 'step':'confurmando_cancelacion',
@@ -625,7 +625,7 @@ def handle_button_response(from_number,button_id):
         print(f"error con el bototn: {e}")
 def handle_list_response(from_number,list_id):
     try:
-        print(f"📋 Lista seleccionada: {list_id}")
+        print(f"Lista seleccionada: {list_id}")
         if '_' in list_id:
             action,cita_id=list_id.split('_',1)
             if action=='ver':
@@ -658,7 +658,7 @@ def handle_list_response(from_number,list_id):
                 WhatsApp_service.send_date_selection(from_number, fechas_disponibles)
             elif action=="cancelar":
                 WhatsApp_service.send_text_message(
-                    from_number,"⚠️ ¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla."
+                    from_number,"¿Estás seguro de que quieres cancelar esta cita?\n\nResponde *SI* para confirmar o *NO* para mantenerla.",
                 )
                 user_states[from_number]={
                     'step':'confirmando_cancelacion',
@@ -788,7 +788,7 @@ def handle_cancelacion(from_number, text):
                 del user_states[from_number]
                 WhatsApp_service.send_text_message(
                     from_number,
-                    "✅ Perfecto, tu cita se mantiene programada.\n\nEscribe *menu* para realizar otra acción."
+                    "Perfecto, tu cita se mantiene programada.\n\nEscribe *menu* para realizar otra acción."
                 )
             
             else:
@@ -829,14 +829,14 @@ def process_web_button_response(session_id, button_id, response_messages, user_i
             print(f"WebResponseCaptureService.send_text_message: {message[:100]}")
             response_messages.append(message)
         def send_main_menu(self, to_number):
-            menu_text = """👋 ¡Hola! Bienvenido a Densora.
+            menu_text = """¡Hola! Bienvenido a Densora.
 
 ¿Qué te gustaría hacer hoy?
 
 *Opciones disponibles:*
-1. 📅 Agendar Cita
+1. Agendar Cita
 2. 👀 Ver Mis Citas
-3. ⚙️ Gestionar Citas
+3. Gestionar Citas
 
 Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             print(f"WebResponseCaptureService.send_main_menu")
@@ -859,7 +859,7 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             action = "creada" if is_new else "reagendada"
             fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
             print(f"WebResponseCaptureService.send_confirmation_message")
-            response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
+            response_messages.append(f"Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}"),
         def send_citas_list(self, to_number, citas, action_type):
             print(f"WebResponseCaptureService.send_citas_list: {len(citas)} citas, action_type: {action_type}")
             if not citas:
@@ -1038,14 +1038,14 @@ def process_web_message(session_id, message_body, platform, user_id=None, phone=
         def send_text_message(self, to_number, message):
             response_messages.append(message)
         def send_main_menu(self, to_number):
-            menu_text = """👋 ¡Hola! Bienvenido a Densora.
+            menu_text = """¡Hola! Bienvenido a Densora.
 
 ¿Qué te gustaría hacer hoy?
 
 *Opciones disponibles:*
-1. 📅 Agendar Cita
+1. Agendar Cita
 2. 👀 Ver Mis Citas
-3. ⚙️ Gestionar Citas
+3. Gestionar Citas
 
 Escribe el *número* de la opción que deseas (1, 2 o 3)."""
             response_messages.append(menu_text)
@@ -1060,7 +1060,7 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         def send_confirmation_message(self, to_number, cita, is_new):
             action = "creada" if is_new else "reagendada"
             fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
-            response_messages.append(f"✅ Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}")
+            response_messages.append(f"Tu cita ha sido {action} con éxito:\n*Cliente:* {cita.nombre_cliente}\n*Fecha:* {fecha_formatted}\n*Hora:* {cita.horaInicio or cita.hora}"),
         def send_citas_list(self, to_number, citas, action_type):
             if not citas:
                 response_messages.append("No tienes citas programadas.\n\nEscribe *menu* para agendar una nueva cita.")
@@ -1128,9 +1128,9 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', Config.PORT))
-    print(f"📡 Puerto: {port}")
-    print(f"🔧 Debug: {Config.DEBUG}")
-    print("✅ Servidor listo")
+    print(f"Puerto: {port}")
+    print(f"Debug: {Config.DEBUG}")
+    print("Servidor listo")
     
     app.run(
         debug=Config.DEBUG,
