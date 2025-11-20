@@ -812,7 +812,7 @@ Informacion:
 
 [RECUERDA]: Eres el MEJOR asistente dental del mundo. Cada interaccion debe dejar al usuario MAS contento que antes.
 
-IMPORTANTE FINAL: Responde de forma natural, cálida y útil, como si fueras un asistente humano excepcional. Tu objetivo es que el usuario piense "wow, qué buena atención".
+IMPORTANTE FINAL: Responde de forma natural, cálida y útil, como si fueras un asistente humano excepcional. Tu objetivo es que el usuario piense "wow, qué buena atención"."""
         
         # Construir mensaje con contexto completo
         messages = [{"role": "system", "content": system_prompt}]
