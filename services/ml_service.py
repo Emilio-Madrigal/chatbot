@@ -327,7 +327,7 @@ REGLAS CRITICAS:
 - Si menciona dolor/problema dental => agendar_cita (quiere atencion)
 - Si es ambiguo, PRIORIZA la accion mas util para el usuario
 
-FORMATO DE RESPUESTA: Responde SOLO con la intención en minúsculas (ej: "agendar_cita"), SIN puntos ni explicaciones.
+FORMATO DE RESPUESTA: Responde SOLO con la intención en minúsculas (ej: "agendar_cita"), SIN puntos ni explicaciones."""
         
         prompt = f"Mensaje del usuario: {message}{context_info}\n\n¿Cuál es la intención?"
         
