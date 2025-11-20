@@ -451,7 +451,7 @@ EJEMPLOS REALES:
 - "el lunes por la tarde con el dr emilio" => {{"fecha": "CALCULA_LUNES", "hora": "15:00", "nombre_dentista": "emilio", "motivo": null, "numero_cita": null}}
 - "me duele una muela, puedo ir pasado manana?" => {{"fecha": "{fecha_pasado_manana}", "hora": null, "nombre_dentista": null, "motivo": "dolor de muela", "numero_cita": null}}
 
-Responde SOLO con el JSON, sin explicaciones adicionales.
+Responde SOLO con el JSON, sin explicaciones adicionales."""
         
         context_info = ""
         if context:
