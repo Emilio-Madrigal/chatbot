@@ -394,9 +394,9 @@ ENTIDADES A EXTRAER:
    - "domingo" => el proximo domingo
    
    FECHAS ESPECIFICAS:
-   - "el 15 de enero", "15 enero", "enero 15" => convierte a 2025-01-15 (usa ano actual o siguiente si ya paso)
-   - "15/01", "15-01" => 2025-01-15
-   - "15/01/2025" => 2025-01-15
+   - "el 15 de enero", "15 enero", "enero 15" => convierte a formato ISO (usa ano actual o siguiente si ya paso)
+   - "15/01", "15-01" => formato ISO
+   - "15/01/2025" => formato ISO
    
    EXPRESIONES COLOQUIALES:
    - "en 3 dias", "dentro de 3 dias" => suma 3 dias a hoy
