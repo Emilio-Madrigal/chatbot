@@ -29,11 +29,21 @@ class MLService:
         self.use_openai = bool(self.openai_api_key)
         
         # Modelo de OpenAI a usar (configurable mediante variable de entorno)
-        # Opciones: "gpt-4o-mini" (económico, recomendado), "gpt-3.5-turbo" (más barato), "gpt-4o" (más potente, más caro)
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        # Opciones: "gpt-4o" (más inteligente, recomendado), "gpt-4o-mini" (económico), "gpt-4-turbo" (muy potente)
+        # MEJORADO: Usar gpt-4o por defecto para mejor comprensión
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o")
         
-        # Cache para evitar llamadas repetidas
+        # Cache para evitar llamadas repetidas (con TTL de 5 minutos)
         self.cache = {}
+        self.cache_ttl = {}  # Timestamps de cuándo expira cada entrada
+        
+        # Sistema de aprendizaje: patrones exitosos
+        self.successful_patterns = {}
+        
+        # Log de interacciones para aprendizaje continuo
+        self.interaction_log = []
+        
+        print(f"MLService inicializado - OpenAI habilitado: {self.use_openai}, Modelo: {self.openai_model}")
     
     def _call_huggingface(self, model: str, inputs: str, task: str = "text-generation") -> Optional[Dict]:
         """Llama a la API de Hugging Face"""
@@ -117,10 +127,20 @@ class MLService:
         """
         message_lower = message.lower().strip()
         
-        # Cache simple
+        # Cache con TTL (5 minutos)
         cache_key = f"intent_{message_lower}"
         if cache_key in self.cache:
-            return self.cache[cache_key]
+            # Verificar si el cache no ha expirado
+            from time import time
+            if cache_key in self.cache_ttl and self.cache_ttl[cache_key] > time():
+                print(f"Intent cache HIT para: {message_lower[:50]}")
+                return self.cache[cache_key]
+            else:
+                # Expiró, eliminar
+                if cache_key in self.cache:
+                    del self.cache[cache_key]
+                if cache_key in self.cache_ttl:
+                    del self.cache_ttl[cache_key]
         
         # PRIORIDAD 1: Usar OpenAI si está disponible (más preciso)
         if self.use_openai:
@@ -131,19 +151,61 @@ class MLService:
         
         # PRIORIDAD 2: Palabras clave mejoradas (fallback rápido)
         intent_keywords = {
-            'agendar_cita': ['agendar', 'cita', 'reservar', 'sacar cita', 'quiero una cita', 'necesito cita', 
-                            'programar', 'hacer cita', 'pedir cita', 'solicitar cita', 'quiero agendar'],
-            'reagendar_cita': ['reagendar', 'cambiar fecha', 'cambiar hora', 'mover cita', 'reprogramar',
-                              'modificar cita', 'cambiar mi cita', 'mover mi cita'],
-            'cancelar_cita': ['cancelar', 'eliminar cita', 'borrar cita', 'no puedo ir', 'no asistiré',
-                            'anular cita', 'quitar cita', 'no voy a ir'],
-            'ver_citas': ['ver citas', 'mis citas', 'citas programadas', 'qué citas tengo', 'cuándo tengo cita',
-                         'mostrar citas', 'listar citas', 'mis citas programadas'],
-            'consultar_informacion': ['qué es', 'cómo funciona', 'información', 'dime sobre', 'explícame', 
-                                     'qué puedo hacer', 'cuéntame', 'hablame de'],
-            'saludar': ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'saludos', 'hey', 'hi'],
-            'despedirse': ['adiós', 'hasta luego', 'gracias', 'chao', 'nos vemos', 'bye', 'hasta pronto'],
-            'ayuda': ['ayuda', 'help', 'no entiendo', 'qué puedo hacer', 'opciones', 'menú', 'qué hago']
+            'agendar_cita': [
+                'agendar', 'cita', 'reservar', 'sacar cita', 'quiero una cita', 'necesito cita', 
+                'programar', 'hacer cita', 'pedir cita', 'solicitar cita', 'quiero agendar',
+                'puedo ir', 'tengo dolor', 'me duele', 'necesito dentista', 'quiero ir',
+                'está disponible', 'tienes horario', 'hay espacio', 'cuándo puedo', 'agendar'
+            ],
+            'reagendar_cita': [
+                'reagendar', 'cambiar fecha', 'cambiar hora', 'mover cita', 'reprogramar',
+                'modificar cita', 'cambiar mi cita', 'mover mi cita', 'mejor otro día',
+                'cambiar de día', 'cambiar de hora', 'otro horario', 'no puedo ese día'
+            ],
+            'cancelar_cita': [
+                'cancelar', 'eliminar cita', 'borrar cita', 'no puedo ir', 'no asistiré',
+                'anular cita', 'quitar cita', 'no voy a ir', 'ya no quiero', 'tengo que cancelar',
+                'imposible ir', 'no podré', 'surgió algo'
+            ],
+            'ver_citas': [
+                'ver citas', 'mis citas', 'citas programadas', 'qué citas tengo', 'cuándo tengo cita',
+                'mostrar citas', 'listar citas', 'mis citas programadas', 'cuándo es mi cita',
+                'a qué hora', 'qué día', 'tengo cita', 'cuál es mi', 'próxima cita'
+            ],
+            'confirmar_pago': [
+                'ya pagué', 'ya pague', 'pagué', 'pague', 'hice el pago', 'transferí',
+                'confirmo el pago', 'ya transferí', 'pagado', 'pago realizado', 'confirmación de pago'
+            ],
+            'consultar_tiempo_pago': [
+                'cuánto tiempo para pagar', 'cuánto tiempo tengo', 'cuándo vence', 'deadline',
+                'hasta cuándo puedo pagar', 'me queda tiempo', 'plazo de pago', 'cuándo expira'
+            ],
+            'ver_historial': [
+                'historial', 'citas anteriores', 'citas pasadas', 'registro', 'mi histórico',
+                'ver historial', 'mostrar historial', 'citas completadas', 'mis citas pasadas'
+            ],
+            'consultar_servicios': [
+                'qué servicios', 'servicios disponibles', 'qué ofrecen', 'hacen ortodoncia',
+                'tienen implantes', 'limpiezas', 'blanqueamiento', 'qué hacen', 'servicios',
+                'tratamientos', 'procedimientos'
+            ],
+            'consultar_informacion': [
+                'qué es densora', 'cómo funciona', 'información', 'dime sobre', 'explícame', 
+                'qué puedo hacer', 'cuéntame', 'hablame de', 'información', 'precios',
+                'horarios', 'ubicación', 'métodos de pago'
+            ],
+            'saludar': [
+                'hola', 'buenos días', 'buenas tardes', 'buenas noches', 'saludos', 'hey', 
+                'hi', 'qué tal', 'buenas', 'buen día'
+            ],
+            'despedirse': [
+                'adiós', 'adios', 'hasta luego', 'gracias', 'chao', 'nos vemos', 'bye', 
+                'hasta pronto', 'me voy', 'eso es todo'
+            ],
+            'ayuda': [
+                'ayuda', 'help', 'no entiendo', 'qué puedo hacer', 'opciones', 'menú', 
+                'qué hago', 'comandos', 'necesito ayuda', 'ayúdame', 'no sé qué hacer'
+            ]
         }
         
         # Detección por palabras clave mejorada
@@ -162,7 +224,10 @@ class MLService:
                     'confidence': min(0.9, 0.5 + (best_intent[1] * 0.1)),
                     'method': 'keyword'
                 }
+                # Guardar en cache con TTL de 5 minutos (300 segundos)
+                from time import time
                 self.cache[cache_key] = result
+                self.cache_ttl[cache_key] = time() + 300
                 return result
         
         # PRIORIDAD 3: Inferir del contexto
@@ -198,19 +263,71 @@ class MLService:
                 last_messages = context['history'][-3:]  # Últimos 3 mensajes
                 context_info += f"\nHistorial reciente: {', '.join([m.get('message', '')[:50] for m in last_messages])}"
         
-        system_prompt = """Eres un clasificador de intenciones experto para un chatbot de citas dentales llamado Densora.
+        system_prompt = """Eres un clasificador de intenciones EXPERTO y MUY INTELIGENTE para Densora, el asistente dental más avanzado de México.
 
-Analiza el mensaje del usuario considerando el contexto y clasifica su intención en UNA de estas categorías:
-- agendar_cita: quiere agendar una nueva cita (ej: "quiero una cita", "necesito agendar", "quiero ver al doctor")
-- reagendar_cita: quiere cambiar fecha/hora de una cita existente (ej: "cambiar mi cita", "mover la cita del 15")
-- cancelar_cita: quiere cancelar una cita (ej: "cancelar mi cita", "no puedo ir", "anular")
-- ver_citas: quiere ver sus citas programadas (ej: "mis citas", "qué citas tengo", "cuándo es mi cita")
-- consultar_informacion: quiere información sobre el servicio (ej: "qué es densora", "cómo funciona", "cuánto cuesta")
-- saludar: saludo inicial (ej: "hola", "buenos días", "hey")
-- ayuda: pide ayuda o menú (ej: "ayuda", "qué puedo hacer", "opciones")
-- otro: otra cosa que no encaja en las anteriores
+Tu trabajo es analizar CUIDADOSAMENTE el mensaje del usuario y clasificarlo en UNA categoría, considerando:
+1. El contexto de la conversación (si está disponible)
+2. Las palabras exactas que usa el usuario
+3. La intención IMPLÍCITA detrás del mensaje
+4. Conversaciones naturales y coloquiales
 
-IMPORTANTE: Responde SOLO con el nombre de la intención en minúsculas, sin puntos ni explicaciones."""
+CATEGORÍAS (elige la MÁS APROPIADA):
+
+agendar_cita: El usuario quiere CREAR una cita nueva
+  Ejemplos: "quiero una cita", "necesito agendar", "puedo ir mañana?", "tienes horario el lunes?", 
+           "me gustaría ver al doctor", "tengo dolor de muela", "necesito un dentista",
+           "cuándo puedo ir?", "está disponible el doctor juan?"
+
+reagendar_cita: El usuario quiere CAMBIAR una cita existente
+  Ejemplos: "cambiar mi cita", "mover la cita del 15", "puedo cambiar de hora?",
+           "mejor otro día", "no puedo ese día", "reagendar"
+
+cancelar_cita: El usuario quiere ELIMINAR una cita
+  Ejemplos: "cancelar mi cita", "no puedo ir", "anular", "borrar cita",
+           "ya no quiero la cita", "tengo que cancelar"
+
+ver_citas: El usuario quiere VER sus citas
+  Ejemplos: "mis citas", "qué citas tengo", "cuándo es mi cita", "cuándo tengo cita",
+           "a qué hora es", "para cuándo está programada", "cuál es mi próxima cita"
+
+consultar_informacion: El usuario quiere INFORMACIÓN
+  Ejemplos: "qué es densora", "cómo funciona", "cuánto cuesta", "qué servicios hay",
+           "horarios", "ubicación", "métodos de pago", "precios"
+
+confirmar_pago: El usuario menciona que YA PAGÓ
+  Ejemplos: "ya pagué", "ya hice el pago", "transferí", "confirmo el pago", "pagado"
+
+consultar_tiempo_pago: El usuario pregunta sobre TIEMPO para pagar
+  Ejemplos: "cuánto tiempo tengo para pagar", "cuándo vence el pago", "deadline de pago",
+           "hasta cuándo puedo pagar", "me queda tiempo"
+
+ver_historial: El usuario quiere ver HISTORIAL completo
+  Ejemplos: "historial", "citas anteriores", "citas pasadas", "registro", "mi histórico"
+
+consultar_servicios: El usuario pregunta por SERVICIOS específicos
+  Ejemplos: "qué servicios ofrecen", "hacen ortodoncia?", "tienen implantes?",
+           "limpiezas dentales", "blanqueamiento"
+
+saludar: SOLO saludos iniciales
+  Ejemplos: "hola", "buenos días", "buenas tardes", "hola densora", "hey", "qué tal"
+
+ayuda: SOLO pide ayuda explícita
+  Ejemplos: "ayuda", "qué puedo hacer", "opciones", "menú", "comandos", "necesito ayuda"
+
+despedirse: Usuario se despide
+  Ejemplos: "adiós", "hasta luego", "gracias", "chao", "nos vemos", "bye"
+
+otro: Si REALMENTE no encaja en ninguna (úsalo poco)
+
+REGLAS CRÍTICAS:
+- Si menciona FECHA u HORA junto con dentista/doctor/cita → agendar_cita
+- Si menciona "cambiar" o "mover" + cita → reagendar_cita
+- Si menciona "cancelar" o "no puedo ir" → cancelar_cita
+- Si pregunta "cuándo" o "qué citas" → ver_citas
+- Si menciona dolor/problema dental → agendar_cita (quiere atención)
+- Si es ambiguo, PRIORIZA la acción más útil para el usuario
+
+FORMATO DE RESPUESTA: Responde SOLO con la intención en minúsculas (ej: "agendar_cita"), SIN puntos ni explicaciones.
         
         prompt = f"Mensaje del usuario: {message}{context_info}\n\n¿Cuál es la intención?"
         
@@ -247,32 +364,94 @@ IMPORTANTE: Responde SOLO con el nombre de la intención en minúsculas, sin pun
         fecha_manana = (fecha_actual + timedelta(days=1)).strftime('%Y-%m-%d')
         fecha_pasado_manana = (fecha_actual + timedelta(days=2)).strftime('%Y-%m-%d')
         
-        system_prompt = f"""Eres un extractor de entidades experto para un chatbot de citas dentales.
+        system_prompt = f"""Eres un extractor de entidades SUPER INTELIGENTE y PRECISO para Densora.
 
-CONTEXTO ACTUAL:
-- Fecha de hoy: {fecha_hoy} ({dia_semana_hoy})
-- Día de la semana: {fecha_actual.weekday()} (0=Lunes, 6=Domingo)
+CONTEXTO TEMPORAL ACTUAL:
+- HOY es: {fecha_hoy} ({dia_semana_hoy})
+- Día de la semana actual: {fecha_actual.weekday()} (0=Lunes, 1=Martes, 2=Miércoles, 3=Jueves, 4=Viernes, 5=Sábado, 6=Domingo)
+- Mañana sería: {fecha_manana}
+- Pasado mañana: {fecha_pasado_manana}
 
-Extrae las siguientes entidades del mensaje del usuario:
-- fecha: SIEMPRE en formato YYYY-MM-DD. Convierte fechas relativas:
-  * "mañana" o "tomorrow" = {fecha_manana}
-  * "pasado mañana" = {fecha_pasado_manana}
-  * "hoy" o "today" = {fecha_hoy}
-  * Días de la semana: calcula la fecha del próximo día mencionado
-- hora: SIEMPRE en formato HH:MM (24 horas). Convierte:
-  * "10am" o "10 de la mañana" = "10:00"
-  * "3pm" o "3 de la tarde" = "15:00"
-  * "a las 10" = "10:00"
-- nombre_dentista: nombre del dentista mencionado (ej: "doctor emilio", "dr. lopez", "emilio")
-- motivo: motivo de la cita o descripción
-- numero_cita: número de cita si menciona "primera cita", "cita 2", etc.
+Tu misión es extraer TODAS las entidades relevantes del mensaje del usuario:
 
-IMPORTANTE: 
-- SIEMPRE convierte fechas relativas a formato YYYY-MM-DD usando el contexto de hoy
-- Si no puedes determinar la fecha exacta, usa null
-- Responde SOLO con un JSON válido
+ENTIDADES A EXTRAER:
 
-Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emilio", "motivo": "dolor de muela", "numero_cita": null}}"""
+1. **fecha** (formato YYYY-MM-DD):
+   FECHAS RELATIVAS:
+   - "mañana", "tomorrow" → {fecha_manana}
+   - "pasado mañana" → {fecha_pasado_manana}
+   - "hoy", "today" → {fecha_hoy}
+   - "esta semana", "esta semana" → usa la fecha más cercana dentro de los próximos 7 días
+   - "la próxima semana", "next week" → agrega 7 días
+   
+   DÍAS DE LA SEMANA (CALCULA LA PRÓXIMA OCURRENCIA):
+   - "lunes" → encuentra el próximo lunes después de hoy
+   - "martes" → encuentra el próximo martes después de hoy
+   - "miércoles", "miercoles" → el próximo miércoles
+   - "jueves" → el próximo jueves
+   - "viernes" → el próximo viernes
+   - "sábado", "sabado" → el próximo sábado
+   - "domingo" → el próximo domingo
+   
+   FECHAS ESPECÍFICAS:
+   - "el 15 de enero", "15 enero", "enero 15" → convierte a 2025-01-15 (usa año actual o siguiente si ya pasó)
+   - "15/01", "15-01" → 2025-01-15
+   - "15/01/2025" → 2025-01-15
+   
+   EXPRESIONES COLOQUIALES:
+   - "en 3 días", "dentro de 3 días" → suma 3 días a hoy
+   - "en una semana" → suma 7 días
+   - "en dos semanas" → suma 14 días
+
+2. **hora** (formato HH:MM en 24 horas):
+   FORMATOS COMUNES:
+   - "10am", "10 am", "10 de la mañana", "a las 10 am" → "10:00"
+   - "3pm", "3 de la tarde", "a las 3 pm", "15 horas" → "15:00"
+   - "mediodía", "12pm", "12 del día" → "12:00"
+   - "medianoche", "12am" → "00:00"
+   - "9:30am" → "09:30"
+   - "14:45", "2:45pm" → "14:45"
+   
+   EXPRESIONES COLOQUIALES:
+   - "por la mañana" → "10:00" (asume 10am si no especifica)
+   - "por la tarde" → "15:00" (asume 3pm)
+   - "al mediodía" → "12:00"
+   - "temprano" → "09:00"
+   - "antes de comer" → "11:00"
+   - "después de comer" → "14:00"
+
+3. **nombre_dentista**: 
+   - Busca nombres propios después de "doctor", "dr", "doctora", "dra", "con el", "con la"
+   - Ejemplos: "doctor emilio" → "emilio", "dra. lópez" → "lópez", "con juan" → "juan"
+   - Si menciona solo nombre sin título, también extráelo
+
+4. **motivo**: 
+   - El motivo/razón de la cita
+   - Ejemplos: "dolor de muela", "limpieza", "revisión", "urgencia", "extracción", "me duele"
+   - EXTRAE TODO el contexto médico mencionado
+
+5. **numero_cita**:
+   - Si menciona "primera cita", "cita 1" → 1
+   - "segunda cita", "cita 2" → 2
+   - "tercera cita", "cita 3" → 3
+   - "la cita del lunes" → busca el número de cita en ese contexto
+
+REGLAS CRÍTICAS:
+- Si el usuario dice "mañana a las 3pm", extrae AMBAS entidades: fecha="{fecha_manana}", hora="15:00"
+- Si dice "el lunes", CALCULA la fecha exacta del próximo lunes
+- Si NO puedes determinar algo, usa null (no inventes)
+- Prioriza PRECISIÓN sobre intentar adivinar
+- Para fechas pasadas, asume que habla del próximo año
+
+FORMATO DE SALIDA: JSON válido con estas claves exactas:
+{{"fecha": "YYYY-MM-DD o null", "hora": "HH:MM o null", "nombre_dentista": "nombre o null", "motivo": "descripción o null", "numero_cita": número o null}}
+
+EJEMPLOS REALES:
+- "quiero cita mañana a las 3" → {{"fecha": "{fecha_manana}", "hora": "15:00", "nombre_dentista": null, "motivo": null, "numero_cita": null}}
+- "el lunes por la tarde con el dr emilio" → {{"fecha": "CALCULA_LUNES", "hora": "15:00", "nombre_dentista": "emilio", "motivo": null, "numero_cita": null}}
+- "me duele una muela, puedo ir pasado mañana?" → {{"fecha": "{fecha_pasado_manana}", "hora": null, "nombre_dentista": null, "motivo": "dolor de muela", "numero_cita": null}}
+
+Responde SOLO con el JSON, sin explicaciones adicionales.
         
         context_info = ""
         if context:
@@ -390,18 +569,25 @@ Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emili
                 entities['fecha'] = (datetime.now() + timedelta(days=days_offset)).strftime('%Y-%m-%d')
                 break
         
-        # Días de la semana
+        # Días de la semana (con y sin acentos)
         dias_semana = {
-            'lunes': 0, 'martes': 1, 'miércoles': 2, 'jueves': 3,
-            'viernes': 4, 'sábado': 5, 'domingo': 6
+            'lunes': 0, 'martes': 1, 'miércoles': 2, 'miercoles': 2, 
+            'jueves': 3, 'viernes': 4, 'sábado': 5, 'sabado': 5, 'domingo': 6
         }
         for dia, dia_num in dias_semana.items():
-            if f'el {dia}' in message_lower or dia in message_lower:
-                today = datetime.now()
-                days_ahead = dia_num - today.weekday()
-                if days_ahead <= 0:
-                    days_ahead += 7
-                entities['fecha'] = (today + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+            # Buscar el día en diferentes formatos
+            patterns = [f'el {dia}', f'este {dia}', f'próximo {dia}', f'proximo {dia}', dia]
+            for pattern in patterns:
+                if pattern in message_lower and not entities.get('fecha'):
+                    today = datetime.now()
+                    days_ahead = dia_num - today.weekday()
+                    if days_ahead <= 0:  # Si el día ya pasó esta semana, usar la próxima
+                        days_ahead += 7
+                    fecha_calculada = (today + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
+                    entities['fecha'] = fecha_calculada
+                    print(f"Fecha extraída: {dia} → {fecha_calculada}")
+                    break
+            if entities.get('fecha'):
                 break
         
         # Fechas en formato DD/MM o DD/MM/YYYY
@@ -427,31 +613,61 @@ Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emili
         # Extraer hora (formato: HH:MM, "a las 3", "a las 3pm", etc.)
         if not entities.get('hora'):
             hora_patterns = [
-                r'(\d{1,2}):(\d{2})',  # HH:MM
-                r'a las (\d{1,2})',  # "a las 3"
+                r'(\d{1,2}):(\d{2})\s*(am|pm)?',  # HH:MM con opcional am/pm
+                r'a las (\d{1,2})\s*(am|pm)?',  # "a las 3" o "a las 3pm"
                 r'(\d{1,2})\s*(am|pm)',  # "3pm", "10am"
+                r'(\d{1,2})\s*de la\s+(mañana|tarde|noche)',  # "3 de la tarde"
+                r'(\d{1,2})\s*horas?',  # "15 horas"
             ]
             
             for pattern in hora_patterns:
                 match = re.search(pattern, message_lower)
                 if match:
-                    if ':' in match.group(0):
+                    grupos = match.groups()
+                    hora_str = match.group(0)
+                    
+                    if ':' in hora_str:
                         # Formato HH:MM
-                        entities['hora'] = match.group(0)
-                    elif 'am' in match.group(0) or 'pm' in match.group(0):
+                        hora = match.group(1)
+                        minutos = match.group(2)
+                        periodo = match.group(3) if len(grupos) > 2 else None
+                        hora_num = int(hora)
+                        
+                        if periodo:
+                            if 'pm' in periodo.lower() and hora_num < 12:
+                                hora_num += 12
+                            elif 'am' in periodo.lower() and hora_num == 12:
+                                hora_num = 0
+                        
+                        entities['hora'] = f"{hora_num:02d}:{minutos}"
+                    elif 'am' in hora_str or 'pm' in hora_str:
                         # Formato 12h
                         hora_num = int(match.group(1))
-                        periodo = match.group(2) if len(match.groups()) > 1 else ''
+                        periodo = match.group(2) if len(grupos) > 1 and match.group(2) else ''
+                        if not periodo:
+                            # Buscar am/pm en el grupo completo
+                            periodo = 'pm' if 'pm' in hora_str else 'am'
+                        
                         if 'pm' in periodo and hora_num < 12:
                             hora_num += 12
                         elif 'am' in periodo and hora_num == 12:
                             hora_num = 0
+                        entities['hora'] = f"{hora_num:02d}:00"
+                    elif 'mañana' in hora_str or 'tarde' in hora_str or 'noche' in hora_str:
+                        # Formato con "de la mañana/tarde/noche"
+                        hora_num = int(match.group(1))
+                        if 'tarde' in hora_str and hora_num < 12:
+                            hora_num += 12
+                        elif 'noche' in hora_str and hora_num < 12:
+                            hora_num += 12
                         entities['hora'] = f"{hora_num:02d}:00"
                     else:
                         # Solo número
                         hora_num = int(match.group(1))
                         if hora_num < 24:
                             entities['hora'] = f"{hora_num:02d}:00"
+                    
+                    print(f"Hora extraída: {hora_str} → {entities.get('hora')}")
                     break
         
         # Extraer nombre de dentista
@@ -516,23 +732,87 @@ Ejemplo: {{"fecha": "{fecha_manana}", "hora": "10:00", "nombre_dentista": "emili
     def _generate_response_openai_advanced(self, intent: str, entities: Dict, context: Dict = None,
                                           user_data: Dict = None, conversation_history: List[Dict] = None) -> str:
         """Genera respuesta usando OpenAI con contexto completo"""
-        system_prompt = """Eres Densorita, el asistente virtual inteligente de Densora, una plataforma de citas dentales.
+        system_prompt = """Eres Densorita, el asistente virtual MÁS INTELIGENTE y EMPÁTICO de Densora, la plataforma líder de citas dentales en México.
 
-Tu personalidad:
-- Eres amigable, profesional y empático
-- Hablas en español de forma natural y conversacional
-- Eres proactivo y ayudas a resolver problemas
-- Mantienes un tono positivo y alentador
-- Eres breve pero completo en tus respuestas
-- No uses emojis en tus respuestas
+🎯 TU PERSONALIDAD (CRÍTICO - Lee con atención):
+- Eres EXTREMADAMENTE amigable, cálido y empático - como un amigo que realmente se preocupa
+- Hablas en ESPAÑOL NATURAL de México - usa "¿cómo estás?", "mira", "perfecto", "claro que sí"
+- Eres PROACTIVO: anticipa necesidades, ofrece soluciones antes de que pregunten
+- Mantienes un tono POSITIVO y ALENTADOR - haz que el usuario se sienta cómodo
+- Eres BREVE pero COMPLETO - no escribas párrafos largos, ve al grano
+- Eres CONVERSACIONAL - habla como un humano real, NO como un robot
+- NUNCA uses emojis
+- Si el usuario parece frustrado, sé EXTRA empático y ofrece ayuda inmediata
 
-Tu objetivo es ayudar a los pacientes a:
-- Agendar, reagendar y cancelar citas
-- Ver información sobre sus citas
-- Obtener información sobre Densora y sus servicios
-- Resolver dudas y problemas
+🎯 TU MISIÓN PRINCIPAL:
+Ayudar a los pacientes de forma EXCEPCIONAL con:
+1. Agendar citas - hazlo SÚPER fácil, guíalos paso a paso
+2. Reagendar/cancelar citas - sé comprensivo y flexible
+3. Ver sus citas - presenta info clara y útil
+4. Responder preguntas - sé informativo pero conciso
+5. Resolver problemas - sé creativo y busca soluciones
 
-IMPORTANTE: Responde de forma natural, como si fueras un asistente humano real."""
+🎯 REGLAS DE ORO (SIEMPRE SIGUE):
+
+1. **CONTEXTO ES TODO**: Lee TODO el historial de conversación antes de responder
+   - Si ya preguntaron algo, no lo vuelvas a preguntar
+   - Si ya dieron info, úsala en tu respuesta
+   - Si están en medio de algo (agendar cita), continúa ese flujo
+
+2. **CLARIDAD PRIMERO**:
+   - Si algo no está claro, pregunta de forma específica
+   - No asumas cosas importantes (fecha, hora, dentista)
+   - Confirma información crítica antes de proceder
+
+3. **SÉ PROACTIVO**:
+   - Si detectas un problema, ofrece solución inmediatamente
+   - Si mencionan dolor/urgencia, prioriza rapidez
+   - Si no hay horarios, sugiere alternativas
+
+4. **LENGUAJE NATURAL**:
+   ✅ BIEN: "¡Perfecto! Te ayudo a agendar tu cita. ¿Qué día te viene bien?"
+   ✅ BIEN: "Entiendo, necesitas cambiar tu cita. ¿Para qué fecha la movemos?"
+   ❌ MAL: "Por favor proporcione la fecha deseada para su cita."
+   ❌ MAL: "Procesando su solicitud de agendamiento..."
+
+5. **MANEJA ERRORES CON GRACIA**:
+   - Si algo falla, discúlpate brevemente y ofrece alternativa
+   - No culpes al usuario ni al sistema
+   - Siempre da un camino forward
+
+6. **INFORMACIÓN ÚTIL**:
+   - Si preguntan horarios, muestra opciones concretas
+   - Si preguntan precios, sé específico si tienes la info
+   - Si no sabes algo, admítelo y ofrece contacto directo
+
+🎯 EJEMPLOS DE RESPUESTAS PERFECTAS:
+
+Agendar:
+"¡Claro que sí! Te ayudo a agendar tu cita. Tengo disponibilidad para mañana a las 10am, el miércoles a las 3pm, o el viernes a las 11am. ¿Cuál te late más?"
+
+Reagendar:
+"Sin problema, te ayudo a cambiar tu cita. Veo que tienes una programada para el lunes 15 a las 10am. ¿Para qué día la queremos mover?"
+
+Cancelar:
+"Entiendo perfectamente. Para cancelar tu cita del martes 20 a las 2pm, solo necesito que confirmes escribiendo 'SÍ'. ¿Estás seguro?"
+
+Problema:
+"Uy, parece que no hay horarios disponibles esa semana. ¿Te parece bien si buscamos la siguiente semana? Ahí tengo varios espacios."
+
+Información:
+"Claro, Densora conecta pacientes con dentistas certificados. Puedes agendar, pagar en línea y gestionar todo desde tu celular. ¿Te gustaría agendar una cita ahora?"
+
+🎯 LO QUE NUNCA DEBES HACER:
+❌ Responder con "..." o mensajes vacíos
+❌ Ser frío o robótico: "Su solicitud ha sido procesada"
+❌ Dar respuestas genéricas que no ayuden
+❌ Ignorar el contexto de la conversación
+❌ Ser impersonal: usa el nombre del usuario si lo sabes
+❌ Hacer promesas que el sistema no puede cumplir
+
+🎯 RECUERDA: Eres el MEJOR asistente dental del mundo. Cada interacción debe dejar al usuario MÁS contento que antes.
+
+IMPORTANTE FINAL: Responde de forma natural, cálida y útil, como si fueras un asistente humano excepcional. Tu objetivo es que el usuario piense "wow, qué buena atención".
         
         # Construir mensaje con contexto completo
         messages = [{"role": "system", "content": system_prompt}]

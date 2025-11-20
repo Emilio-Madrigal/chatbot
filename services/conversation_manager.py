@@ -5,6 +5,7 @@ Maneja el contexto y flujo de conversación del chatbot con ML
 
 from services.ml_service import MLService
 from services.actions_service import ActionsService
+from services.payment_service import PaymentService
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -16,6 +17,7 @@ class ConversationManager:
     def __init__(self):
         self.ml_service = MLService()
         self.actions_service = ActionsService()
+        self.payment_service = PaymentService()
         self.conversations = {}  # Almacena el contexto de cada conversación
     
     def get_conversation_context(self, session_id: str) -> Dict:
@@ -939,21 +941,17 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
         }
     
     def _handle_confirm_payment(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Maneja confirmación de pago por parte del paciente"""
+        """Maneja confirmación de pago por parte del paciente - MEJORADO"""
         try:
-            # Obtener citas con pago pendiente
-            citas = self.actions_service.get_user_appointments(
-                user_id=user_id,
-                phone=phone,
-                status='confirmado'
+            # Obtener citas con pago pendiente usando el PaymentService
+            citas_pendientes = self.payment_service.get_citas_con_pago_pendiente(
+                paciente_id=user_id,
+                telefono=phone
             )
-            
-            # Filtrar citas con pago pendiente
-            citas_pendientes = [c for c in citas if c.get('estado_pago') == 'pendiente' or c.get('paymentStatus') == 'pending']
             
             if not citas_pendientes:
                 return {
-                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
+                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -961,27 +959,38 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             # Si solo hay una cita pendiente, procesarla directamente
             if len(citas_pendientes) == 1:
                 cita = citas_pendientes[0]
-                # Aquí normalmente se integraría con un sistema de pagos
-                # Por ahora, solo confirmamos manualmente
-                response = f"""¡Excelente! He registrado tu confirmación de pago.
+                cita_id = cita.get('id')
+                metodo_pago = cita.get('metodo_pago', 'transferencia')
+                
+                # Confirmar pago
+                resultado = self.payment_service.confirmar_pago(
+                    cita_id=cita_id,
+                    metodo_confirmacion='chatbot'
+                )
+                
+                if resultado.get('success'):
+                    response = f"""✅ ¡Excelente! He registrado tu confirmación de pago.
 
-Cita: {cita.get('fecha', 'N/A')} - {cita.get('hora', 'N/A')}
-Dentista: {cita.get('dentista', 'N/A')}
-Estado: Pago confirmado
+📅 Cita: {cita.get('fecha', 'N/A')} a las {cita.get('hora', 'N/A')}
+👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}
+💰 Método: {metodo_pago.title()}
+📊 Estado: Pendiente de verificación
 
-Tu cita ya está completamente confirmada. Te esperamos el día programado.
+Tu confirmación fue recibida. El consultorio verificará tu pago y te notificaremos cuando esté aprobado.
 
 ¿Necesitas ayuda con algo más?"""
+                else:
+                    response = f"❌ {resultado.get('mensaje', 'Error al confirmar pago')}\n\nPor favor contacta al consultorio directamente."
                 
                 return {
                     'response': response,
-                    'action': 'payment_confirmed',
+                    'action': 'payment_confirmed' if resultado.get('success') else None,
                     'next_step': 'inicial'
                 }
             
             # Si hay múltiples citas, pedir que especifique cuál
             citas_text = "\n".join([
-                f"{i+1}. {c.get('fecha', 'N/A')} - {c.get('hora', 'N/A')} ({c.get('dentista', 'N/A')})"
+                f"{i+1}. 📅 {c.get('fecha', 'N/A')} - ⏰ {c.get('hora', 'N/A')}\n   👨‍⚕️ {c.get('dentista', 'N/A')}\n   💵 ${c.get('precio', 0):.2f} ({c.get('metodo_pago', 'N/A').title()})"
                 for i, c in enumerate(citas_pendientes)
             ])
             
@@ -993,79 +1002,69 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado.
             
         except Exception as e:
             print(f"Error en _handle_confirm_payment: {e}")
+            import traceback
+            traceback.print_exc()
             return {
-                'response': "Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
+                'response': "❌ Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
                 'action': None,
                 'next_step': 'inicial'
             }
     
     def _handle_check_payment_time(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Maneja consulta de tiempo restante para pagar"""
+        """Maneja consulta de tiempo restante para pagar - MEJORADO"""
         try:
-            # Obtener citas con pago pendiente
-            citas = self.actions_service.get_user_appointments(
-                user_id=user_id,
-                phone=phone,
-                status='confirmado'
+            # Obtener citas con pago pendiente usando PaymentService
+            citas_pendientes = self.payment_service.get_citas_con_pago_pendiente(
+                paciente_id=user_id,
+                telefono=phone
             )
-            
-            # Filtrar citas con pago pendiente
-            citas_pendientes = [c for c in citas if c.get('estado_pago') == 'pendiente' or c.get('paymentStatus') == 'pending']
             
             if not citas_pendientes:
                 return {
-                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día.",
+                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día.",
                     'action': None,
                     'next_step': 'inicial'
                 }
             
             # Calcular tiempo restante para cada cita
-            from datetime import datetime
-            response_text = "Tiempo restante para pagar tus citas:\n\n"
+            response_text = "⏰ *Tiempo restante para pagar tus citas:*\n\n"
             
             for i, cita in enumerate(citas_pendientes, 1):
                 fecha = cita.get('fecha', 'N/A')
                 hora = cita.get('hora', 'N/A')
+                metodo_pago = cita.get('metodo_pago', 'transferencia')
                 
-                # Intentar obtener payment_deadline
-                payment_deadline = cita.get('paymentDeadline') or cita.get('payment_deadline')
+                # Calcular tiempo restante
+                tiempo_info = self.payment_service.calcular_tiempo_restante_pago(
+                    cita=cita,
+                    metodo_pago=metodo_pago
+                )
                 
-                if payment_deadline:
-                    try:
-                        if isinstance(payment_deadline, str):
-                            deadline_dt = datetime.fromisoformat(payment_deadline)
-                        else:
-                            deadline_dt = payment_deadline
-                        
-                        now = datetime.now()
-                        diff = deadline_dt - now
-                        
-                        if diff.total_seconds() <= 0:
-                            tiempo_restante = "¡EXPIRADO! La cita será cancelada pronto"
-                        else:
-                            horas = int(diff.total_seconds() / 3600)
-                            minutos = int((diff.total_seconds() % 3600) / 60)
-                            
-                            if horas > 0:
-                                tiempo_restante = f"{horas}h {minutos}min restantes"
-                            else:
-                                tiempo_restante = f"{minutos} minutos restantes"
-                            
-                            # Agregar indicador según urgencia
-                            if horas <= 2:
-                                tiempo_restante = f"{tiempo_restante} ¡URGENTE!"
-                            elif horas <= 12:
-                                tiempo_restante = f"{tiempo_restante}"
-                            else:
-                                tiempo_restante = f"{tiempo_restante}"
-                    except:
-                        tiempo_restante = "24 horas (aprox.)"
+                mensaje_tiempo = tiempo_info.get('mensaje', 'Tiempo no disponible')
+                tiene_tiempo = tiempo_info.get('tiene_tiempo', True)
+                
+                # Emoji según urgencia
+                if not tiene_tiempo:
+                    emoji = "🔴"
+                elif tiempo_info.get('horas_restantes', 999) <= 2:
+                    emoji = "🟠"
+                elif tiempo_info.get('horas_restantes', 999) <= 12:
+                    emoji = "🟡"
                 else:
-                    tiempo_restante = "24 horas (aprox.)"
+                    emoji = "🟢"
                 
-                response_text += f"{i}. {fecha} - {hora}\n   {tiempo_restante}\n\n"
+                response_text += f"{emoji} *Cita {i}:*\n"
+                response_text += f"   📅 {fecha} a las {hora}\n"
+                response_text += f"   💰 Método: {metodo_pago.title()}\n"
+                response_text += f"   ⏱️ {mensaje_tiempo}\n\n"
             
-            response_text += "Escribe *'ya pagué'* cuando hayas completado el pago."
+            response_text += "\n💡 *Tip:* Escribe *'ya pagué'* cuando hayas completado el pago."
+            
+            # Mostrar instrucciones de pago si hay citas urgentes
+            urgentes = [c for c in citas_pendientes if self.payment_service.calcular_tiempo_restante_pago(c, c.get('metodo_pago', 'transferencia')).get('horas_restantes', 999) <= 12]
+            
+            if urgentes:
+                response_text += "\n\n🚨 *¡Tienes pagos urgentes!* Escribe *'cómo pagar'* para ver las instrucciones."
             
             return {
                 'response': response_text,
@@ -1075,8 +1074,10 @@ Tu cita ya está completamente confirmada. Te esperamos el día programado.
             
         except Exception as e:
             print(f"Error en _handle_check_payment_time: {e}")
+            import traceback
+            traceback.print_exc()
             return {
-                'response': "Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
+                'response': "❌ Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
                 'action': None,
                 'next_step': 'inicial'
             }

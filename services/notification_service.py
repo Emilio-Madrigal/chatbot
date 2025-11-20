@@ -29,6 +29,17 @@ class NotificacionesService:
             id='daily_reminders',
             name='Recordatorios diarios'
         )
+        # J.RF14: Resumen semanal paciente (cada lunes a las 10:00)
+        self.scheduler.add_job(
+            func=self.send_weekly_summaries,
+            trigger="cron",
+            day_of_week='mon',
+            hour=10,
+            minute=0,
+            timezone=self.timezone,
+            id='weekly_summaries',
+            name='Resúmenes semanales pacientes'
+        )
         print("trabajos programados y configurados")
     def start_scheduler(self):
         if not self.scheduler.running:
@@ -185,4 +196,177 @@ class NotificacionesService:
         except Exception as e:
             print(f"error enviando recordatorio personalizado: {e}")
             return False
+
+    # J.RF14: Enviar resumen semanal a pacientes
+    def send_weekly_summaries(self):
+        try:
+            from database.models import PacienteRepository
+            from google.cloud.firestore import SERVER_TIMESTAMP
+            
+            paciente_repo = PacienteRepository()
+            db = self.cita_repo.db
+            
+            # Obtener todos los pacientes activos
+            pacientes_ref = db.collection('pacientes')
+            pacientes = []
+            for doc in pacientes_ref.stream():
+                paciente_data = doc.to_dict()
+                telefono = paciente_data.get('telefono')
+                if telefono:
+                    pacientes.append({
+                        'uid': doc.id,
+                        'telefono': telefono,
+                        'nombre': paciente_data.get('nombre', ''),
+                        'apellidos': paciente_data.get('apellidos', ''),
+                        'nombreCompleto': paciente_data.get('nombreCompleto', ''),
+                        'lastLogin': paciente_data.get('lastLogin'),
+                    })
+            
+            print(f"J.RF14: Enviando resúmenes semanales a {len(pacientes)} pacientes")
+            
+            # Calcular fechas para la semana
+            now = datetime.now()
+            semana_siguiente = now + timedelta(days=7)
+            
+            for paciente in pacientes:
+                try:
+                    self._send_weekly_summary_to_patient(paciente, now, semana_siguiente)
+                except Exception as e:
+                    print(f"Error enviando resumen semanal a {paciente.get('telefono')}: {e}")
+            
+            print(f"J.RF14: Resúmenes semanales enviados")
+            
+        except Exception as e:
+            print(f"Error en send_weekly_summaries: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # J.RF14: Enviar resumen semanal a un paciente específico
+    def _send_weekly_summary_to_patient(self, paciente: dict, now: datetime, semana_siguiente: datetime):
+        try:
+            paciente_uid = paciente['uid']
+            telefono = paciente['telefono']
+            nombre = paciente.get('nombreCompleto') or f"{paciente.get('nombre', '')} {paciente.get('apellidos', '')}".strip()
+            
+            # Obtener citas próximas (próximos 7 días)
+            citas_proximas = self.cita_repo.obtener_citas_paciente(paciente_uid)
+            citas_semana = [
+                c for c in citas_proximas 
+                if c.fecha and c.estado in ['confirmada', 'programada']
+            ]
+            
+            # Filtrar citas de la próxima semana
+            citas_semana = [
+                c for c in citas_semana
+                if c.fecha and now.strftime('%Y-%m-%d') <= c.fecha <= semana_siguiente.strftime('%Y-%m-%d')
+            ]
+            
+            # Obtener citas completadas sin historial médico (últimos 30 días)
+            db = self.cita_repo.db
+            citas_completadas = db.collection('pacientes').document(paciente_uid).collection('citas')\
+                .where('estado', '==', 'completada')\
+                .where('fecha', '>=', now - timedelta(days=30))\
+                .stream()
+            
+            citas_sin_historial = []
+            for cita_doc in citas_completadas:
+                cita_data = cita_doc.to_dict()
+                # Verificar si tiene historial médico asociado
+                historial_ref = db.collection('pacientes').document(paciente_uid).collection('historialMedico')\
+                    .where('citaId', '==', cita_doc.id).limit(1).get()
+                if not list(historial_ref):
+                    citas_sin_historial.append(cita_data)
+            
+            # Obtener citas completadas sin reseña (últimos 30 días)
+            citas_sin_resena = []
+            for cita_doc in db.collection('pacientes').document(paciente_uid).collection('citas')\
+                .where('estado', '==', 'completada')\
+                .where('fecha', '>=', now - timedelta(days=30))\
+                .stream():
+                cita_data = cita_doc.to_dict()
+                # Verificar si tiene reseña
+                reseñas_ref = db.collection('resenas')\
+                    .where('pacienteId', '==', paciente_uid)\
+                    .where('citaId', '==', cita_doc.id).limit(1).get()
+                if not list(reseñas_ref):
+                    citas_sin_resena.append(cita_data)
+            
+            # Verificar última vez que inició sesión
+            last_login = paciente.get('lastLogin')
+            necesita_actualizar_datos = False
+            if last_login:
+                if hasattr(last_login, 'timestamp'):
+                    last_login_date = last_login.timestamp().to_datetime()
+                elif hasattr(last_login, 'to_datetime'):
+                    last_login_date = last_login.to_datetime()
+                else:
+                    last_login_date = None
+                
+                if last_login_date:
+                    dias_sin_login = (now - last_login_date.replace(tzinfo=None)).days
+                    if dias_sin_login > 30:
+                        necesita_actualizar_datos = True
+            else:
+                # Si nunca ha iniciado sesión, también recordarle
+                necesita_actualizar_datos = True
+            
+            # Construir mensaje de resumen semanal
+            mensaje = f"""📅 *RESUMEN SEMANAL - Densora*
+
+Hola {nombre}! 👋
+
+"""
+            
+            # Próximas citas
+            if citas_semana:
+                mensaje += f"""📋 *Tus próximas citas esta semana:*
+
+"""
+                for i, cita in enumerate(citas_semana[:5], 1):  # Máximo 5 citas
+                    fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
+                    mensaje += f"{i}. 📅 {fecha_formatted} - ⏰ {cita.horaInicio or cita.hora}\n"
+                    mensaje += f"   👨‍⚕️ {cita.dentistaName or 'Dentista'}\n"
+                    mensaje += f"   📝 {cita.motivo or cita.descripcion or 'Consulta'}\n\n"
+            else:
+                mensaje += """📋 *Próximas citas:* No tienes citas programadas esta semana.
+
+"""
+            
+            # Historial pendiente
+            if citas_sin_historial:
+                mensaje += f"""📄 *Historial médico pendiente:*
+Tienes {len(citas_sin_historial)} cita(s) completada(s) sin historial médico actualizado.
+💡 Visita tu perfil para actualizar tu historial.
+
+"""
+            
+            # Reseñas pendientes
+            if citas_sin_resena:
+                mensaje += f"""⭐ *Reseñas pendientes:*
+Tienes {len(citas_sin_resena)} cita(s) completada(s) sin reseña.
+💬 Escribe "calificar" para dejar tu opinión.
+
+"""
+            
+            # Recordatorio de actualización de datos
+            if necesita_actualizar_datos:
+                mensaje += """🔄 *Actualiza tus datos:*
+Hace más de 30 días que no inicias sesión.
+💡 Visita nuestra web para mantener tu información actualizada.
+
+"""
+            
+            mensaje += f"""🌐 *Visita nuestra web:* https://www.densora.com
+
+¡Que tengas una excelente semana! ✨"""
+            
+            # Enviar mensaje
+            self.whatsapp.send_text_message(telefono, mensaje)
+            print(f"J.RF14: Resumen semanal enviado a {telefono}")
+            
+        except Exception as e:
+            print(f"Error enviando resumen semanal a paciente {paciente.get('telefono')}: {e}")
+            import traceback
+            traceback.print_exc()
+
 notidicaciones_service=NotificacionesService()
