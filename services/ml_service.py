@@ -405,20 +405,20 @@ ENTIDADES A EXTRAER:
 
 2. **hora** (formato HH:MM en 24 horas):
    FORMATOS COMUNES:
-   - "10am", "10 am", "10 de la manana", "a las 10 am" => "10:00"
-   - "3pm", "3 de la tarde", "a las 3 pm", "15 horas" => "15:00"
-   - "mediodia", "12pm", "12 del dia" => "12:00"
-   - "medianoche", "12am" => "00:00"
-   - "9:30am" => "09:30"
-   - "14:45", "2:45pm" => "14:45"
+   - Detecta "10am", "10 am", "10 de la manana" => retorna "10:00"
+   - Detecta "3pm", "3 de la tarde", "15 horas" => retorna "15:00"
+   - Detecta "mediodia", "12pm" => retorna "12:00"
+   - Detecta "medianoche", "12am" => retorna "00:00"
+   - Detecta "9:30am" => retorna "09:30"
+   - Detecta "14:45", "2:45pm" => retorna "14:45"
    
    EXPRESIONES COLOQUIALES:
-   - "por la manana" => "10:00" (asume 10am si no especifica)
-   - "por la tarde" => "15:00" (asume 3pm)
-   - "al mediodia" => "12:00"
-   - "temprano" => "09:00"
-   - "antes de comer" => "11:00"
-   - "despues de comer" => "14:00"
+   - "por la manana" => retorna "10:00"
+   - "por la tarde" => retorna "15:00"
+   - "al mediodia" => retorna "12:00"
+   - "temprano" => retorna "09:00"
+   - "antes de comer" => retorna "11:00"
+   - "despues de comer" => retorna "14:00"
 
 3. **nombre_dentista**: 
    - Busca nombres propios despues de "doctor", "dr", "doctora", "dra", "con el", "con la"
@@ -437,7 +437,7 @@ ENTIDADES A EXTRAER:
    - "la cita del lunes" => busca el numero de cita en ese contexto
 
 REGLAS CRITICAS:
-- Si el usuario dice "manana a las 3pm", extrae AMBAS entidades: fecha="{fecha_manana}", hora="15:00"
+- Si el usuario dice "manana a las 3 de la tarde", extrae AMBAS entidades: fecha y hora
 - Si dice "el lunes", CALCULA la fecha exacta del proximo lunes
 - Si NO puedes determinar algo, usa null (no inventes)
 - Prioriza PRECISION sobre intentar adivinar
