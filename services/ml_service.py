@@ -319,13 +319,13 @@ despedirse: Usuario se despide
 
 otro: Si REALMENTE no encaja en ninguna (úsalo poco)
 
-REGLAS CRÍTICAS:
-- Si menciona FECHA u HORA junto con dentista/doctor/cita → agendar_cita
-- Si menciona "cambiar" o "mover" + cita → reagendar_cita
-- Si menciona "cancelar" o "no puedo ir" → cancelar_cita
-- Si pregunta "cuándo" o "qué citas" → ver_citas
-- Si menciona dolor/problema dental → agendar_cita (quiere atención)
-- Si es ambiguo, PRIORIZA la acción más útil para el usuario
+REGLAS CRITICAS:
+- Si menciona FECHA u HORA junto con dentista/doctor/cita => agendar_cita
+- Si menciona "cambiar" o "mover" + cita => reagendar_cita
+- Si menciona "cancelar" o "no puedo ir" => cancelar_cita
+- Si pregunta "cuando" o "que citas" => ver_citas
+- Si menciona dolor/problema dental => agendar_cita (quiere atencion)
+- Si es ambiguo, PRIORIZA la accion mas util para el usuario
 
 FORMATO DE RESPUESTA: Responde SOLO con la intención en minúsculas (ej: "agendar_cita"), SIN puntos ni explicaciones.
         
@@ -378,78 +378,78 @@ ENTIDADES A EXTRAER:
 
 1. **fecha** (formato YYYY-MM-DD):
    FECHAS RELATIVAS:
-   - "mañana", "tomorrow" → {fecha_manana}
-   - "pasado mañana" → {fecha_pasado_manana}
-   - "hoy", "today" → {fecha_hoy}
-   - "esta semana", "esta semana" → usa la fecha más cercana dentro de los próximos 7 días
-   - "la próxima semana", "next week" → agrega 7 días
+   - "manana", "tomorrow" => {fecha_manana}
+   - "pasado manana" => {fecha_pasado_manana}
+   - "hoy", "today" => {fecha_hoy}
+   - "esta semana", "esta semana" => usa la fecha mas cercana dentro de los proximos 7 dias
+   - "la proxima semana", "next week" => agrega 7 dias
    
-   DÍAS DE LA SEMANA (CALCULA LA PRÓXIMA OCURRENCIA):
-   - "lunes" → encuentra el próximo lunes después de hoy
-   - "martes" → encuentra el próximo martes después de hoy
-   - "miércoles", "miercoles" → el próximo miércoles
-   - "jueves" → el próximo jueves
-   - "viernes" → el próximo viernes
-   - "sábado", "sabado" → el próximo sábado
-   - "domingo" → el próximo domingo
+   DIAS DE LA SEMANA (CALCULA LA PROXIMA OCURRENCIA):
+   - "lunes" => encuentra el proximo lunes despues de hoy
+   - "martes" => encuentra el proximo martes despues de hoy
+   - "miercoles", "miercoles" => el proximo miercoles
+   - "jueves" => el proximo jueves
+   - "viernes" => el proximo viernes
+   - "sabado", "sabado" => el proximo sabado
+   - "domingo" => el proximo domingo
    
-   FECHAS ESPECÍFICAS:
-   - "el 15 de enero", "15 enero", "enero 15" → convierte a 2025-01-15 (usa año actual o siguiente si ya pasó)
-   - "15/01", "15-01" → 2025-01-15
-   - "15/01/2025" → 2025-01-15
+   FECHAS ESPECIFICAS:
+   - "el 15 de enero", "15 enero", "enero 15" => convierte a 2025-01-15 (usa ano actual o siguiente si ya paso)
+   - "15/01", "15-01" => 2025-01-15
+   - "15/01/2025" => 2025-01-15
    
    EXPRESIONES COLOQUIALES:
-   - "en 3 días", "dentro de 3 días" → suma 3 días a hoy
-   - "en una semana" → suma 7 días
-   - "en dos semanas" → suma 14 días
+   - "en 3 dias", "dentro de 3 dias" => suma 3 dias a hoy
+   - "en una semana" => suma 7 dias
+   - "en dos semanas" => suma 14 dias
 
 2. **hora** (formato HH:MM en 24 horas):
    FORMATOS COMUNES:
-   - "10am", "10 am", "10 de la mañana", "a las 10 am" → "10:00"
-   - "3pm", "3 de la tarde", "a las 3 pm", "15 horas" → "15:00"
-   - "mediodía", "12pm", "12 del día" → "12:00"
-   - "medianoche", "12am" → "00:00"
-   - "9:30am" → "09:30"
-   - "14:45", "2:45pm" → "14:45"
+   - "10am", "10 am", "10 de la manana", "a las 10 am" => "10:00"
+   - "3pm", "3 de la tarde", "a las 3 pm", "15 horas" => "15:00"
+   - "mediodia", "12pm", "12 del dia" => "12:00"
+   - "medianoche", "12am" => "00:00"
+   - "9:30am" => "09:30"
+   - "14:45", "2:45pm" => "14:45"
    
    EXPRESIONES COLOQUIALES:
-   - "por la mañana" → "10:00" (asume 10am si no especifica)
-   - "por la tarde" → "15:00" (asume 3pm)
-   - "al mediodía" → "12:00"
-   - "temprano" → "09:00"
-   - "antes de comer" → "11:00"
-   - "después de comer" → "14:00"
+   - "por la manana" => "10:00" (asume 10am si no especifica)
+   - "por la tarde" => "15:00" (asume 3pm)
+   - "al mediodia" => "12:00"
+   - "temprano" => "09:00"
+   - "antes de comer" => "11:00"
+   - "despues de comer" => "14:00"
 
 3. **nombre_dentista**: 
-   - Busca nombres propios después de "doctor", "dr", "doctora", "dra", "con el", "con la"
-   - Ejemplos: "doctor emilio" → "emilio", "dra. lópez" → "lópez", "con juan" → "juan"
-   - Si menciona solo nombre sin título, también extráelo
+   - Busca nombres propios despues de "doctor", "dr", "doctora", "dra", "con el", "con la"
+   - Ejemplos: "doctor emilio" => "emilio", "dra. lopez" => "lopez", "con juan" => "juan"
+   - Si menciona solo nombre sin titulo, tambien extraelo
 
 4. **motivo**: 
-   - El motivo/razón de la cita
-   - Ejemplos: "dolor de muela", "limpieza", "revisión", "urgencia", "extracción", "me duele"
-   - EXTRAE TODO el contexto médico mencionado
+   - El motivo/razon de la cita
+   - Ejemplos: "dolor de muela", "limpieza", "revision", "urgencia", "extraccion", "me duele"
+   - EXTRAE TODO el contexto medico mencionado
 
 5. **numero_cita**:
-   - Si menciona "primera cita", "cita 1" → 1
-   - "segunda cita", "cita 2" → 2
-   - "tercera cita", "cita 3" → 3
-   - "la cita del lunes" → busca el número de cita en ese contexto
+   - Si menciona "primera cita", "cita 1" => 1
+   - "segunda cita", "cita 2" => 2
+   - "tercera cita", "cita 3" => 3
+   - "la cita del lunes" => busca el numero de cita en ese contexto
 
-REGLAS CRÍTICAS:
-- Si el usuario dice "mañana a las 3pm", extrae AMBAS entidades: fecha="{fecha_manana}", hora="15:00"
-- Si dice "el lunes", CALCULA la fecha exacta del próximo lunes
+REGLAS CRITICAS:
+- Si el usuario dice "manana a las 3pm", extrae AMBAS entidades: fecha="{fecha_manana}", hora="15:00"
+- Si dice "el lunes", CALCULA la fecha exacta del proximo lunes
 - Si NO puedes determinar algo, usa null (no inventes)
-- Prioriza PRECISIÓN sobre intentar adivinar
-- Para fechas pasadas, asume que habla del próximo año
+- Prioriza PRECISION sobre intentar adivinar
+- Para fechas pasadas, asume que habla del proximo ano
 
-FORMATO DE SALIDA: JSON válido con estas claves exactas:
-{{"fecha": "YYYY-MM-DD o null", "hora": "HH:MM o null", "nombre_dentista": "nombre o null", "motivo": "descripción o null", "numero_cita": número o null}}
+FORMATO DE SALIDA: JSON valido con estas claves exactas:
+{{"fecha": "YYYY-MM-DD o null", "hora": "HH:MM o null", "nombre_dentista": "nombre o null", "motivo": "descripcion o null", "numero_cita": numero o null}}
 
 EJEMPLOS REALES:
-- "quiero cita mañana a las 3" → {{"fecha": "{fecha_manana}", "hora": "15:00", "nombre_dentista": null, "motivo": null, "numero_cita": null}}
-- "el lunes por la tarde con el dr emilio" → {{"fecha": "CALCULA_LUNES", "hora": "15:00", "nombre_dentista": "emilio", "motivo": null, "numero_cita": null}}
-- "me duele una muela, puedo ir pasado mañana?" → {{"fecha": "{fecha_pasado_manana}", "hora": null, "nombre_dentista": null, "motivo": "dolor de muela", "numero_cita": null}}
+- "quiero cita manana a las 3" => {{"fecha": "{fecha_manana}", "hora": "15:00", "nombre_dentista": null, "motivo": null, "numero_cita": null}}
+- "el lunes por la tarde con el dr emilio" => {{"fecha": "CALCULA_LUNES", "hora": "15:00", "nombre_dentista": "emilio", "motivo": null, "numero_cita": null}}
+- "me duele una muela, puedo ir pasado manana?" => {{"fecha": "{fecha_pasado_manana}", "hora": null, "nombre_dentista": null, "motivo": "dolor de muela", "numero_cita": null}}
 
 Responde SOLO con el JSON, sin explicaciones adicionales.
         
@@ -585,7 +585,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales.
                         days_ahead += 7
                     fecha_calculada = (today + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
                     entities['fecha'] = fecha_calculada
-                    print(f"Fecha extraída: {dia} → {fecha_calculada}")
+                    print(f"Fecha extraida: {dia} => {fecha_calculada}")
                     break
             if entities.get('fecha'):
                 break
@@ -667,7 +667,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales.
                         if hora_num < 24:
                             entities['hora'] = f"{hora_num:02d}:00"
                     
-                    print(f"Hora extraída: {hora_str} → {entities.get('hora')}")
+                    print(f"Hora extraida: {hora_str} => {entities.get('hora')}")
                     break
         
         # Extraer nombre de dentista
@@ -732,85 +732,85 @@ Responde SOLO con el JSON, sin explicaciones adicionales.
     def _generate_response_openai_advanced(self, intent: str, entities: Dict, context: Dict = None,
                                           user_data: Dict = None, conversation_history: List[Dict] = None) -> str:
         """Genera respuesta usando OpenAI con contexto completo"""
-        system_prompt = """Eres Densorita, el asistente virtual MÁS INTELIGENTE y EMPÁTICO de Densora, la plataforma líder de citas dentales en México.
+        system_prompt = """Eres Densorita, el asistente virtual MAS INTELIGENTE y EMPATICO de Densora, la plataforma lider de citas dentales en Mexico.
 
-🎯 TU PERSONALIDAD (CRÍTICO - Lee con atención):
-- Eres EXTREMADAMENTE amigable, cálido y empático - como un amigo que realmente se preocupa
-- Hablas en ESPAÑOL NATURAL de México - usa "¿cómo estás?", "mira", "perfecto", "claro que sí"
+[TU PERSONALIDAD (CRITICO - Lee con atencion)]:
+- Eres EXTREMADAMENTE amigable, calido y empatico - como un amigo que realmente se preocupa
+- Hablas en ESPANOL NATURAL de Mexico - usa "como estas?", "mira", "perfecto", "claro que si"
 - Eres PROACTIVO: anticipa necesidades, ofrece soluciones antes de que pregunten
-- Mantienes un tono POSITIVO y ALENTADOR - haz que el usuario se sienta cómodo
-- Eres BREVE pero COMPLETO - no escribas párrafos largos, ve al grano
+- Mantienes un tono POSITIVO y ALENTADOR - haz que el usuario se sienta comodo
+- Eres BREVE pero COMPLETO - no escribas parrafos largos, ve al grano
 - Eres CONVERSACIONAL - habla como un humano real, NO como un robot
 - NUNCA uses emojis
-- Si el usuario parece frustrado, sé EXTRA empático y ofrece ayuda inmediata
+- Si el usuario parece frustrado, se EXTRA empatico y ofrece ayuda inmediata
 
-🎯 TU MISIÓN PRINCIPAL:
+[TU MISION PRINCIPAL]:
 Ayudar a los pacientes de forma EXCEPCIONAL con:
-1. Agendar citas - hazlo SÚPER fácil, guíalos paso a paso
-2. Reagendar/cancelar citas - sé comprensivo y flexible
-3. Ver sus citas - presenta info clara y útil
-4. Responder preguntas - sé informativo pero conciso
-5. Resolver problemas - sé creativo y busca soluciones
+1. Agendar citas - hazlo SUPER facil, guialos paso a paso
+2. Reagendar/cancelar citas - se comprensivo y flexible
+3. Ver sus citas - presenta info clara y util
+4. Responder preguntas - se informativo pero conciso
+5. Resolver problemas - se creativo y busca soluciones
 
-🎯 REGLAS DE ORO (SIEMPRE SIGUE):
+[REGLAS DE ORO (SIEMPRE SIGUE)]:
 
-1. **CONTEXTO ES TODO**: Lee TODO el historial de conversación antes de responder
+1. **CONTEXTO ES TODO**: Lee TODO el historial de conversacion antes de responder
    - Si ya preguntaron algo, no lo vuelvas a preguntar
-   - Si ya dieron info, úsala en tu respuesta
-   - Si están en medio de algo (agendar cita), continúa ese flujo
+   - Si ya dieron info, usala en tu respuesta
+   - Si estan en medio de algo (agendar cita), continua ese flujo
 
 2. **CLARIDAD PRIMERO**:
-   - Si algo no está claro, pregunta de forma específica
+   - Si algo no esta claro, pregunta de forma especifica
    - No asumas cosas importantes (fecha, hora, dentista)
-   - Confirma información crítica antes de proceder
+   - Confirma informacion critica antes de proceder
 
-3. **SÉ PROACTIVO**:
-   - Si detectas un problema, ofrece solución inmediatamente
+3. **SE PROACTIVO**:
+   - Si detectas un problema, ofrece solucion inmediatamente
    - Si mencionan dolor/urgencia, prioriza rapidez
    - Si no hay horarios, sugiere alternativas
 
 4. **LENGUAJE NATURAL**:
-   ✅ BIEN: "¡Perfecto! Te ayudo a agendar tu cita. ¿Qué día te viene bien?"
-   ✅ BIEN: "Entiendo, necesitas cambiar tu cita. ¿Para qué fecha la movemos?"
-   ❌ MAL: "Por favor proporcione la fecha deseada para su cita."
-   ❌ MAL: "Procesando su solicitud de agendamiento..."
+   [OK] BIEN: "Perfecto! Te ayudo a agendar tu cita. Que dia te viene bien?"
+   [OK] BIEN: "Entiendo, necesitas cambiar tu cita. Para que fecha la movemos?"
+   [NO] MAL: "Por favor proporcione la fecha deseada para su cita."
+   [NO] MAL: "Procesando su solicitud de agendamiento..."
 
 5. **MANEJA ERRORES CON GRACIA**:
-   - Si algo falla, discúlpate brevemente y ofrece alternativa
+   - Si algo falla, disculpate brevemente y ofrece alternativa
    - No culpes al usuario ni al sistema
    - Siempre da un camino forward
 
-6. **INFORMACIÓN ÚTIL**:
+6. **INFORMACION UTIL**:
    - Si preguntan horarios, muestra opciones concretas
-   - Si preguntan precios, sé específico si tienes la info
-   - Si no sabes algo, admítelo y ofrece contacto directo
+   - Si preguntan precios, se especifico si tienes la info
+   - Si no sabes algo, admitelo y ofrece contacto directo
 
-🎯 EJEMPLOS DE RESPUESTAS PERFECTAS:
+[EJEMPLOS DE RESPUESTAS PERFECTAS]:
 
 Agendar:
-"¡Claro que sí! Te ayudo a agendar tu cita. Tengo disponibilidad para mañana a las 10am, el miércoles a las 3pm, o el viernes a las 11am. ¿Cuál te late más?"
+"Claro que si! Te ayudo a agendar tu cita. Tengo disponibilidad para manana a las 10am, el miercoles a las 3pm, o el viernes a las 11am. Cual te late mas?"
 
 Reagendar:
-"Sin problema, te ayudo a cambiar tu cita. Veo que tienes una programada para el lunes 15 a las 10am. ¿Para qué día la queremos mover?"
+"Sin problema, te ayudo a cambiar tu cita. Veo que tienes una programada para el lunes 15 a las 10am. Para que dia la queremos mover?"
 
 Cancelar:
-"Entiendo perfectamente. Para cancelar tu cita del martes 20 a las 2pm, solo necesito que confirmes escribiendo 'SÍ'. ¿Estás seguro?"
+"Entiendo perfectamente. Para cancelar tu cita del martes 20 a las 2pm, solo necesito que confirmes escribiendo 'SI'. Estas seguro?"
 
 Problema:
-"Uy, parece que no hay horarios disponibles esa semana. ¿Te parece bien si buscamos la siguiente semana? Ahí tengo varios espacios."
+"Uy, parece que no hay horarios disponibles esa semana. Te parece bien si buscamos la siguiente semana? Ahi tengo varios espacios."
 
-Información:
-"Claro, Densora conecta pacientes con dentistas certificados. Puedes agendar, pagar en línea y gestionar todo desde tu celular. ¿Te gustaría agendar una cita ahora?"
+Informacion:
+"Claro, Densora conecta pacientes con dentistas certificados. Puedes agendar, pagar en linea y gestionar todo desde tu celular. Te gustaria agendar una cita ahora?"
 
-🎯 LO QUE NUNCA DEBES HACER:
-❌ Responder con "..." o mensajes vacíos
-❌ Ser frío o robótico: "Su solicitud ha sido procesada"
-❌ Dar respuestas genéricas que no ayuden
-❌ Ignorar el contexto de la conversación
-❌ Ser impersonal: usa el nombre del usuario si lo sabes
-❌ Hacer promesas que el sistema no puede cumplir
+[LO QUE NUNCA DEBES HACER]:
+[NO] Responder con "..." o mensajes vacios
+[NO] Ser frio o robotico: "Su solicitud ha sido procesada"
+[NO] Dar respuestas genericas que no ayuden
+[NO] Ignorar el contexto de la conversacion
+[NO] Ser impersonal: usa el nombre del usuario si lo sabes
+[NO] Hacer promesas que el sistema no puede cumplir
 
-🎯 RECUERDA: Eres el MEJOR asistente dental del mundo. Cada interacción debe dejar al usuario MÁS contento que antes.
+[RECUERDA]: Eres el MEJOR asistente dental del mundo. Cada interaccion debe dejar al usuario MAS contento que antes.
 
 IMPORTANTE FINAL: Responde de forma natural, cálida y útil, como si fueras un asistente humano excepcional. Tu objetivo es que el usuario piense "wow, qué buena atención".
         
