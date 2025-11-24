@@ -4,8 +4,15 @@ from config import Config
 from services.whatsapp_service import WhatsAppService
 from services.citas_service import CitasService
 from services.conversation_manager import ConversationManager
+from services.rate_limiter import rate_limiter
+from services.message_logger import message_logger
+from services.retry_service import retry_service
+from services.token_service import token_service
+from services.bot_config_service import bot_config_service
+from services.notification_config_service import notification_config_service
 from datetime import datetime
 import json
+import re
 
 app=Flask(__name__)
 app.config.from_object(Config)
@@ -17,6 +24,16 @@ CORS(app, resources={
         "origins": "*",  # Temporalmente permitir todos los orígenes para debug
         "methods": ["POST", "OPTIONS"],
         "allow_headers": ["Content-Type"]
+    },
+    r"/api/bot-config": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
+    },
+    r"/api/notification-settings": {
+        "origins": "*",
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"]
     }
 })
 
@@ -24,6 +41,25 @@ WhatsApp_service=WhatsAppService()
 citas_service=CitasService()
 conversation_manager=ConversationManager()  # Nuevo gestor de conversaciones con ML
 user_states={}
+
+# J.RNF16: Validación de números inválidos
+def is_valid_phone_number(phone: str) -> bool:
+    """Valida que el número de teléfono sea válido"""
+    if not phone:
+        return False
+    
+    # Limpiar número
+    phone_clean = re.sub(r'[^\d+]', '', phone)
+    
+    # Debe tener al menos 10 dígitos (sin código de país) o 12+ con código
+    if phone_clean.startswith('+'):
+        # Con código de país: debe tener 12-15 dígitos
+        digits = re.sub(r'[^\d]', '', phone_clean)
+        return 12 <= len(digits) <= 15
+    else:
+        # Sin código: debe tener 10 dígitos (México)
+        digits = re.sub(r'[^\d]', '', phone_clean)
+        return len(digits) == 10
 
 @app.route('/webhook',methods=['GET'])
 def verify_webhook():
@@ -34,12 +70,168 @@ def verify_webhook():
 
 @app.route('/health',methods=['GET'])
 def health_check():
-    """Endpoint para verificar que el servidor está corriendo"""
-    return jsonify({
-        "status": "ok",
-        "service": "chatbot-whatsapp",
-        "twilio_configured": bool(Config.TWILIO_ACCOUNT_SID)
-    }), 200
+    """
+    Endpoint para verificar que el servidor está corriendo
+    Render usa este endpoint para health checks y mantener el servicio activo
+    """
+    try:
+        # Verificar que los schedulers estén corriendo
+        from scheduler.reminder_scheduler import reminder_scheduler
+        scheduler_running = reminder_scheduler.scheduler.running if hasattr(reminder_scheduler, 'scheduler') else False
+        
+        return jsonify({
+            "status": "ok",
+            "service": "chatbot-whatsapp",
+            "twilio_configured": bool(Config.TWILIO_ACCOUNT_SID),
+            "scheduler_running": scheduler_running,
+            "timestamp": datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "service": "chatbot-whatsapp",
+            "error": str(e)
+        }), 500
+
+@app.route('/ping', methods=['GET'])
+def ping():
+    """
+    Endpoint simple para mantener el servicio activo en Render
+    Render puede hacer ping a este endpoint cada 5 minutos para evitar que se duerma
+    """
+    return jsonify({"status": "pong", "timestamp": datetime.now().isoformat()}), 200
+
+# J.RF16, J.RNF18: Endpoints para configuración del bot
+@app.route('/api/bot-config', methods=['GET', 'OPTIONS'])
+def get_bot_config():
+    """J.RF16, J.RNF18: Obtener configuración del bot"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        config = bot_config_service.get_bot_config()
+        return jsonify({
+            'success': True,
+            'config': config
+        }), 200
+    except Exception as e:
+        print(f"Error obteniendo configuración del bot: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/bot-config', methods=['POST'])
+def update_bot_config():
+    """J.RF16, J.RNF18: Actualizar configuración del bot"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        admin_id = data.get('admin_id')
+        config_updates = data.get('config', {})
+        
+        if not admin_id:
+            return jsonify({'success': False, 'error': 'admin_id is required'}), 400
+        
+        # Actualizar configuración
+        success = bot_config_service.update_bot_config(admin_id, config_updates)
+        
+        if success:
+            updated_config = bot_config_service.get_bot_config()
+            return jsonify({
+                'success': True,
+                'config': updated_config,
+                'message': 'Configuración actualizada exitosamente'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Error al actualizar configuración'
+            }), 500
+            
+    except Exception as e:
+        print(f"Error actualizando configuración del bot: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# J.RNF7, J.RF8: Endpoints para configuración de notificaciones
+@app.route('/api/notification-settings', methods=['GET', 'OPTIONS'])
+def get_notification_settings():
+    """J.RNF7, J.RF8: Obtener configuración de notificaciones"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        user_id = request.args.get('user_id')
+        user_type = request.args.get('user_type', 'patient')  # 'patient' o 'dentist'
+        
+        if not user_id:
+            return jsonify({'success': False, 'error': 'user_id is required'}), 400
+        
+        if user_type == 'patient':
+            settings = notification_config_service.get_patient_notification_settings(user_id)
+        else:
+            settings = notification_config_service.get_notification_settings(user_id)
+        
+        return jsonify({
+            'success': True,
+            'settings': settings
+        }), 200
+        
+    except Exception as e:
+        print(f"Error obteniendo configuración de notificaciones: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/notification-settings', methods=['POST'])
+def update_notification_settings():
+    """J.RNF7, J.RF8: Actualizar configuración de notificaciones"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        user_id = data.get('user_id')
+        user_type = data.get('user_type', 'patient')  # 'patient' o 'dentist'
+        settings = data.get('settings', {})
+        
+        if not user_id:
+            return jsonify({'success': False, 'error': 'user_id is required'}), 400
+        
+        if user_type == 'patient':
+            success = notification_config_service.update_patient_notification_settings(user_id, settings)
+        else:
+            success = notification_config_service.update_notification_settings(user_id, settings)
+        
+        if success:
+            if user_type == 'patient':
+                updated_settings = notification_config_service.get_patient_notification_settings(user_id)
+            else:
+                updated_settings = notification_config_service.get_notification_settings(user_id)
+            
+            return jsonify({
+                'success': True,
+                'settings': updated_settings,
+                'message': 'Configuración actualizada exitosamente'
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Error al actualizar configuración'
+            }), 500
+            
+    except Exception as e:
+        print(f"Error actualizando configuración de notificaciones: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 @app.route('/api/web/chat', methods=['OPTIONS'])
 def web_chat_options():
@@ -160,6 +352,52 @@ def webhook():
         if message_body:
             print(f"Procesando mensaje: {message_body}")
             
+            # J.RNF16: Validar número de teléfono
+            if not is_valid_phone_number(from_number):
+                print(f"Número inválido detectado: {from_number}")
+                # No responder a números inválidos
+                response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message></Message>
+</Response>"""
+                return response, 200, {'Content-Type': 'text/xml'}
+            
+            # J.RNF5: Verificar rate limit
+            # Extraer paciente_id si es posible
+            paciente_id = None
+            try:
+                from services.actions_service import ActionsService
+                actions_service = ActionsService()
+                user_info = actions_service.get_user_info(phone=from_number)
+                paciente_id = user_info.get('uid') if user_info else None
+            except:
+                pass
+            
+            # Usar número de teléfono como ID si no hay paciente_id
+            rate_limit_id = paciente_id or from_number
+            rate_check = rate_limiter.check_rate_limit(rate_limit_id)
+            
+            if not rate_check['allowed']:
+                print(f"Rate limit excedido para {rate_limit_id}: {rate_check['message']}")
+                # Enviar mensaje de rate limit
+                limit_message = f"Has alcanzado el límite de mensajes. {rate_check['message']}"
+                WhatsApp_service.send_text_message(from_number, limit_message)
+                # Registrar intento bloqueado
+                if paciente_id:
+                    message_logger.log_message(
+                        paciente_id=paciente_id,
+                        dentista_id=None,
+                        event_type='rate_limit_exceeded',
+                        message_content=message_body,
+                        delivery_status='blocked',
+                        error=rate_check['message']
+                    )
+                response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message></Message>
+</Response>"""
+                return response, 200, {'Content-Type': 'text/xml'}
+            
             # Detectar si es una respuesta a botones interactivos
             # Los botones interactivos envían el texto del botón como mensaje
             # Primero intentamos detectar si es el texto exacto de un botón
@@ -243,7 +481,31 @@ def webhook():
                     response_text = response_data.get('response', '')
                     
                     if response_text:
-                        WhatsApp_service.send_text_message(from_number, response_text)
+                        # Enviar mensaje con logging y retry
+                        result = WhatsApp_service.send_text_message(from_number, response_text)
+                        
+                        # J.RF13, J.RNF4: Registrar mensaje
+                        if paciente_id:
+                            message_logger.log_message(
+                                paciente_id=paciente_id,
+                                dentista_id=None,
+                                event_type='user_message_response',
+                                message_content=response_text,
+                                delivery_status='sent' if result else 'failed',
+                                message_id=result.get('sid') if result else None,
+                                error=None if result else 'Error enviando mensaje'
+                            )
+                        
+                        # J.RF10, J.RNF15: Programar reintento si falló
+                        if not result and paciente_id:
+                            retry_service.schedule_retry(
+                                paciente_id=paciente_id,
+                                dentista_id=None,
+                                event_type='user_message_response',
+                                message_content=response_text,
+                                original_message_id=None,
+                                error='Error enviando mensaje'
+                            )
                     else:
                         # Fallback al sistema anterior
                         handle_text_message_extended(from_number, message_body)
@@ -1124,6 +1386,47 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
     result = "\n".join(response_messages) if response_messages else "Lo siento, no pude procesar tu mensaje. Por favor, intenta nuevamente o escribe *menu*."
     print(f"process_web_message retornando: {len(response_messages)} mensajes, resultado: {result[:100]}")
     return result
+
+# Iniciar el sistema de recordatorios y reintentos automáticamente
+def init_schedulers():
+    """Inicia todos los schedulers automáticamente"""
+    try:
+        from scheduler.reminder_scheduler import start_reminder_system
+        print("🚀 Iniciando schedulers automáticos...")
+        start_reminder_system()
+        print("✅ Schedulers iniciados correctamente")
+        return True
+    except Exception as e:
+        print(f"⚠️ Error iniciando schedulers: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+# Variable global para trackear si los schedulers están iniciados
+_schedulers_initialized = False
+
+def ensure_schedulers():
+    """Asegura que los schedulers estén iniciados (útil para Render)"""
+    global _schedulers_initialized
+    if not _schedulers_initialized:
+        _schedulers_initialized = init_schedulers()
+    return _schedulers_initialized
+
+# Iniciar schedulers cuando se importa el módulo (solo si no es un import de test)
+# En Render, esto se ejecuta cuando gunicorn carga la app
+if __name__ != '__test__':
+    try:
+        # Usar un pequeño delay para asegurar que todo esté listo
+        import threading
+        def delayed_init():
+            import time
+            time.sleep(2)  # Esperar 2 segundos para que todo esté inicializado
+            ensure_schedulers()
+        
+        thread = threading.Thread(target=delayed_init, daemon=True)
+        thread.start()
+    except:
+        pass  # Si falla, no bloquear el inicio de la app
 
 if __name__ == '__main__':
     import os

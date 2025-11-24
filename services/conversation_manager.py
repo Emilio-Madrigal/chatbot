@@ -316,6 +316,14 @@ class ConversationManager:
             self.update_conversation_context(session_id, {'step': 'menu_principal'})
             return result
         
+        # J.RF12: Procesamiento mejorado de palabras clave específicas
+        elif intent == 'contacto' or 'contacto' in message_lower or 'contact' in message_lower:
+            return {
+                'response': 'Para contactarnos:\n\n📞 Teléfono: [Número de contacto]\n📧 Email: contacto@densora.com\n🌐 Web: www.densora.com\n\n¿Necesitas algo más?',
+                'action': None,
+                'next_step': 'inicial'
+            }
+        
         elif intent == 'agendar_cita':
             return self._handle_schedule_appointment(session_id, entities, context, user_id, phone)
         
@@ -345,6 +353,13 @@ class ConversationManager:
         
         elif intent == 'ver_historial':
             return self._handle_appointment_history(context, user_id, phone)
+        
+        elif intent == 'contacto':
+            return {
+                'response': 'Para contactarnos:\n\n📞 Teléfono: [Número de contacto]\n📧 Email: contacto@densora.com\n🌐 Web: www.densora.com\n📍 Ubicación: [Dirección]\n\n¿Necesitas algo más?',
+                'action': None,
+                'next_step': 'inicial'
+            }
         
         elif intent == 'confirmar_pago':
             return self._handle_confirm_payment(context, user_id, phone)

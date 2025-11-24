@@ -150,61 +150,77 @@ class MLService:
                 return ml_result
         
         # PRIORIDAD 2: Palabras clave mejoradas (fallback rápido)
+        # J.RF12: Procesamiento de palabras clave mejorado
         intent_keywords = {
             'agendar_cita': [
                 'agendar', 'cita', 'reservar', 'sacar cita', 'quiero una cita', 'necesito cita', 
                 'programar', 'hacer cita', 'pedir cita', 'solicitar cita', 'quiero agendar',
                 'puedo ir', 'tengo dolor', 'me duele', 'necesito dentista', 'quiero ir',
-                'está disponible', 'tienes horario', 'hay espacio', 'cuándo puedo', 'agendar'
+                'está disponible', 'tienes horario', 'hay espacio', 'cuándo puedo', 'agendar',
+                'schedule', 'appointment', 'book', 'reserve'  # Inglés
             ],
             'reagendar_cita': [
                 'reagendar', 'cambiar fecha', 'cambiar hora', 'mover cita', 'reprogramar',
                 'modificar cita', 'cambiar mi cita', 'mover mi cita', 'mejor otro día',
-                'cambiar de día', 'cambiar de hora', 'otro horario', 'no puedo ese día'
+                'cambiar de día', 'cambiar de hora', 'otro horario', 'no puedo ese día',
+                'reschedule', 'change appointment', 'move appointment'  # Inglés
             ],
             'cancelar_cita': [
                 'cancelar', 'eliminar cita', 'borrar cita', 'no puedo ir', 'no asistiré',
                 'anular cita', 'quitar cita', 'no voy a ir', 'ya no quiero', 'tengo que cancelar',
-                'imposible ir', 'no podré', 'surgió algo'
+                'imposible ir', 'no podré', 'surgió algo', 'cancel', 'delete appointment'  # Inglés
             ],
             'ver_citas': [
                 'ver citas', 'mis citas', 'citas programadas', 'qué citas tengo', 'cuándo tengo cita',
                 'mostrar citas', 'listar citas', 'mis citas programadas', 'cuándo es mi cita',
-                'a qué hora', 'qué día', 'tengo cita', 'cuál es mi', 'próxima cita'
+                'a qué hora', 'qué día', 'tengo cita', 'cuál es mi', 'próxima cita',
+                'my appointments', 'view appointments', 'show appointments'  # Inglés
             ],
             'confirmar_pago': [
                 'ya pagué', 'ya pague', 'pagué', 'pague', 'hice el pago', 'transferí',
-                'confirmo el pago', 'ya transferí', 'pagado', 'pago realizado', 'confirmación de pago'
+                'confirmo el pago', 'ya transferí', 'pagado', 'pago realizado', 'confirmación de pago',
+                'paid', 'payment done', 'payment confirmed'  # Inglés
             ],
             'consultar_tiempo_pago': [
                 'cuánto tiempo para pagar', 'cuánto tiempo tengo', 'cuándo vence', 'deadline',
-                'hasta cuándo puedo pagar', 'me queda tiempo', 'plazo de pago', 'cuándo expira'
+                'hasta cuándo puedo pagar', 'me queda tiempo', 'plazo de pago', 'cuándo expira',
+                'payment deadline', 'time to pay', 'when is payment due'  # Inglés
             ],
             'ver_historial': [
                 'historial', 'citas anteriores', 'citas pasadas', 'registro', 'mi histórico',
-                'ver historial', 'mostrar historial', 'citas completadas', 'mis citas pasadas'
+                'ver historial', 'mostrar historial', 'citas completadas', 'mis citas pasadas',
+                'medical history', 'history', 'past appointments'  # Inglés
             ],
             'consultar_servicios': [
                 'qué servicios', 'servicios disponibles', 'qué ofrecen', 'hacen ortodoncia',
                 'tienen implantes', 'limpiezas', 'blanqueamiento', 'qué hacen', 'servicios',
-                'tratamientos', 'procedimientos'
+                'tratamientos', 'procedimientos', 'services', 'what services', 'treatments'  # Inglés
             ],
             'consultar_informacion': [
                 'qué es densora', 'cómo funciona', 'información', 'dime sobre', 'explícame', 
                 'qué puedo hacer', 'cuéntame', 'hablame de', 'información', 'precios',
-                'horarios', 'ubicación', 'métodos de pago'
+                'horarios', 'ubicación', 'métodos de pago', 'what is densora', 'information',
+                'help', 'contact', 'contacto', 'ubicacion', 'location', 'hours'  # Inglés
             ],
             'saludar': [
                 'hola', 'buenos días', 'buenas tardes', 'buenas noches', 'saludos', 'hey', 
-                'hi', 'qué tal', 'buenas', 'buen día'
+                'hi', 'qué tal', 'buenas', 'buen día', 'hello', 'good morning', 'good afternoon',
+                'good evening', 'greetings'  # Inglés
             ],
             'despedirse': [
                 'adiós', 'adios', 'hasta luego', 'gracias', 'chao', 'nos vemos', 'bye', 
-                'hasta pronto', 'me voy', 'eso es todo'
+                'hasta pronto', 'me voy', 'eso es todo', 'goodbye', 'see you', 'thanks',
+                'thank you'  # Inglés
             ],
             'ayuda': [
                 'ayuda', 'help', 'no entiendo', 'qué puedo hacer', 'opciones', 'menú', 
-                'qué hago', 'comandos', 'necesito ayuda', 'ayúdame', 'no sé qué hacer'
+                'qué hago', 'comandos', 'necesito ayuda', 'ayúdame', 'no sé qué hacer',
+                'i need help', 'options', 'menu', 'commands', 'what can i do'  # Inglés
+            ],
+            'contacto': [
+                'contacto', 'contactar', 'teléfono', 'telefono', 'email', 'correo',
+                'llamar', 'llamada', 'comunicar', 'hablar con', 'contact', 'phone',
+                'call', 'email', 'reach out', 'ubicacion', 'ubicación', 'location'  # Inglés
             ]
         }
         

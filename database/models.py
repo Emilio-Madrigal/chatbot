@@ -259,6 +259,47 @@ class CitaRepository:
             print(f"Error obteniendo citas: {e}")
             return []
     
+    def obtener_citas_proximas(self, fecha_limite: str) -> List[Cita]:
+        """
+        Obtiene citas próximas hasta una fecha límite
+        J.RF6: Recordatorios automáticos
+        """
+        try:
+            from datetime import datetime
+            citas = []
+            
+            # Buscar en colección global de citas
+            citas_ref = self.db.collection('Citas')\
+                              .where('estado', 'in', ['confirmado', 'programada', 'confirmada'])\
+                              .where('fecha', '<=', fecha_limite)\
+                              .where('fecha', '>=', datetime.now().strftime('%Y-%m-%d'))
+            
+            for doc in citas_ref.stream():
+                cita_data = doc.to_dict()
+                # Convertir a objeto Cita
+                cita = Cita.from_dict(doc.id, cita_data)
+                citas.append(cita)
+            
+            print(f"Encontradas {len(citas)} citas próximas hasta {fecha_limite}")
+            return citas
+            
+        except Exception as e:
+            print(f"Error obteniendo citas próximas: {e}")
+            return []
+    
+    def obtener_por_id(self, cita_id: str) -> Optional[Cita]:
+        """
+        Obtiene una cita por su ID desde la colección global
+        """
+        try:
+            doc = self.db.collection('Citas').document(cita_id).get()
+            if doc.exists:
+                return Cita.from_dict(doc.id, doc.to_dict())
+            return None
+        except Exception as e:
+            print(f"Error obteniendo cita por ID {cita_id}: {e}")
+            return None
+    
     def obtener_cita_por_id(self, paciente_uid: str, cita_id: str) -> Optional[Cita]:
         try:
             doc = self.db.collection('pacientes')\

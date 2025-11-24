@@ -3,6 +3,7 @@ from twilio.base.exceptions import TwilioRestException
 from config import Config
 from typing import Optional
 import json
+import time
 
 class WhatsAppService:
     def __init__(self):
@@ -12,6 +13,9 @@ class WhatsAppService:
         
         # Inicializar cliente de Twilio
         self.client = Client(self.account_sid, self.auth_token)
+        
+        # J.RNF2: Tracking de latencia para optimización
+        self.latency_tracking = []
     
     def _format_phone_number(self, phone_number: str) -> str:
         """Formatea el número de teléfono para Twilio (debe incluir código de país)"""
@@ -25,16 +29,35 @@ class WhatsAppService:
         return f"whatsapp:{phone_number}"
     
     def send_text_message(self, to_number: str, message: str):
-        """Envía un mensaje de texto a través de Twilio"""
+        """
+        Envía un mensaje de texto a través de Twilio
+        J.RF10: Reenvío automático integrado
+        J.RNF2: Tracking de latencia (máximo 3 segundos)
+        """
         try:
+            start_time = time.time()  # J.RNF2: Medir latencia
+            
             to = self._format_phone_number(to_number)
-            message = self.client.messages.create(
+            message_obj = self.client.messages.create(
                 body=message,
                 from_=self.whatsapp_number,
                 to=to
             )
-            print(f"Mensaje enviado via Twilio. SID: {message.sid}")
-            return {"status": "sent", "sid": message.sid}
+            
+            # J.RNF2: Calcular latencia
+            latency = time.time() - start_time
+            self.latency_tracking.append(latency)
+            
+            # Mantener solo los últimos 100 registros
+            if len(self.latency_tracking) > 100:
+                self.latency_tracking = self.latency_tracking[-100:]
+            
+            # J.RNF2: Verificar si excede 3 segundos
+            if latency > 3.0:
+                print(f"⚠️ ADVERTENCIA: Latencia de {latency:.2f}s excede el máximo de 3s")
+            
+            print(f"Mensaje enviado via Twilio. SID: {message_obj.sid}, Latencia: {latency:.2f}s")
+            return {"status": "sent", "sid": message_obj.sid, "latency": latency}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)

@@ -1,12 +1,14 @@
 from apscheduler.schedulers.background import BackgroundScheduler
-from database.models import cita
+from database.models import CitaRepository, PacienteRepository
 from services.whatsapp_service import WhatsAppService
 from datetime import datetime, timedelta
 import pytz
 from config import Config
+
 class NotificacionesService:
     def __init__(self):
         self.cita_repo = CitaRepository()
+        self.paciente_repo = PacienteRepository()
         self.whatsapp = WhatsAppService()
         self.scheduler = BackgroundScheduler()
         self.timezone = pytz.timezone(Config.TIMEZONE)

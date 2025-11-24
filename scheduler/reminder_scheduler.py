@@ -82,6 +82,15 @@ class ReminderScheduler:
             replace_existing=True
         )
         
+        # J.RF10, J.RNF15: Procesar reintentos de mensajes fallidos (cada 30 minutos)
+        self.scheduler.add_job(
+            func=self.process_message_retries,
+            trigger=CronTrigger(minute='*/30', timezone=self.mexico_tz),  # Cada 30 minutos
+            id='process_retries',
+            name='Procesar reintentos de mensajes',
+            replace_existing=True
+        )
+        
         self.scheduler.start()
         print("✅ Sistema de recordatorios iniciado correctamente")
         
@@ -118,10 +127,11 @@ class ReminderScheduler:
                 mensaje = self._construir_mensaje_recordatorio_24h(cita, paciente)
                 
                 # Enviar por WhatsApp
-                exito = self.whatsapp.enviar_mensaje_twilio(
+                result = self.whatsapp.send_text_message(
                     to_number=paciente.telefono,
                     message=mensaje
                 )
+                exito = result is not None and result.get('status') == 'sent'
                 
                 if exito:
                     # Registrar recordatorio enviado
@@ -164,10 +174,11 @@ class ReminderScheduler:
                 mensaje = self._construir_mensaje_recordatorio_2h(cita, paciente)
                 
                 # Enviar por WhatsApp
-                exito = self.whatsapp.enviar_mensaje_twilio(
+                result = self.whatsapp.send_text_message(
                     to_number=paciente.telefono,
                     message=mensaje
                 )
+                exito = result is not None and result.get('status') == 'sent'
                 
                 if exito:
                     # Registrar recordatorio enviado
@@ -296,10 +307,11 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
 
 ¿Necesitas ayuda? Responde a este mensaje."""
                 
-                exito = self.whatsapp.enviar_mensaje_twilio(
+                result = self.whatsapp.send_text_message(
                     to_number=telefono,
                     message=mensaje
                 )
+                exito = result is not None and result.get('status') == 'sent'
                 
                 if exito:
                     self._registrar_recordatorio_enviado(paciente_id, 'medical_history')
@@ -313,20 +325,25 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
             traceback.print_exc()
     
     def request_post_appointment_reviews(self):
-        """Solicita reseñas después de citas completadas"""
+        """
+        Solicita reseñas después de citas completadas
+        J.RF9: Mensaje post-consulta con enlace a reseñas
+        """
         try:
             print("⭐ Solicitando reseñas post-cita...")
             now = datetime.now(self.mexico_tz)
             yesterday = now - timedelta(days=1)
             
             # Obtener citas completadas ayer
-            citas_ref = self.db.collection('citas')\
+            citas_ref = self.db.collection('Citas')\
                 .where('estado', '==', 'completada')\
                 .where('fecha', '>=', yesterday.strftime('%Y-%m-%d'))\
                 .where('fecha', '<=', yesterday.strftime('%Y-%m-%d'))\
                 .stream()
             
             enviados = 0
+            from services.post_consultation_service import post_consultation_service
+            
             for cita_doc in citas_ref:
                 cita_data = cita_doc.to_dict()
                 cita_id = cita_doc.id
@@ -341,32 +358,25 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
                 
                 # Obtener paciente
                 paciente_id = cita_data.get('pacienteId') or cita_data.get('paciente_id')
-                paciente = self.paciente_repo.buscar_por_id(paciente_id)
-                
-                if not paciente or not paciente.telefono:
+                if not paciente_id:
                     continue
                 
-                # Construir mensaje
-                nombre = paciente.nombre or 'Paciente'
-                dentista_name = cita_data.get('dentistaName', 'tu dentista')
+                # Usar el servicio mejorado
+                fecha = cita_data.get('fecha') or cita_data.get('appointmentDate', '')
+                if isinstance(fecha, str):
+                    fecha_str = fecha.split('T')[0] if 'T' in fecha else fecha
+                else:
+                    fecha_str = fecha.strftime('%Y-%m-%d') if hasattr(fecha, 'strftime') else str(fecha)
                 
-                mensaje = f"""Hola {nombre},
-
-⭐ *¿Cómo estuvo tu cita con {dentista_name}?*
-
-Nos encantaría conocer tu experiencia. Tu opinión nos ayuda a mejorar.
-
-Deja tu reseña aquí:
-👉 densora.com/resena/{cita_id}
-
-¡Gracias por confiar en Densora! 💙"""
-                
-                exito = self.whatsapp.enviar_mensaje_twilio(
-                    to_number=paciente.telefono,
-                    message=mensaje
+                result = post_consultation_service.send_review_request(
+                    cita_id=cita_id,
+                    paciente_id=paciente_id,
+                    dentista_name=cita_data.get('dentistaName', 'tu dentista'),
+                    consultorio_name=cita_data.get('consultorioName', 'Consultorio'),
+                    fecha=fecha_str
                 )
                 
-                if exito:
+                if result:
                     self._registrar_recordatorio_enviado(cita_id, 'review_request')
                     enviados += 1
             
@@ -625,7 +635,7 @@ Si deseas agendar nuevamente, escribe *"agendar cita"*.
 
 Disculpa las molestias."""
                     
-                    self.whatsapp.enviar_mensaje_twilio(
+                    result = self.whatsapp.send_text_message(
                         to_number=paciente.telefono,
                         message=mensaje
                     )
@@ -634,6 +644,24 @@ Disculpa las molestias."""
             
         except Exception as e:
             print(f"Error auto-cancelando cita: {e}")
+    
+    def process_message_retries(self):
+        """
+        Procesa los reintentos pendientes de mensajes fallidos
+        J.RF10, J.RNF15: Reenvío automático
+        """
+        try:
+            from services.retry_service import retry_service
+            print("🔄 Procesando reintentos de mensajes...")
+            processed = retry_service.process_pending_retries()
+            if processed > 0:
+                print(f"✅ Procesados {processed} reintentos de mensajes")
+            else:
+                print("ℹ️ No hay reintentos pendientes")
+        except Exception as e:
+            print(f"❌ Error procesando reintentos: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 # Instancia global del scheduler
