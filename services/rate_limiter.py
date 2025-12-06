@@ -5,7 +5,7 @@ J.RNF5: Límite de 3 mensajes por hora por paciente
 
 from database.database import FirebaseConfig
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict
 
 class RateLimiter:
     """
