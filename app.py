@@ -308,6 +308,7 @@ def web_chat():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
     
+@app.route('/',methods=['POST'])
 @app.route('/webhook',methods=['POST'])
 def webhook():
     """Webhook para recibir mensajes de Twilio"""
@@ -315,6 +316,8 @@ def webhook():
         # Log de depuración - ver qué está llegando
         print("="*60)
         print("WEBHOOK RECIBIDO")
+        print(f"URL: {request.url}")
+        print(f"Path: {request.path}")
         print("="*60)
         print(f"Request method: {request.method}")
         print(f"Content-Type: {request.content_type}")
