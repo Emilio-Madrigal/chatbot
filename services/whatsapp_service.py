@@ -18,15 +18,55 @@ class WhatsAppService:
         self.latency_tracking = []
     
     def _format_phone_number(self, phone_number: str) -> str:
-        """Formatea el número de teléfono para Twilio (debe incluir código de país)"""
-        # Si ya tiene formato whatsapp:, lo deja así
-        if phone_number.startswith('whatsapp:'):
-            return phone_number
-        # Si no, agrega el prefijo whatsapp:
-        if not phone_number.startswith('+'):
-            # Asume que es un número mexicano si no tiene +
-            phone_number = f"+52{phone_number}"
-        return f"whatsapp:{phone_number}"
+        """
+        Formatea el número de teléfono para Twilio Sandbox
+        IMPORTANTE: Agrega el "1" inicial si el número tiene +52 seguido de 10 dígitos
+        para que coincida con el formato del sandbox
+        """
+        # Si ya tiene formato whatsapp:, removerlo temporalmente
+        has_whatsapp_prefix = phone_number.startswith('whatsapp:')
+        if has_whatsapp_prefix:
+            phone_number = phone_number.replace('whatsapp:', '')
+        
+        # Remover espacios y caracteres no numéricos excepto +
+        cleaned_phone = ''.join(c for c in phone_number if c.isdigit() or c == '+')
+        
+        # Si ya tiene +52, verificar si necesita el "1" inicial
+        if cleaned_phone.startswith('+52'):
+            # Extraer los dígitos después de +52
+            digits_after_52 = cleaned_phone[3:]  # Remover "+52"
+            
+            # Si tiene exactamente 10 dígitos después de +52, agregar el "1" inicial
+            # Esto es común en números mexicanos que se unieron al sandbox con el formato completo
+            # Ejemplo: +523330362181 -> +5213330362181
+            if len(digits_after_52) == 10 and digits_after_52.isdigit():
+                cleaned_phone = f"+521{digits_after_52}"
+        # Si tiene 52 al inicio (sin +), agregar + y verificar
+        elif cleaned_phone.startswith('52') and len(cleaned_phone) >= 12:
+            cleaned_phone = '+' + cleaned_phone
+            digits_after_52 = cleaned_phone[3:]
+            if len(digits_after_52) == 10 and digits_after_52.isdigit():
+                cleaned_phone = f"+521{digits_after_52}"
+        # Si es un número de 11 dígitos que empieza con 1 (número mexicano con 1 inicial)
+        elif len(cleaned_phone) == 11 and cleaned_phone.startswith('1'):
+            cleaned_phone = f"+52{cleaned_phone}"
+        # Si es un número de 10 dígitos (México sin 1 inicial)
+        elif len(cleaned_phone) == 10 and cleaned_phone.isdigit():
+            # Agregar +52 y el "1" inicial para formato sandbox
+            cleaned_phone = f"+521{cleaned_phone}"
+        # Si no tiene código de país, asumir México
+        elif not cleaned_phone.startswith('+'):
+            if cleaned_phone.startswith('52'):
+                cleaned_phone = '+' + cleaned_phone
+            else:
+                # Agregar +52 y el "1" inicial si es de 10 dígitos
+                if len(cleaned_phone) == 10:
+                    cleaned_phone = f"+521{cleaned_phone}"
+                else:
+                    cleaned_phone = f"+52{cleaned_phone}"
+        
+        # Agregar prefijo whatsapp: si no lo tiene
+        return f"whatsapp:{cleaned_phone}"
     
     def send_text_message(self, to_number: str, message: str):
         """
