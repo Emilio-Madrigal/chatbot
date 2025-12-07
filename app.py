@@ -441,73 +441,77 @@ def webhook():
                     except:
                         button_text_to_id[hora_inicio] = f"hora_{hora_inicio}"
             
-            # Verificar si el mensaje coincide con el texto de un botón
-            message_clean = message_body.strip()
-            if message_clean in button_text_to_id:
-                button_id = button_text_to_id[message_clean]
-                print(f"Botón detectado por texto: '{message_clean}' -> {button_id}")
-                handle_button_response_extended(from_number, button_id)
-            elif message_body.strip().isdigit():
-                # Es una respuesta numérica a botones
-                print(f"Es respuesta numérica: {message_body.strip()}")
-                handle_button_response_extended(from_number, f"button_{message_body.strip()}")
-            else:
-                # Es un mensaje de texto normal - usar ML mejorado
-                print(f"Es mensaje de texto: {message_body}")
-                try:
-                    # Intentar obtener user_id desde Firestore usando el teléfono
-                    from services.actions_service import ActionsService
-                    actions_service = ActionsService()
-                    user_info = actions_service.get_user_info(phone=from_number)
-                    user_id = user_info.get('uid') if user_info else None
-                    user_name = user_info.get('nombre') if user_info else None
+            # Intentar obtener user_id desde Firestore usando el teléfono
+            from services.actions_service import ActionsService
+            actions_service = ActionsService()
+            user_info = actions_service.get_user_info(phone=from_number)
+            user_id = user_info.get('uid') if user_info else None
+            user_name = user_info.get('nombre') if user_info else None
+            
+            # SIEMPRE usar conversation_manager para procesar mensajes (incluye números)
+            # Esto asegura que el flujo del menú funcione correctamente
+            print(f"Procesando mensaje con conversation_manager: '{message_body}'")
+            try:
+                response_data = conversation_manager.process_message(
+                    session_id=from_number,
+                    message=message_body,
+                    user_id=user_id,
+                    phone=from_number,
+                    user_name=user_name,
+                    mode='menu'  # Siempre menú
+                )
+                response_text = response_data.get('response', '')
+                print(f"[APP] Respuesta del conversation_manager: tiene texto={bool(response_text)}, longitud={len(response_text) if response_text else 0}")
+                
+                if response_text:
+                    # Enviar mensaje con logging y retry
+                    result = WhatsApp_service.send_text_message(from_number, response_text)
                     
-                    # SIEMPRE usar sistema de menús - sin modo agente
-                    response_data = conversation_manager.process_message(
-                        session_id=from_number,
-                        message=message_body,
-                        user_id=user_id,  # Obtener desde Firestore
-                        phone=from_number,
-                        user_name=user_name,
-                        mode='menu'  # Siempre menú
-                    )
-                    response_text = response_data.get('response', '')
-                    print(f"[APP] Respuesta del conversation_manager: tiene texto={bool(response_text)}, longitud={len(response_text) if response_text else 0}")
+                    # J.RF13, J.RNF4: Registrar mensaje
+                    if paciente_id:
+                        message_logger.log_message(
+                            paciente_id=paciente_id,
+                            dentista_id=None,
+                            event_type='user_message_response',
+                            message_content=response_text,
+                            delivery_status='sent' if result else 'failed',
+                            message_id=result.get('sid') if result else None,
+                            error=None if result else 'Error enviando mensaje'
+                        )
                     
-                    if response_text:
-                        # Enviar mensaje con logging y retry
-                        result = WhatsApp_service.send_text_message(from_number, response_text)
-                        
-                        # J.RF13, J.RNF4: Registrar mensaje
-                        if paciente_id:
-                            message_logger.log_message(
-                                paciente_id=paciente_id,
-                                dentista_id=None,
-                                event_type='user_message_response',
-                                message_content=response_text,
-                                delivery_status='sent' if result else 'failed',
-                                message_id=result.get('sid') if result else None,
-                                error=None if result else 'Error enviando mensaje'
-                            )
-                        
-                        # J.RF10, J.RNF15: Programar reintento si falló
-                        if not result and paciente_id:
-                            retry_service.schedule_retry(
-                                paciente_id=paciente_id,
-                                dentista_id=None,
-                                event_type='user_message_response',
-                                message_content=response_text,
-                                original_message_id=None,
-                                error='Error enviando mensaje'
-                            )
+                    # J.RF10, J.RNF15: Programar reintento si falló
+                    if not result and paciente_id:
+                        retry_service.schedule_retry(
+                            paciente_id=paciente_id,
+                            dentista_id=None,
+                            event_type='user_message_response',
+                            message_content=response_text,
+                            original_message_id=None,
+                            error='Error enviando mensaje'
+                        )
+                else:
+                    # Si no hay respuesta, usar fallback
+                    print(f"[APP] No se generó respuesta, usando fallback")
+                    # Verificar si el mensaje coincide con el texto de un botón (fallback)
+                    message_clean = message_body.strip()
+                    if message_clean in button_text_to_id:
+                        button_id = button_text_to_id[message_clean]
+                        print(f"Botón detectado por texto (fallback): '{message_clean}' -> {button_id}")
+                        handle_button_response_extended(from_number, button_id)
                     else:
-                        # Fallback al sistema anterior
                         handle_text_message_extended(from_number, message_body)
-                except Exception as ml_error:
-                    print(f"Error en ML para WhatsApp, usando fallback: {ml_error}")
-                    import traceback
-                    traceback.print_exc()
-                    # Fallback al sistema anterior si ML falla
+            except Exception as ml_error:
+                print(f"Error en conversation_manager, usando fallback: {ml_error}")
+                import traceback
+                traceback.print_exc()
+                # Fallback al sistema anterior si falla
+                message_clean = message_body.strip()
+                if message_clean in button_text_to_id:
+                    button_id = button_text_to_id[message_clean]
+                    handle_button_response_extended(from_number, button_id)
+                elif message_body.strip().isdigit():
+                    handle_button_response_extended(from_number, f"button_{message_body.strip()}")
+                else:
                     handle_text_message_extended(from_number, message_body)
         else:
             print("ADVERTENCIA: message_body está vacío")
