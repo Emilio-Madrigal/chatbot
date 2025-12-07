@@ -505,7 +505,7 @@ def webhook():
                     import traceback
                     traceback.print_exc()
                     # Fallback al sistema anterior si ML falla
-                handle_text_message_extended(from_number, message_body)
+                    handle_text_message_extended(from_number, message_body)
         else:
             print("ADVERTENCIA: message_body está vacío")
         
@@ -584,11 +584,9 @@ def handle_text_message(from_number,text):
                 return
             # Si no coincide con ningún contexto, tratar como texto normal
 
-        if text_lower in ['hola', 'menu', 'inicio', 'start', 'ayuda']:
-            WhatsApp_service.send_main_menu(from_number)
-            user_states[from_number] = {'step': 'menu_principal'}
-            return
-        elif current_step=='esperando_nombre_cliente':
+        # NOTA: La detección de "menu" se maneja en el flujo principal (conversation_manager)
+        # Solo usar este código como fallback para otros casos
+        if current_step=='esperando_nombre_cliente':
             user_states[from_number]['nombre_cliente']=text
             user_states[from_number]['step']='esperando_descripcion'
             WhatsApp_service.send_text_message(
