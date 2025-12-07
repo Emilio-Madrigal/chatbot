@@ -4,8 +4,10 @@ Sistema de menús estructurado sin IA/ML
 """
 
 from services.menu_system import MenuSystem
+from services.ml_service import MLService
+from services.actions_service import ActionsService
+from services.payment_service import PaymentService
 from typing import Dict, Optional
-from datetime import datetime
 from datetime import datetime
 
 class ConversationManager:
@@ -17,6 +19,7 @@ class ConversationManager:
         self.ml_service = MLService()
         self.actions_service = ActionsService()
         self.payment_service = PaymentService()
+        self.menu_system = MenuSystem()
         self.conversations = {}  # Almacena el contexto de cada conversación
     
     def get_conversation_context(self, session_id: str) -> Dict:
