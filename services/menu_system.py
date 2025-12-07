@@ -63,6 +63,7 @@ Escribe el *número* de la opción que deseas."""
         """
         message_clean = message.strip().lower()
         current_step = context.get('step', 'menu_principal')
+        print(f"[MENU_SYSTEM] process_message - session_id={session_id}, message='{message}', current_step={current_step}, user_id={user_id}, phone={phone}")
         
         # Si es "menu" o "menú", volver al menú principal
         if message_clean in ['menu', 'menú', 'inicio', 'start', '0']:
@@ -77,9 +78,13 @@ Escribe el *número* de la opción que deseas."""
         # Si es un número, procesarlo según el paso actual
         if message_clean.isdigit():
             button_num = int(message_clean)
-            return self._handle_numeric_input(session_id, button_num, context, user_id, phone)
+            print(f"[MENU_SYSTEM] Mensaje numérico detectado: {button_num}, step actual: {current_step}")
+            result = self._handle_numeric_input(session_id, button_num, context, user_id, phone)
+            print(f"[MENU_SYSTEM] Resultado de _handle_numeric_input: tiene response={bool(result.get('response'))}")
+            return result
         
         # Si no es número ni comando reconocido, mostrar menú y pedir número
+        print(f"[MENU_SYSTEM] Mensaje no reconocido, mostrando menú por defecto")
         return {
             'response': f"Por favor, usa números para navegar.\n\n{self.get_main_menu(context.get('language', 'es'))}",
             'action': None,
@@ -91,11 +96,15 @@ Escribe el *número* de la opción que deseas."""
                              context: Dict, user_id: str, phone: str) -> Dict:
         """Maneja entrada numérica según el paso actual"""
         current_step = context.get('step', 'menu_principal')
+        print(f"[MENU_SYSTEM] Procesando entrada numérica: button_num={button_num}, current_step={current_step}")
         
         # Menú principal
         if current_step == 'menu_principal' or current_step == 'inicial':
             if button_num == 1:
-                return self._handle_schedule_appointment(session_id, context, user_id, phone)
+                print(f"[MENU_SYSTEM] Opción 1 seleccionada - Agendar cita")
+                result = self._handle_schedule_appointment(session_id, context, user_id, phone)
+                print(f"[MENU_SYSTEM] Resultado de _handle_schedule_appointment: {result.get('response', '')[:100] if result.get('response') else 'SIN RESPUESTA'}")
+                return result
             elif button_num == 2:
                 return self._handle_view_appointments(context, user_id, phone)
             elif button_num == 3:
@@ -261,14 +270,17 @@ Escribe el *número* de la opción que deseas."""
     def _handle_schedule_appointment(self, session_id: str, context: Dict,
                                     user_id: str, phone: str) -> Dict:
         """Opción 1: Agendar cita - Usa la misma estructura que la web"""
+        print(f"[MENU_SYSTEM] _handle_schedule_appointment - user_id={user_id}, phone={phone}")
         context['step'] = 'seleccionando_fecha_agendar'
         
         # Obtener fechas disponibles usando el servicio que accede a la misma estructura que la web
         try:
+            print(f"[MENU_SYSTEM] Obteniendo fechas disponibles...")
             fechas = self.firebase_service.get_available_dates(user_id=user_id, phone=phone, count=5)
-            context['fechas_disponibles'] = fechas
+            print(f"[MENU_SYSTEM] Fechas obtenidas: {len(fechas) if fechas else 0}, tipo: {type(fechas)}")
+            context['fechas_disponibles'] = fechas or []
             
-            if not fechas:
+            if not fechas or len(fechas) == 0:
                 return {
                     'response': 'Lo siento, no hay fechas disponibles en este momento.\n\nPor favor, contacta directamente con el consultorio o intenta más tarde.\n\nEscribe "menu" para volver al menú principal.',
                     'action': None,
@@ -289,7 +301,9 @@ Escribe el *número* de la opción que deseas."""
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo fechas: {e}")
+            print(f"[MENU_SYSTEM] Error obteniendo fechas: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
                 'action': None,

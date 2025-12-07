@@ -470,6 +470,7 @@ def webhook():
                         mode='menu'  # Siempre menú
                     )
                     response_text = response_data.get('response', '')
+                    print(f"[APP] Respuesta del conversation_manager: tiene texto={bool(response_text)}, longitud={len(response_text) if response_text else 0}")
                     
                     if response_text:
                         # Enviar mensaje con logging y retry

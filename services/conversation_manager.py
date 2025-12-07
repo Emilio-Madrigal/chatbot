@@ -62,6 +62,7 @@ class ConversationManager:
         """
         # Obtener contexto
         context = self.get_conversation_context(session_id)
+        print(f"[CONVERSATION_MANAGER] process_message - session_id={session_id}, message='{message}', context_step={context.get('step')}, user_id={user_id}, phone={phone}")
         
         # Actualizar datos del usuario si están disponibles
         if user_id or phone:
