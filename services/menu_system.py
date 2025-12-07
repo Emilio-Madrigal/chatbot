@@ -632,10 +632,12 @@ Escribe el *número* de la opción que deseas."""
         }
     
     def _show_available_dates_for_appointment(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Muestra fechas disponibles para agendar - Usa la misma estructura que la web"""
+        """Muestra fechas disponibles para agendar usando dentista_id y consultorio_id del contexto"""
         try:
             dentista_id = context.get('dentista_id')
             consultorio_id = context.get('consultorio_id')
+            
+            print(f"[MENU_SYSTEM] _show_available_dates_for_appointment - dentista_id={dentista_id}, consultorio_id={consultorio_id}")
             
             if not dentista_id or not consultorio_id:
                 return {
@@ -645,13 +647,28 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
             
-            # Obtener fechas disponibles usando el servicio
-            fechas = self.firebase_service.get_available_dates(user_id=user_id, phone=phone, count=5)
+            # Obtener fechas disponibles directamente usando el repositorio con los IDs del contexto
+            from database.models import CitaRepository
+            cita_repo = CitaRepository()
+            from datetime import datetime
+            
+            fecha_base = datetime.now()
+            fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+            
+            print(f"[MENU_SYSTEM] Obteniendo fechas para dentista {dentista_id}, consultorio {consultorio_id}")
+            fechas = cita_repo.obtener_fechas_disponibles(
+                dentista_id,
+                consultorio_id,
+                fecha_timestamp,
+                cantidad=5
+            )
+            
+            print(f"[MENU_SYSTEM] Fechas obtenidas: {len(fechas) if fechas else 0}")
             context['fechas_disponibles'] = fechas or []
             
             if not fechas or len(fechas) == 0:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles en este momento.\n\nEscribe "menu" para volver.',
+                    'response': 'Lo siento, no hay fechas disponibles en este momento.\n\nPor favor, contacta directamente con el consultorio o intenta más tarde.\n\nEscribe "menu" para volver.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -670,7 +687,7 @@ Escribe el *número* de la opción que deseas."""
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo fechas: {e}")
+            print(f"[MENU_SYSTEM] Error obteniendo fechas: {e}")
             import traceback
             traceback.print_exc()
             return {
