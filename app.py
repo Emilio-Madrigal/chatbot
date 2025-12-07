@@ -1093,7 +1093,7 @@ def process_web_button_response(session_id, button_id, response_messages, user_i
 
 *Opciones disponibles:*
 1. Agendar Cita
-2. 👀 Ver Mis Citas
+2. Ver Mis Citas
 3. Gestionar Citas
 
 Escribe el *número* de la opción que deseas (1, 2 o 3)."""
@@ -1302,7 +1302,7 @@ def process_web_message(session_id, message_body, platform, user_id=None, phone=
 
 *Opciones disponibles:*
 1. Agendar Cita
-2. 👀 Ver Mis Citas
+2. Ver Mis Citas
 3. Gestionar Citas
 
 Escribe el *número* de la opción que deseas (1, 2 o 3)."""
@@ -1388,12 +1388,12 @@ def init_schedulers():
     """Inicia todos los schedulers automáticamente"""
     try:
         from scheduler.reminder_scheduler import start_reminder_system
-        print("🚀 Iniciando schedulers automáticos...")
+        print("Iniciando schedulers automáticos...")
         start_reminder_system()
-        print("✅ Schedulers iniciados correctamente")
+        print("Schedulers iniciados correctamente")
         return True
     except Exception as e:
-        print(f"⚠️ Error iniciando schedulers: {e}")
+        print(f"Error iniciando schedulers: {e}")
         import traceback
         traceback.print_exc()
         return False

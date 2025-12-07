@@ -26,7 +26,7 @@ class MenuSystem:
     def get_main_menu(self, language: str = 'es') -> str:
         """Menú principal"""
         if language == 'en':
-            return """🦷 *Densora - Main Menu*
+            return """*Densora - Main Menu*
 
 What would you like to do?
 
@@ -41,7 +41,7 @@ What would you like to do?
 
 Type the *number* of the option you want."""
         
-        return """🦷 *Densora - Menú Principal*
+        return """*Densora - Menú Principal*
 
 ¿Qué te gustaría hacer?
 
@@ -134,7 +134,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._handle_help(context)
             elif button_num == 0:
                 return {
-                    'response': '¡Gracias por usar Densora! 👋\n\nEscribe "menu" cuando quieras volver.',
+                    'response': '¡Gracias por usar Densora!\n\nEscribe "menu" cuando quieras volver.',
                     'action': 'exit',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -418,12 +418,12 @@ Escribe el *número* de la opción que deseas."""
                 
                 # Formatear servicios
                 servicios_texto = '\n'.join([
-                    f'*{i+1}.* {t["nombre"]}\n   💰 ${t["precio"]:,.0f} MXN\n   ⏱️ {t["duracion"]} min\n   📝 {t.get("descripcion", "")}'
+                    f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN\n   {t["duracion"]} min\n   {t.get("descripcion", "")}'
                     for i, t in enumerate(tratamientos[:10])
                 ])
                 
                 return {
-                    'response': f'🦷 *Agendar Nueva Cita*\n\n👨‍⚕️ Dentista: {context["dentista_name"]}\n🏥 Consultorio: {context["consultorio_name"]}\n\n📋 *Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
+                    'response': f'*Agendar Nueva Cita*\n\nDentista: {context["dentista_name"]}\nConsultorio: {context["consultorio_name"]}\n\n*Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
                     'action': 'show_services',
                     'next_step': 'seleccionando_servicio',
                     'mode': 'menu'
@@ -463,12 +463,12 @@ Escribe el *número* de la opción que deseas."""
                             }
                         
                         servicios_texto = '\n'.join([
-                            f'*{i+1}.* {t["nombre"]}\n   💰 ${t["precio"]:,.0f} MXN\n   ⏱️ {t["duracion"]} min\n   📝 {t.get("descripcion", "")}'
+                            f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN\n   {t["duracion"]} min\n   {t.get("descripcion", "")}'
                             for i, t in enumerate(tratamientos[:10])
                         ])
                         
                         return {
-                            'response': f'🦷 *Agendar Nueva Cita*\n\n👨‍⚕️ Dentista: {context["dentista_name"]}\n🏥 Consultorio: {context["consultorio_name"]}\n\n📋 *Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
+                            'response': f'*Agendar Nueva Cita*\n\nDentista: {context["dentista_name"]}\nConsultorio: {context["consultorio_name"]}\n\n*Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
                             'action': 'show_services',
                             'next_step': 'seleccionando_servicio',
                             'mode': 'menu'
@@ -512,7 +512,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'📋 *Tus Próximas Citas:*\n\n{citas_texto}\n\nEscribe "menu" para volver al menú principal.',
+                'response': f'*Tus Próximas Citas:*\n\n{citas_texto}\n\nEscribe "menu" para volver al menú principal.',
                 'action': 'show_appointments',
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -550,7 +550,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'🔄 *Reagendar Cita*\n\nSelecciona la cita que deseas reagendar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
+                'response': f'*Reagendar Cita*\n\nSelecciona la cita que deseas reagendar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
                 'action': 'show_appointments_to_reschedule',
                 'next_step': 'seleccionando_cita_reagendar',
                 'mode': 'menu'
@@ -588,7 +588,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'❌ *Cancelar Cita*\n\nSelecciona la cita que deseas cancelar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
+                'response': f'*Cancelar Cita*\n\nSelecciona la cita que deseas cancelar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
                 'action': 'show_appointments_to_cancel',
                 'next_step': 'seleccionando_cita_cancelar',
                 'mode': 'menu'
@@ -606,7 +606,7 @@ Escribe el *número* de la opción que deseas."""
         """Opción 5: Historial médico"""
         web_url = 'https://www.densora.com'  # TODO: obtener de config
         return {
-            'response': f'📋 *Historial Médico*\n\nPara acceder a tu historial médico, visita:\n\n🔗 {web_url}/historialMedico\n\nEscribe "menu" para volver al menú principal.',
+            'response': f'*Historial Médico*\n\nPara acceder a tu historial médico, visita:\n\n{web_url}/historialMedico\n\nEscribe "menu" para volver al menú principal.',
             'action': None,
             'next_step': 'menu_principal',
             'mode': 'menu'
@@ -616,7 +616,7 @@ Escribe el *número* de la opción que deseas."""
         """Opción 6: Reseñas y calificaciones"""
         web_url = 'https://www.densora.com'  # TODO: obtener de config
         return {
-            'response': f'⭐ *Reseñas y Calificaciones*\n\nPara dejar una reseña o ver tus calificaciones, visita:\n\n🔗 {web_url}/mis-resenas\n\nEscribe "menu" para volver al menú principal.',
+            'response': f'*Reseñas y Calificaciones*\n\nPara dejar una reseña o ver tus calificaciones, visita:\n\n{web_url}/mis-resenas\n\nEscribe "menu" para volver al menú principal.',
             'action': None,
             'next_step': 'menu_principal',
             'mode': 'menu'
@@ -625,7 +625,7 @@ Escribe el *número* de la opción que deseas."""
     def _handle_help(self, context: Dict) -> Dict:
         """Opción 7: Ayuda y soporte"""
         return {
-            'response': f'❓ *Ayuda y Soporte*\n\n{self.get_main_menu()}\n\n*Contacto:*\n📧 soporte@densora.com\n📱 +52 55 1234 5678\n\n*Horario:*\nLun-Vie: 9:00 AM - 6:00 PM\nSáb: 9:00 AM - 2:00 PM',
+            'response': f'*Ayuda y Soporte*\n\n{self.get_main_menu()}\n\n*Contacto:*\nsoporte@densora.com\n+52 55 1234 5678\n\n*Horario:*\nLun-Vie: 9:00 AM - 6:00 PM\nSáb: 9:00 AM - 2:00 PM',
             'action': None,
             'next_step': 'menu_principal',
             'mode': 'menu'
@@ -681,7 +681,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'📅 *Selecciona una fecha disponible:*\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
+                'response': f'*Selecciona una fecha disponible:*\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_agendar',
                 'mode': 'menu'
@@ -699,15 +699,15 @@ Escribe el *número* de la opción que deseas."""
     
     def _show_payment_methods(self, context: Dict) -> Dict:
         """Muestra métodos de pago disponibles"""
-        metodos_texto = """💳 *Selecciona el método de pago:*
+        metodos_texto = """*Selecciona el método de pago:*
 
-*1.* 💵 Efectivo
+*1.* Efectivo
    Pago al momento de la cita
 
-*2.* 🏦 Transferencia Bancaria
+*2.* Transferencia Bancaria
    Pago por transferencia (2 horas para confirmar con comprobante)
 
-*3.* 💳 Tarjeta (Stripe)
+*3.* Tarjeta (Stripe)
    Pago con tarjeta de crédito/débito (pago inmediato)
 
 Escribe el *número* del método de pago que deseas."""
@@ -721,17 +721,17 @@ Escribe el *número* del método de pago que deseas."""
     
     def _show_medical_history_options(self, context: Dict) -> Dict:
         """Muestra opciones para compartir historial médico (RF7)"""
-        opciones_texto = """🏥 *Compartir Historial Médico*
+        opciones_texto = """*Compartir Historial Médico*
 
 ¿Deseas compartir tu historial médico con el dentista?
 
-*1.* ❌ No compartir
+*1.* No compartir
    El dentista solo verá información básica
 
-*2.* 📋 Compartir básico (Nivel 1)
+*2.* Compartir básico (Nivel 1)
    Nombre, edad y alergias
 
-*3.* 📚 Compartir completo (Nivel 3)
+*3.* Compartir completo (Nivel 3)
    Todo tu historial médico incluyendo documentos
 
 *Nota:* Puedes cambiar esta configuración después desde tu perfil.
@@ -773,25 +773,25 @@ Escribe el *número* de la opción que prefieres."""
         if historial_medico.get('nivel', 0) > 0:
             historial_texto += f" (Nivel {historial_medico.get('nivel', 0)})"
         
-        resumen = f"""📋 *Resumen de tu Cita*
+        resumen = f"""*Resumen de tu Cita*
 
-👨‍⚕️ *Dentista:* {dentista_name}
-🏥 *Consultorio:* {consultorio_name}
-📅 *Fecha:* {fecha_str}
-🕐 *Hora:* {hora_str}
-📋 *Servicio:* {tratamiento.get('nombre', 'Consulta')}
-⏱️ *Duración:* {duracion} minutos
-💰 *Precio:* ${precio:,.0f} MXN
-💳 *Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
-🏥 *Historial Médico:* {historial_texto}
+*Dentista:* {dentista_name}
+*Consultorio:* {consultorio_name}
+*Fecha:* {fecha_str}
+*Hora:* {hora_str}
+*Servicio:* {tratamiento.get('nombre', 'Consulta')}
+*Duración:* {duracion} minutos
+*Precio:* ${precio:,.0f} MXN
+*Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
+*Historial Médico:* {historial_texto}
 
 *Política de Cancelación:*
 Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin penalización.
 
 ¿Confirmas esta cita?
 
-*1.* ✅ Sí, confirmar cita
-*2.* ❌ Cancelar"""
+*1.* Sí, confirmar cita
+*2.* Cancelar"""
         
         return {
             'response': resumen,
@@ -812,7 +812,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             context['otp_attempts'] = 0
             
             return {
-                'response': '🔐 *Verificación Requerida*\n\nSe ha enviado un código de verificación a tu WhatsApp.\n\nPor favor, ingresa el código de 6 dígitos que recibiste.\n\nEscribe el código para continuar.',
+                'response': '*Verificación Requerida*\n\nSe ha enviado un código de verificación a tu WhatsApp.\n\nPor favor, ingresa el código de 6 dígitos que recibiste.\n\nEscribe el código para continuar.',
                 'action': 'request_otp',
                 'next_step': 'verificando_otp',
                 'mode': 'menu'
@@ -932,7 +932,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             horarios_texto = '\n'.join([f'*{i+1}.* {hora}' for i, hora in enumerate(horarios)])
             
             return {
-                'response': f'🕐 *Selecciona un Horario*\n\nHorarios disponibles:\n\n{horarios_texto}\n\nEscribe el *número* del horario que deseas.',
+                'response': f'*Selecciona un Horario*\n\nHorarios disponibles:\n\n{horarios_texto}\n\nEscribe el *número* del horario que deseas.',
                 'action': 'show_times',
                 'next_step': context['step'],
                 'mode': 'menu'
@@ -968,7 +968,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             ])
             
             return {
-                'response': f'📅 *Selecciona Nueva Fecha*\n\nFechas disponibles:\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
+                'response': f'*Selecciona Nueva Fecha*\n\nFechas disponibles:\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_reagendar',
                 'mode': 'menu'
@@ -1049,20 +1049,20 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 if nivel_acceso > 0:
                     historial_texto += f" (Nivel {nivel_acceso})"
                 
-                mensaje = f"""✅ *Cita Agendada Exitosamente*
+                mensaje = f"""*Cita Agendada Exitosamente*
 
-📅 *Fecha:* {fecha_str}
-🕐 *Hora:* {hora}
-👨‍⚕️ *Dentista:* {context.get('dentista_name', 'Dentista')}
-🏥 *Consultorio:* {context.get('consultorio_name', 'Consultorio')}
-📋 *Servicio:* {tratamiento.get('nombre', 'Consulta')}
-💰 *Precio:* ${tratamiento.get('precio', 0):,.0f} MXN
-💳 *Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
-🏥 *Historial Médico:* {historial_texto}
+*Fecha:* {fecha_str}
+*Hora:* {hora}
+*Dentista:* {context.get('dentista_name', 'Dentista')}
+*Consultorio:* {context.get('consultorio_name', 'Consultorio')}
+*Servicio:* {tratamiento.get('nombre', 'Consulta')}
+*Precio:* ${tratamiento.get('precio', 0):,.0f} MXN
+*Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
+*Historial Médico:* {historial_texto}
 
-📱 Recibirás un recordatorio 24h antes de tu cita.
+Recibirás un recordatorio 24h antes de tu cita.
 
-🔗 Para completar o actualizar tu historial médico, visita:
+Para completar o actualizar tu historial médico, visita:
 https://www.densora.com/historialMedico
 
 Escribe "menu" para volver al menú principal."""
@@ -1125,7 +1125,7 @@ Escribe "menu" para volver al menú principal."""
                 context['step'] = 'menu_principal'
                 fecha_str = fecha_dt.strftime('%d/%m/%Y') if hasattr(fecha_dt, 'strftime') else str(fecha_dt)
                 return {
-                    'response': f'✅ *Cita Reagendada Exitosamente*\n\n📅 Nueva Fecha: {fecha_str}\n🕐 Nueva Hora: {hora}\n\nRecibirás un recordatorio 24h antes.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f'*Cita Reagendada Exitosamente*\n\nNueva Fecha: {fecha_str}\nNueva Hora: {hora}\n\nRecibirás un recordatorio 24h antes.\n\nEscribe "menu" para volver al menú principal.',
                     'action': 'appointment_rescheduled',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1151,7 +1151,7 @@ Escribe "menu" para volver al menú principal."""
                             phone: str, cita: Dict) -> Dict:
         """Muestra confirmación de cancelación"""
         return {
-            'response': f'⚠️ *Confirmar Cancelación*\n\n¿Estás seguro de que deseas cancelar esta cita?\n\n📅 Fecha: {cita.get("fecha", "N/A")}\n🕐 Hora: {cita.get("hora", "N/A")}\n👨‍⚕️ Dentista: {cita.get("dentista", "Dr. García")}\n\n*1.* Sí, cancelar cita\n*2.* No, mantener cita',
+            'response': f'*Confirmar Cancelación*\n\n¿Estás seguro de que deseas cancelar esta cita?\n\nFecha: {cita.get("fecha", "N/A")}\nHora: {cita.get("hora", "N/A")}\nDentista: {cita.get("dentista", "Dr. García")}\n\n*1.* Sí, cancelar cita\n*2.* No, mantener cita',
             'action': None,
             'next_step': 'confirmando_cancelacion',
             'mode': 'menu'
@@ -1176,7 +1176,7 @@ Escribe "menu" para volver al menú principal."""
             if result.get('success'):
                 context['step'] = 'menu_principal'
                 return {
-                    'response': '✅ *Cita Cancelada Exitosamente*\n\nTu cita ha sido cancelada. Recibirás una confirmación por WhatsApp.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': '*Cita Cancelada Exitosamente*\n\nTu cita ha sido cancelada. Recibirás una confirmación por WhatsApp.\n\nEscribe "menu" para volver al menú principal.',
                     'action': 'appointment_cancelled',
                     'next_step': 'menu_principal',
                     'mode': 'menu'

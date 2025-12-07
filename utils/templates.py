@@ -1,12 +1,12 @@
 def get_welcome_message():
-    return """👋 ¡Hola! Bienvenido al *Sistema de Citas Médicas*
+    return """¡Hola! Bienvenido al *Sistema de Citas Médicas*
 
             Soy tu asistente virtual y estoy aquí para ayudarte con:
 
-            📅 *Agendar* nuevas citas
-            👀 *Ver* tus citas programadas  
-            🔄 *Reagendar* citas existentes
-            ❌ *Cancelar* citas si es necesario
+            *Agendar* nuevas citas
+            *Ver* tus citas programadas  
+            *Reagendar* citas existentes
+            *Cancelar* citas si es necesario
 
             Escribe *menu* en cualquier momento para ver las opciones.
 
@@ -17,19 +17,19 @@ def get_error_message():
 
             Hubo un problema.
 
-            💡 *¿Qué puedes hacer?*
+            *¿Qué puedes hacer?*
             • Escribe *menu* para empezar de nuevo
             • Verifica que tu mensaje sea claro
             • Intenta nuevamente en unos minutos
 
-            ¡Estamos aquí para ayudarte! 🤖"""
+            ¡Estamos aquí para ayudarte!"""
 
 def get_maintenance_message():
-    return """🔧 *Sistema en Mantenimiento*
+    return """*Sistema en Mantenimiento*
 
             Estamos realizando mejoras para brindarte un mejor servicio.
 
-            ⏱️ *Tiempo estimado:* 10-15 minutos
-            🔄 Por favor, intenta nuevamente más tarde
+            *Tiempo estimado:* 10-15 minutos
+            Por favor, intenta nuevamente más tarde
 
             ¡Gracias por tu paciencia!"""

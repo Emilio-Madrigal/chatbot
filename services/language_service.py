@@ -1,5 +1,5 @@
 """
-🌐 SISTEMA DE ADAPTACIÓN DE IDIOMA
+SISTEMA DE ADAPTACIÓN DE IDIOMA
 J.RNF19: Adaptación del contenido de mensajes según idioma preferido del paciente
 """
 

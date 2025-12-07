@@ -94,7 +94,7 @@ class WhatsAppService:
             
             # J.RNF2: Verificar si excede 3 segundos
             if latency > 3.0:
-                print(f"⚠️ ADVERTENCIA: Latencia de {latency:.2f}s excede el máximo de 3s")
+                print(f"ADVERTENCIA: Latencia de {latency:.2f}s excede el máximo de 3s")
             
             print(f"Mensaje enviado via Twilio. SID: {message_obj.sid}, Latencia: {latency:.2f}s")
             return {"status": "sent", "sid": message_obj.sid, "latency": latency}

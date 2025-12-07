@@ -298,7 +298,7 @@ class ConversationManager:
         # J.RF12: Procesamiento mejorado de palabras clave específicas
         elif intent == 'contacto' or 'contacto' in message_lower or 'contact' in message_lower:
             return {
-                'response': 'Para contactarnos:\n\n📞 Teléfono: [Número de contacto]\n📧 Email: contacto@densora.com\n🌐 Web: www.densora.com\n\n¿Necesitas algo más?',
+                'response': 'Para contactarnos:\n\nTeléfono: [Número de contacto]\nEmail: contacto@densora.com\nWeb: www.densora.com\n\n¿Necesitas algo más?',
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -335,7 +335,7 @@ class ConversationManager:
         
         elif intent == 'contacto':
             return {
-                'response': 'Para contactarnos:\n\n📞 Teléfono: [Número de contacto]\n📧 Email: contacto@densora.com\n🌐 Web: www.densora.com\n📍 Ubicación: [Dirección]\n\n¿Necesitas algo más?',
+                'response': 'Para contactarnos:\n\nTeléfono: [Número de contacto]\nEmail: contacto@densora.com\nWeb: www.densora.com\nUbicación: [Dirección]\n\n¿Necesitas algo más?',
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -945,7 +945,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
             
             if not citas_pendientes:
                 return {
-                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
+                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día. ¿Hay algo más en lo que pueda ayudarte?",
                     'action': None,
                     'next_step': 'inicial'
                 }
@@ -963,18 +963,18 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                 )
                 
                 if resultado.get('success'):
-                    response = f"""✅ ¡Excelente! He registrado tu confirmación de pago.
+                    response = f"""¡Excelente! He registrado tu confirmación de pago.
 
-📅 Cita: {cita.get('fecha', 'N/A')} a las {cita.get('hora', 'N/A')}
-👨‍⚕️ Dentista: {cita.get('dentista', 'N/A')}
-💰 Método: {metodo_pago.title()}
-📊 Estado: Pendiente de verificación
+Cita: {cita.get('fecha', 'N/A')} a las {cita.get('hora', 'N/A')}
+Dentista: {cita.get('dentista', 'N/A')}
+Método: {metodo_pago.title()}
+Estado: Pendiente de verificación
 
 Tu confirmación fue recibida. El consultorio verificará tu pago y te notificaremos cuando esté aprobado.
 
 ¿Necesitas ayuda con algo más?"""
                 else:
-                    response = f"❌ {resultado.get('mensaje', 'Error al confirmar pago')}\n\nPor favor contacta al consultorio directamente."
+                    response = f"{resultado.get('mensaje', 'Error al confirmar pago')}\n\nPor favor contacta al consultorio directamente."
                 
                 return {
                     'response': response,
@@ -984,7 +984,7 @@ Tu confirmación fue recibida. El consultorio verificará tu pago y te notificar
             
             # Si hay múltiples citas, pedir que especifique cuál
             citas_text = "\n".join([
-                f"{i+1}. 📅 {c.get('fecha', 'N/A')} - ⏰ {c.get('hora', 'N/A')}\n   👨‍⚕️ {c.get('dentista', 'N/A')}\n   💵 ${c.get('precio', 0):.2f} ({c.get('metodo_pago', 'N/A').title()})"
+                f"{i+1}. {c.get('fecha', 'N/A')} - {c.get('hora', 'N/A')}\n   Dentista: {c.get('dentista', 'N/A')}\n   ${c.get('precio', 0):.2f} ({c.get('metodo_pago', 'N/A').title()})"
                 for i, c in enumerate(citas_pendientes)
             ])
             
@@ -999,7 +999,7 @@ Tu confirmación fue recibida. El consultorio verificará tu pago y te notificar
             import traceback
             traceback.print_exc()
             return {
-                'response': "❌ Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
+                'response': "Hubo un error al procesar tu confirmación. Por favor contacta directamente con el consultorio.",
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -1015,13 +1015,13 @@ Tu confirmación fue recibida. El consultorio verificará tu pago y te notificar
             
             if not citas_pendientes:
                 return {
-                    'response': "✅ No tienes citas con pago pendiente.\n\nTodas tus citas están al día.",
+                    'response': "No tienes citas con pago pendiente.\n\nTodas tus citas están al día.",
                     'action': None,
                     'next_step': 'inicial'
                 }
             
             # Calcular tiempo restante para cada cita
-            response_text = "⏰ *Tiempo restante para pagar tus citas:*\n\n"
+            response_text = "*Tiempo restante para pagar tus citas:*\n\n"
             
             for i, cita in enumerate(citas_pendientes, 1):
                 fecha = cita.get('fecha', 'N/A')
@@ -1037,28 +1037,28 @@ Tu confirmación fue recibida. El consultorio verificará tu pago y te notificar
                 mensaje_tiempo = tiempo_info.get('mensaje', 'Tiempo no disponible')
                 tiene_tiempo = tiempo_info.get('tiene_tiempo', True)
                 
-                # Emoji según urgencia
+                # Indicador de urgencia
                 if not tiene_tiempo:
-                    emoji = "🔴"
+                    indicador = "[URGENTE]"
                 elif tiempo_info.get('horas_restantes', 999) <= 2:
-                    emoji = "🟠"
+                    indicador = "[MUY PRONTO]"
                 elif tiempo_info.get('horas_restantes', 999) <= 12:
-                    emoji = "🟡"
+                    indicador = "[PRONTO]"
                 else:
-                    emoji = "🟢"
+                    indicador = "[OK]"
                 
-                response_text += f"{emoji} *Cita {i}:*\n"
-                response_text += f"   📅 {fecha} a las {hora}\n"
-                response_text += f"   💰 Método: {metodo_pago.title()}\n"
-                response_text += f"   ⏱️ {mensaje_tiempo}\n\n"
+                response_text += f"{indicador} *Cita {i}:*\n"
+                response_text += f"   Fecha: {fecha} a las {hora}\n"
+                response_text += f"   Método: {metodo_pago.title()}\n"
+                response_text += f"   {mensaje_tiempo}\n\n"
             
-            response_text += "\n💡 *Tip:* Escribe *'ya pagué'* cuando hayas completado el pago."
+            response_text += "\n*Tip:* Escribe *'ya pagué'* cuando hayas completado el pago."
             
             # Mostrar instrucciones de pago si hay citas urgentes
             urgentes = [c for c in citas_pendientes if self.payment_service.calcular_tiempo_restante_pago(c, c.get('metodo_pago', 'transferencia')).get('horas_restantes', 999) <= 12]
             
             if urgentes:
-                response_text += "\n\n🚨 *¡Tienes pagos urgentes!* Escribe *'cómo pagar'* para ver las instrucciones."
+                response_text += "\n\n*¡Tienes pagos urgentes!* Escribe *'cómo pagar'* para ver las instrucciones."
             
             return {
                 'response': response_text,
@@ -1071,7 +1071,7 @@ Tu confirmación fue recibida. El consultorio verificará tu pago y te notificar
             import traceback
             traceback.print_exc()
             return {
-                'response': "❌ Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
+                'response': "Hubo un error al consultar el tiempo restante. Por favor intenta nuevamente.",
                 'action': None,
                 'next_step': 'inicial'
             }
