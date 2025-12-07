@@ -661,4 +661,74 @@ class ActionsService:
         deadline = now + timedelta(hours=hours)
         
         return deadline
+    
+    def get_treatments_for_dentist(self, dentista_id: str, consultorio_id: str = None) -> List[Dict]:
+        """Obtiene tratamientos/servicios disponibles para un dentista"""
+        try:
+            tratamientos = []
+            
+            # Buscar tratamientos del dentista
+            if consultorio_id:
+                # Buscar tratamientos del consultorio
+                consultorio_ref = self.db.collection('consultorio').document(consultorio_id)
+                tratamientos_ref = consultorio_ref.collection('tratamientos')
+                docs = tratamientos_ref.where('activo', '==', True).stream()
+                
+                for doc in docs:
+                    data = doc.to_dict()
+                    precio = data.get('precio', {})
+                    if isinstance(precio, dict):
+                        precio_valor = precio.get('precio', precio.get('precioFinal', 0))
+                    else:
+                        precio_valor = precio if isinstance(precio, (int, float)) else 0
+                    
+                    tratamientos.append({
+                        'id': doc.id,
+                        'nombre': data.get('nombre', 'Servicio'),
+                        'precio': precio_valor,
+                        'duracion': data.get('tiempoEstimado', data.get('duracionMinutos', 60)),
+                        'descripcion': data.get('descripcion', '')
+                    })
+            
+            # Si no hay tratamientos del consultorio, buscar del dentista
+            if not tratamientos:
+                dentista_ref = self.db.collection('dentistas').document(dentista_id)
+                tratamientos_ref = dentista_ref.collection('tratamientos')
+                docs = tratamientos_ref.where('activo', '==', True).stream()
+                
+                for doc in docs:
+                    data = doc.to_dict()
+                    precio = data.get('precio', {})
+                    if isinstance(precio, dict):
+                        precio_valor = precio.get('precio', precio.get('precioFinal', 0))
+                    else:
+                        precio_valor = precio if isinstance(precio, (int, float)) else 0
+                    
+                    tratamientos.append({
+                        'id': doc.id,
+                        'nombre': data.get('nombre', 'Servicio'),
+                        'precio': precio_valor,
+                        'duracion': data.get('tiempoEstimado', data.get('duracionMinutos', 60)),
+                        'descripcion': data.get('descripcion', '')
+                    })
+            
+            # Si aún no hay tratamientos, usar lista por defecto
+            if not tratamientos:
+                tratamientos = [
+                    {'id': 'consulta_general', 'nombre': 'Consulta General', 'precio': 500, 'duracion': 30, 'descripcion': 'Consulta y diagnóstico'},
+                    {'id': 'limpieza', 'nombre': 'Limpieza Dental', 'precio': 800, 'duracion': 45, 'descripcion': 'Profilaxis y limpieza profesional'},
+                    {'id': 'resina', 'nombre': 'Resina (Empaste)', 'precio': 1200, 'duracion': 60, 'descripcion': 'Restauración con resina'},
+                    {'id': 'extraccion', 'nombre': 'Extracción', 'precio': 1000, 'duracion': 45, 'descripcion': 'Extracción dental'},
+                ]
+            
+            return tratamientos
+            
+        except Exception as e:
+            print(f"Error obteniendo tratamientos: {e}")
+            import traceback
+            traceback.print_exc()
+            # Retornar lista por defecto en caso de error
+            return [
+                {'id': 'consulta_general', 'nombre': 'Consulta General', 'precio': 500, 'duracion': 30, 'descripcion': 'Consulta y diagnóstico'},
+            ]
 
