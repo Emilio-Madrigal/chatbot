@@ -211,11 +211,33 @@ Escribe el *número* de la opción que deseas."""
             if 0 <= button_num - 1 < len(metodos_pago):
                 metodo_pago = metodos_pago[button_num - 1]
                 context['metodo_pago'] = metodo_pago
+                context['step'] = 'seleccionando_historial_medico'
+                return self._show_medical_history_options(context)
+            else:
+                return {
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(metodos_pago)}.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Seleccionando opción de historial médico (RF7)
+        elif current_step == 'seleccionando_historial_medico':
+            opciones_historial = [
+                {'id': 'no_compartir', 'nivel': 0, 'nombre': 'No compartir', 'descripcion': 'El dentista solo verá información básica'},
+                {'id': 'compartir_basico', 'nivel': 1, 'nombre': 'Compartir básico', 'descripcion': 'Nombre, edad y alergias'},
+                {'id': 'compartir_completo', 'nivel': 3, 'nombre': 'Compartir completo', 'descripcion': 'Todo el historial médico'}
+            ]
+            if 0 <= button_num - 1 < len(opciones_historial):
+                opcion_historial = opciones_historial[button_num - 1]
+                context['historial_medico'] = opcion_historial
+                context['sharedMedicalHistory'] = opcion_historial['nivel'] > 0
+                context['medicalHistoryAccessLevel'] = opcion_historial['nivel']
                 context['step'] = 'mostrando_resumen'
                 return self._show_appointment_summary(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(metodos_pago)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(opciones_historial)}.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -680,12 +702,39 @@ Escribe el *número* del método de pago que deseas."""
             'mode': 'menu'
         }
     
+    def _show_medical_history_options(self, context: Dict) -> Dict:
+        """Muestra opciones para compartir historial médico (RF7)"""
+        opciones_texto = """🏥 *Compartir Historial Médico*
+
+¿Deseas compartir tu historial médico con el dentista?
+
+*1.* ❌ No compartir
+   El dentista solo verá información básica
+
+*2.* 📋 Compartir básico (Nivel 1)
+   Nombre, edad y alergias
+
+*3.* 📚 Compartir completo (Nivel 3)
+   Todo tu historial médico incluyendo documentos
+
+*Nota:* Puedes cambiar esta configuración después desde tu perfil.
+
+Escribe el *número* de la opción que prefieres."""
+        
+        return {
+            'response': opciones_texto,
+            'action': 'show_medical_history_options',
+            'next_step': 'seleccionando_historial_medico',
+            'mode': 'menu'
+        }
+    
     def _show_appointment_summary(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra resumen completo de la cita antes de confirmar (RF6)"""
         tratamiento = context.get('tratamiento_seleccionado', {})
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
         metodo_pago = context.get('metodo_pago', {})
+        historial_medico = context.get('historial_medico', {})
         dentista_name = context.get('dentista_name', 'Dentista')
         consultorio_name = context.get('consultorio_name', 'Consultorio')
         
@@ -702,6 +751,11 @@ Escribe el *número* del método de pago que deseas."""
         precio = tratamiento.get('precio', 0)
         duracion = tratamiento.get('duracion', 60)
         
+        # Formatear opción de historial médico
+        historial_texto = historial_medico.get('nombre', 'No compartir')
+        if historial_medico.get('nivel', 0) > 0:
+            historial_texto += f" (Nivel {historial_medico.get('nivel', 0)})"
+        
         resumen = f"""📋 *Resumen de tu Cita*
 
 👨‍⚕️ *Dentista:* {dentista_name}
@@ -712,6 +766,7 @@ Escribe el *número* del método de pago que deseas."""
 ⏱️ *Duración:* {duracion} minutos
 💰 *Precio:* ${precio:,.0f} MXN
 💳 *Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
+🏥 *Historial Médico:* {historial_texto}
 
 *Política de Cancelación:*
 Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin penalización.
@@ -753,6 +808,46 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 'next_step': 'menu_principal',
                 'mode': 'menu'
             }
+    
+    def _grant_medical_history_access(self, paciente_id: str, dentista_id: str, nivel: int):
+        """Otorga acceso al historial médico según el nivel seleccionado (RF7, RNF2)"""
+        try:
+            from google.cloud.firestore import Timestamp
+            
+            # Verificar si ya existe un acceso
+            accesos_ref = self.db.collection('historial_medico_accesos')
+            query = accesos_ref.where('pacienteId', '==', paciente_id)\
+                              .where('dentistaId', '==', dentista_id)\
+                              .where('activo', '==', True)\
+                              .limit(1)
+            
+            docs = list(query.stream())
+            
+            acceso_data = {
+                'pacienteId': paciente_id,
+                'dentistaId': dentista_id,
+                'nivel': nivel,
+                'activo': True,
+                'otorgadoEn': Timestamp.now(),
+                'otorgadoPor': 'paciente',
+                'motivo': 'Otorgado durante agendamiento de cita',
+                'updatedAt': Timestamp.now()
+            }
+            
+            if docs:
+                # Actualizar acceso existente
+                docs[0].reference.update(acceso_data)
+                print(f"Acceso al historial médico actualizado: Nivel {nivel}")
+            else:
+                # Crear nuevo acceso
+                accesos_ref.add(acceso_data)
+                print(f"Acceso al historial médico otorgado: Nivel {nivel}")
+                
+        except Exception as e:
+            print(f"Error otorgando acceso al historial médico: {e}")
+            import traceback
+            traceback.print_exc()
+            # No lanzar excepción, solo loggear
     
     def _verify_otp_and_confirm(self, session_id: str, context: Dict, user_id: str, phone: str, otp_code: str) -> Dict:
         """Verifica OTP y confirma la cita (RF8)"""
@@ -895,6 +990,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 fecha_dt = fecha
             
             # Preparar datos completos de la cita según requerimientos
+            historial_medico = context.get('historial_medico', {})
             appointment_data = {
                 'fecha': fecha_dt.strftime('%Y-%m-%d'),
                 'hora': hora,
@@ -907,7 +1003,11 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 'consultorioId': consultorio_id,
                 'paymentMethod': metodo_pago.get('id', 'efectivo'),
                 'paymentStatus': 'pending',
-                'estado': 'programada'
+                'estado': 'programada',
+                # RF7: Historial médico compartido
+                'sharedMedicalHistory': historial_medico.get('nivel', 0) > 0,
+                'medicalHistoryAccessLevel': historial_medico.get('nivel', 0),
+                'historialCompartido': historial_medico.get('nivel', 0) > 0
             }
             
             # Crear cita usando el servicio que usa la misma estructura que la web
@@ -917,7 +1017,21 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 context['step'] = 'menu_principal'
                 fecha_str = fecha_dt.strftime('%d/%m/%Y') if hasattr(fecha_dt, 'strftime') else str(fecha_dt)
                 
+                # Registrar acceso al historial médico si se compartió (RF7, RNF2)
+                historial_medico = context.get('historial_medico', {})
+                nivel_acceso = historial_medico.get('nivel', 0)
+                if nivel_acceso > 0 and dentista_id:
+                    try:
+                        self._grant_medical_history_access(user_id, dentista_id, nivel_acceso)
+                    except Exception as e:
+                        print(f"Error registrando acceso al historial médico: {e}")
+                        # No fallar la creación de la cita si esto falla
+                
                 # Mensaje de confirmación completo (RF6, RF9)
+                historial_texto = historial_medico.get('nombre', 'No compartido')
+                if nivel_acceso > 0:
+                    historial_texto += f" (Nivel {nivel_acceso})"
+                
                 mensaje = f"""✅ *Cita Agendada Exitosamente*
 
 📅 *Fecha:* {fecha_str}
@@ -927,10 +1041,11 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
 📋 *Servicio:* {tratamiento.get('nombre', 'Consulta')}
 💰 *Precio:* ${tratamiento.get('precio', 0):,.0f} MXN
 💳 *Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
+🏥 *Historial Médico:* {historial_texto}
 
 📱 Recibirás un recordatorio 24h antes de tu cita.
 
-🔗 Para completar tu historial médico, visita:
+🔗 Para completar o actualizar tu historial médico, visita:
 https://www.densora.com/historialMedico
 
 Escribe "menu" para volver al menú principal."""
