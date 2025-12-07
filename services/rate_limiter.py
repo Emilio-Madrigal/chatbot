@@ -1,6 +1,6 @@
 """
 🚦 SISTEMA DE RATE LIMITING
-J.RNF5: Límite de 3 mensajes por hora por paciente
+J.RNF5: Límite de 50 mensajes por hora por paciente
 """
 
 from database.database import FirebaseConfig
@@ -15,7 +15,7 @@ class RateLimiter:
     def __init__(self):
         self.db = FirebaseConfig.get_db()
         self.collection = self.db.collection('whatsapp_rate_limits')
-        self.max_messages_per_hour = 3
+        self.max_messages_per_hour = 50
     
     def check_rate_limit(self, paciente_id: str) -> Dict:
         """

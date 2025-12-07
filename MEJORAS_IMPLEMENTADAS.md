@@ -44,7 +44,7 @@ message_logger.log_message(
 ### 2. **Rate Limiting (J.RNF5)**
 **Archivo:** `chatbot/services/rate_limiter.py`
 
-- ✅ Límite de 3 mensajes por hora por paciente
+- ✅ Límite de 50 mensajes por hora por paciente
 - ✅ Tracking por paciente_id o número de teléfono
 - ✅ Mensajes informativos cuando se alcanza el límite
 - ✅ Reset automático después de 1 hora
@@ -267,7 +267,7 @@ Para procesar reintentos automáticamente, configura un cron job:
 - ✅ **J.RF13**: Registro de mensajes (implementado)
 - ✅ **J.RF14**: Resumen semanal (ya implementado en notification_service)
 - ✅ **J.RNF4**: Colección de logs (implementado)
-- ✅ **J.RNF5**: Límite de mensajes (3 por hora, implementado)
+- ✅ **J.RNF5**: Límite de mensajes (50 por hora, implementado)
 - ✅ **J.RNF11**: Panel de métricas (endpoint implementado)
 - ✅ **J.RNF15**: Estrategia de reintentos (implementado)
 - ✅ **J.RNF16**: Bloqueo de números inválidos (implementado)
