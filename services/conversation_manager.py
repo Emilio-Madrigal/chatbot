@@ -1,12 +1,11 @@
 """
-GESTOR DE CONVERSACIONES MEJORADO
-Maneja el contexto y flujo de conversación del chatbot con ML
+GESTOR DE CONVERSACIONES - SOLO MENÚS
+Sistema de menús estructurado sin IA/ML
 """
 
-from services.ml_service import MLService
-from services.actions_service import ActionsService
-from services.payment_service import PaymentService
-from typing import Dict, List, Optional
+from services.menu_system import MenuSystem
+from typing import Dict, Optional
+from datetime import datetime
 from datetime import datetime
 
 class ConversationManager:
@@ -24,12 +23,10 @@ class ConversationManager:
         """Obtiene el contexto de una conversación"""
         if session_id not in self.conversations:
             self.conversations[session_id] = {
-                'step': 'inicial',
-                'intent': None,
-                'entities': {},
+                'step': 'menu_principal',
                 'user_data': {},
                 'history': [],
-                'mode': 'agente',  # 'menu' o 'agente' - Por defecto 'agente' para ser inteligente
+                'language': 'es',  # Idioma por defecto
                 'created_at': datetime.now()
             }
         return self.conversations[session_id]
@@ -56,29 +53,18 @@ class ConversationManager:
                        user_id: str = None, phone: str = None,
                        user_name: str = None, mode: str = None) -> Dict:
         """
-        Procesa un mensaje del usuario y genera una respuesta
-        
-        Returns:
-            Dict con:
-            - response: str - Respuesta del bot
-            - action: str - Acción realizada (si aplica)
-            - entities: Dict - Entidades extraídas
-            - next_step: str - Próximo paso en el flujo
+        Procesa mensajes usando SOLO el sistema de menús estructurado
+        Ignora el parámetro mode - siempre usa menús
+        Sin IA/ML, solo opciones numeradas y flujos fijos
         """
         # Obtener contexto
         context = self.get_conversation_context(session_id)
-        current_step = context.get('step', 'inicial')
-        current_mode = context.get('mode', 'menu')
-        
-        # Actualizar modo si se especifica
-        if mode and mode in ['menu', 'agente']:
-            context['mode'] = mode
-            current_mode = mode
-            self.update_conversation_context(session_id, {'mode': mode})
         
         # Actualizar datos del usuario si están disponibles
         if user_id or phone:
-            user_data = self.actions_service.get_user_info(user_id=user_id, phone=phone)
+            from services.actions_service import ActionsService
+            actions_service = ActionsService()
+            user_data = actions_service.get_user_info(user_id=user_id, phone=phone)
             if user_data:
                 context['user_data'] = user_data
             elif user_name:
@@ -87,32 +73,21 @@ class ConversationManager:
         # Agregar mensaje al historial
         self.add_to_history(session_id, 'user', message)
         
-        # Detectar cambio de modo
-        message_lower = message.lower().strip()
-        if 'modo agente' in message_lower or 'cambiar a agente' in message_lower:
-            self.update_conversation_context(session_id, {'mode': 'agente'})
-            return {
-                'response': 'Modo Agente activado. Ahora puedes hablar conmigo de forma natural. ¿En qué puedo ayudarte?',
-                'action': 'mode_changed',
-                'next_step': 'inicial',
-                'mode': 'agente'
-            }
-        elif 'modo menú' in message_lower or 'modo menu' in message_lower or 'cambiar a menú' in message_lower or 'cambiar a menu' in message_lower:
-            self.update_conversation_context(session_id, {'mode': 'menu', 'step': 'menu_principal'})
-            return {
-                'response': 'Modo Menú activado. Usa números para navegar:\n\n1. Agendar una cita\n2. Ver tus citas\n3. Reagendar una cita\n4. Cancelar una cita\n5. Información\n\n¿Qué te gustaría hacer?',
-                'action': 'mode_changed',
-                'next_step': 'menu_principal',
-                'mode': 'menu'
-            }
+        # SIEMPRE usar sistema de menús - ignorar cualquier referencia a modo agente
+        result = self.menu_system.process_message(session_id, message, context, user_id, phone)
         
-        # Procesar según el modo
-        if current_mode == 'menu':
-            # Modo Menú: Flujo guiado por números
-            return self._process_menu_mode(session_id, message, context, user_id, phone)
-        else:
-            # Modo Agente: ML completo, conversación natural
-            return self._process_agent_mode(session_id, message, context, user_id, phone)
+        # Actualizar contexto con el siguiente paso
+        if result.get('next_step'):
+            self.update_conversation_context(session_id, {'step': result['next_step']})
+        
+        # Agregar respuesta al historial
+        if result.get('response'):
+            self.add_to_history(session_id, 'assistant', result['response'])
+        
+        # Siempre retornar modo 'menu'
+        result['mode'] = 'menu'
+        
+        return result
     
     def _process_menu_mode(self, session_id: str, message: str, context: Dict,
                           user_id: str, phone: str) -> Dict:

@@ -263,12 +263,9 @@ def web_chat():
 
         print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}, User ID: {user_id}, Phone: {phone}")
 
-        # Obtener modo del request (menu o agente)
-        mode = data.get('mode', None)  # 'menu' o 'agente'
-        
-        # Procesar el mensaje usando el nuevo sistema de ML
+        # SIEMPRE usar sistema de menús - ignorar modo agente
+        # Procesar el mensaje usando el sistema de menús estructurado
         bot_response_text = ''
-        current_mode = None
         try:
             response_data = conversation_manager.process_message(
                 session_id=session_id,
@@ -276,16 +273,15 @@ def web_chat():
                 user_id=user_id,
                 phone=phone,
                 user_name=user_name,
-                mode=mode
+                mode='menu'  # Siempre menú
             )
             bot_response_text = response_data.get('response', '')
-            current_mode = response_data.get('mode', None)
-            print(f"ML procesó correctamente - Response: {bot_response_text[:100]}...")
-        except Exception as ml_error:
-            print(f"Error en ML, usando fallback: {ml_error}")
+            print(f"Sistema de menús procesó correctamente - Response: {bot_response_text[:100]}...")
+        except Exception as menu_error:
+            print(f"Error en sistema de menús, usando fallback: {menu_error}")
             import traceback
             traceback.print_exc()
-            # Fallback al sistema anterior si ML falla
+            # Fallback al sistema anterior si falla
             bot_response_text = process_web_message(session_id, message_body, platform, user_id=user_id, phone=phone, user_name=user_name)
 
         # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
@@ -299,7 +295,7 @@ def web_chat():
             'success': True,
             'response': bot_response_text,
             'session_id': session_id,
-            'mode': current_mode if 'current_mode' in locals() else None
+            'mode': 'menu'  # Siempre menú
         })
 
     except Exception as e:
@@ -464,22 +460,14 @@ def webhook():
                     user_id = user_info.get('uid') if user_info else None
                     user_name = user_info.get('nombre') if user_info else None
                     
-                    # Intentar usar el nuevo sistema de ML
-                    # En WhatsApp, detectar modo desde el mensaje o usar 'menu' por defecto
-                    mode = None
-                    message_lower = message_body.lower()
-                    if 'modo agente' in message_lower or 'modo agente' in message_lower:
-                        mode = 'agente'
-                    elif 'modo menú' in message_lower or 'modo menu' in message_lower:
-                        mode = 'menu'
-                    
+                    # SIEMPRE usar sistema de menús - sin modo agente
                     response_data = conversation_manager.process_message(
                         session_id=from_number,
                         message=message_body,
                         user_id=user_id,  # Obtener desde Firestore
                         phone=from_number,
                         user_name=user_name,
-                        mode=mode
+                        mode='menu'  # Siempre menú
                     )
                     response_text = response_data.get('response', '')
                     
