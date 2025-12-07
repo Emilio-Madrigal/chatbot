@@ -1,6 +1,7 @@
 from database.database import FirebaseConfig
 from datetime import datetime
 from typing import List, Optional, Dict
+from utils.phone_utils import normalize_phone_for_database
 
 class Paciente:
     def __init__(self, uid=None, nombre=None, apellidos=None, telefono=None, 
@@ -93,7 +94,12 @@ class PacienteRepository:
     
     def buscar_por_telefono(self, telefono: str) -> Optional[Paciente]:
         try:
-            query = self.collection.where('telefono', '==', telefono).limit(1)
+            # Normalizar el número de teléfono para que coincida con el formato en Firestore
+            # (quitar prefijo "whatsapp:" y el "1" extra si existe)
+            telefono_normalizado = normalize_phone_for_database(telefono)
+            print(f"Buscando paciente con teléfono normalizado: {telefono_normalizado} (original: {telefono})")
+            
+            query = self.collection.where('telefono', '==', telefono_normalizado).limit(1)
             docs = query.stream()
 
             for doc in docs:
@@ -101,7 +107,7 @@ class PacienteRepository:
                 print(f"Paciente encontrado: {paciente.nombreCompleto}")
                 return paciente
             
-            print(f"No existe paciente con teléfono: {telefono}")
+            print(f"No existe paciente con teléfono: {telefono_normalizado}")
             return None
             
         except Exception as e:

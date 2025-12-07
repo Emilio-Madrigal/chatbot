@@ -8,6 +8,7 @@ import os
 from typing import Dict, List, Optional
 from datetime import datetime
 from database.database import FirebaseConfig
+from utils.phone_utils import normalize_phone_for_database
 
 class FirebaseFunctionsService:
     """
@@ -34,9 +35,10 @@ class FirebaseFunctionsService:
             if user_id:
                 paciente_id = user_id
             elif phone:
-                # Buscar paciente por teléfono
+                # Buscar paciente por teléfono (normalizar primero)
+                phone_normalizado = normalize_phone_for_database(phone)
                 pacientes_ref = self.db.collection('pacientes')
-                query = pacientes_ref.where('telefono', '==', phone).limit(1)
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
                 docs = query.stream()
                 for doc in docs:
                     paciente_id = doc.id
@@ -105,8 +107,9 @@ class FirebaseFunctionsService:
             if user_id:
                 paciente_id = user_id
             elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
                 pacientes_ref = self.db.collection('pacientes')
-                query = pacientes_ref.where('telefono', '==', phone).limit(1)
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
                 docs = query.stream()
                 for doc in docs:
                     paciente_id = doc.id
@@ -201,8 +204,9 @@ class FirebaseFunctionsService:
             if user_id:
                 paciente_id = user_id
             elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
                 pacientes_ref = self.db.collection('pacientes')
-                query = pacientes_ref.where('telefono', '==', phone).limit(1)
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
                 docs = query.stream()
                 for doc in docs:
                     paciente_id = doc.id

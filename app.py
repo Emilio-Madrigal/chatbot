@@ -10,6 +10,7 @@ from services.retry_service import retry_service
 from services.token_service import token_service
 from services.bot_config_service import bot_config_service
 from services.notification_config_service import notification_config_service
+from utils.phone_utils import normalize_phone_for_database
 from datetime import datetime
 import json
 import re
@@ -342,10 +343,11 @@ def webhook():
             except:
                 pass
         
-        # Limpiar el número (Twilio envía como whatsapp:+521234567890)
-        # Extraer solo el número sin el prefijo whatsapp:
-        if from_number and from_number.startswith('whatsapp:'):
-            from_number = from_number.replace('whatsapp:', '')
+        # Normalizar el número de teléfono para que coincida con el formato en Firestore
+        # (quitar prefijo "whatsapp:" y el "1" extra si existe)
+        if from_number:
+            from_number = normalize_phone_for_database(from_number)
+            print(f"Número normalizado para búsqueda: {from_number}")
         
         # Procesar el mensaje
         if message_body:
