@@ -663,16 +663,49 @@ class ActionsService:
         return deadline
     
     def get_treatments_for_dentist(self, dentista_id: str, consultorio_id: str = None) -> List[Dict]:
-        """Obtiene tratamientos/servicios disponibles para un dentista"""
+        """Obtiene tratamientos/servicios disponibles para un dentista desde la base de datos real"""
         try:
             tratamientos = []
             
-            # Buscar tratamientos del dentista
+            # Buscar servicios del consultorio (la colección se llama "servicios", no "tratamientos")
             if consultorio_id:
-                # Buscar tratamientos del consultorio
                 consultorio_ref = self.db.collection('consultorio').document(consultorio_id)
-                tratamientos_ref = consultorio_ref.collection('tratamientos')
-                docs = tratamientos_ref.where('activo', '==', True).stream()
+                servicios_ref = consultorio_ref.collection('servicios')
+                docs = servicios_ref.where('activo', '==', True).stream()
+                
+                for doc in docs:
+                    data = doc.to_dict()
+                    
+                    # El precio viene como string, convertir a número
+                    precio_str = data.get('precio', '0')
+                    try:
+                        precio_valor = float(precio_str) if isinstance(precio_str, str) else (precio_str if isinstance(precio_str, (int, float)) else 0)
+                    except (ValueError, TypeError):
+                        precio_valor = 0
+                    
+                    # La duración viene como string, convertir a número
+                    duracion_str = data.get('duracion', '60')
+                    try:
+                        duracion_valor = int(duracion_str) if isinstance(duracion_str, str) else (duracion_str if isinstance(duracion_str, int) else 60)
+                    except (ValueError, TypeError):
+                        duracion_valor = 60
+                    
+                    # La descripción puede venir como "descrippcion" (con doble p) o "descripcion"
+                    descripcion = data.get('descripcion') or data.get('descrippcion', '')
+                    
+                    tratamientos.append({
+                        'id': doc.id,
+                        'nombre': data.get('nombre', 'Servicio'),
+                        'precio': precio_valor,
+                        'duracion': duracion_valor,
+                        'descripcion': descripcion,
+                        'categoria': data.get('categoria', 'general')
+                    })
+            
+            # Si no hay servicios del consultorio, buscar en la colección global de tratamientos
+            if not tratamientos:
+                tratamientos_ref = self.db.collection('tratamientos')
+                docs = tratamientos_ref.where('activo', '==', True).limit(10).stream()
                 
                 for doc in docs:
                     data = doc.to_dict()
@@ -680,46 +713,24 @@ class ActionsService:
                     if isinstance(precio, dict):
                         precio_valor = precio.get('precio', precio.get('precioFinal', 0))
                     else:
-                        precio_valor = precio if isinstance(precio, (int, float)) else 0
+                        try:
+                            precio_valor = float(precio) if isinstance(precio, str) else (precio if isinstance(precio, (int, float)) else 0)
+                        except (ValueError, TypeError):
+                            precio_valor = 0
                     
                     tratamientos.append({
                         'id': doc.id,
                         'nombre': data.get('nombre', 'Servicio'),
                         'precio': precio_valor,
-                        'duracion': data.get('tiempoEstimado', data.get('duracionMinutos', 60)),
-                        'descripcion': data.get('descripcion', '')
+                        'duracion': data.get('tiempoEstimado', data.get('duracionMinutos', data.get('duracion', 60))),
+                        'descripcion': data.get('descripcion', ''),
+                        'categoria': data.get('categoria', 'general')
                     })
             
-            # Si no hay tratamientos del consultorio, buscar del dentista
+            # Si aún no hay tratamientos, retornar lista vacía (no usar valores por defecto)
             if not tratamientos:
-                dentista_ref = self.db.collection('dentistas').document(dentista_id)
-                tratamientos_ref = dentista_ref.collection('tratamientos')
-                docs = tratamientos_ref.where('activo', '==', True).stream()
-                
-                for doc in docs:
-                    data = doc.to_dict()
-                    precio = data.get('precio', {})
-                    if isinstance(precio, dict):
-                        precio_valor = precio.get('precio', precio.get('precioFinal', 0))
-                    else:
-                        precio_valor = precio if isinstance(precio, (int, float)) else 0
-                    
-                    tratamientos.append({
-                        'id': doc.id,
-                        'nombre': data.get('nombre', 'Servicio'),
-                        'precio': precio_valor,
-                        'duracion': data.get('tiempoEstimado', data.get('duracionMinutos', 60)),
-                        'descripcion': data.get('descripcion', '')
-                    })
-            
-            # Si aún no hay tratamientos, usar lista por defecto
-            if not tratamientos:
-                tratamientos = [
-                    {'id': 'consulta_general', 'nombre': 'Consulta General', 'precio': 500, 'duracion': 30, 'descripcion': 'Consulta y diagnóstico'},
-                    {'id': 'limpieza', 'nombre': 'Limpieza Dental', 'precio': 800, 'duracion': 45, 'descripcion': 'Profilaxis y limpieza profesional'},
-                    {'id': 'resina', 'nombre': 'Resina (Empaste)', 'precio': 1200, 'duracion': 60, 'descripcion': 'Restauración con resina'},
-                    {'id': 'extraccion', 'nombre': 'Extracción', 'precio': 1000, 'duracion': 45, 'descripcion': 'Extracción dental'},
-                ]
+                print(f"No se encontraron servicios para consultorio {consultorio_id}")
+                return []
             
             return tratamientos
             
@@ -727,8 +738,5 @@ class ActionsService:
             print(f"Error obteniendo tratamientos: {e}")
             import traceback
             traceback.print_exc()
-            # Retornar lista por defecto en caso de error
-            return [
-                {'id': 'consulta_general', 'nombre': 'Consulta General', 'precio': 500, 'duracion': 30, 'descripcion': 'Consulta y diagnóstico'},
-            ]
+            return []
 

@@ -173,11 +173,36 @@ class CitaRepository:
                 dentista_id = cita_data.get('dentistaId')
                 if consultorio_id and dentista_id:
                     print(f"Encontrado último consultorio en subcolección: {consultorio_id}")
+                    
+                    # Obtener nombre del consultorio desde la colección
+                    consultorio_doc = self.db.collection('consultorio').document(consultorio_id).get()
+                    consultorio_name = 'Consultorio'
+                    if consultorio_doc.exists:
+                        consultorio_data = consultorio_doc.to_dict()
+                        consultorio_name = consultorio_data.get('nombre', cita_data.get('consultorioName', 'Consultorio'))
+                    
+                    # Obtener nombre del dentista desde la subcolección del consultorio
+                    dentista_name = cita_data.get('dentistaName', 'Dentista')
+                    try:
+                        dentistas_ref = self.db.collection('consultorio')\
+                                              .document(consultorio_id)\
+                                              .collection('dentistas')\
+                                              .where('dentistaId', '==', dentista_id)\
+                                              .where('activo', '==', True)\
+                                              .limit(1)
+                        for dentista_doc in dentistas_ref.stream():
+                            dentista_data = dentista_doc.to_dict()
+                            dentista_name = dentista_data.get('nombreCompleto', dentista_name)
+                            print(f"Nombre del dentista obtenido de subcolección: {dentista_name}")
+                            break
+                    except Exception as e:
+                        print(f"Error obteniendo nombre del dentista: {e}")
+                    
                     return {
                         'consultorioId': consultorio_id,
-                        'consultorioName': cita_data.get('consultorioName', 'Consultorio'),
+                        'consultorioName': consultorio_name,
                         'dentistaId': dentista_id,
-                        'dentistaName': cita_data.get('dentistaName', 'Dentista')
+                        'dentistaName': dentista_name
                     }
             
             # Si no hay citas previas, buscar cualquier consultorio activo
@@ -200,35 +225,43 @@ class CitaRepository:
             
             for doc in query.stream():
                 consultorio_data = doc.to_dict()
-                print(f"Consultorio encontrado: {doc.id}, nombre: {consultorio_data.get('nombre')}")
-                # Buscar el dentista asociado
-                dentista_id = consultorio_data.get('dentistaId')
-                if not dentista_id:
-                    # Intentar buscar en la subcolección de dentistas
-                    dentistas_ref = self.db.collection('consultorio')\
-                                          .document(doc.id)\
-                                          .collection('dentistas')\
-                                          .where('activo', '==', True)\
-                                          .limit(1)
-                    for dentista_doc in dentistas_ref.stream():
-                        dentista_data = dentista_doc.to_dict()
-                        dentista_id = dentista_data.get('dentistaId')
-                        if dentista_id:
-                            print(f"Dentista encontrado en subcolección: {dentista_id}")
-                            break
+                consultorio_id = doc.id
+                consultorio_nombre = consultorio_data.get('nombre', 'Consultorio')
+                print(f"Consultorio encontrado: {consultorio_id}, nombre: {consultorio_nombre}")
+                
+                # Buscar el dentista en la subcolección de dentistas
+                dentistas_ref = self.db.collection('consultorio')\
+                                      .document(consultorio_id)\
+                                      .collection('dentistas')\
+                                      .where('activo', '==', True)\
+                                      .limit(1)
+                
+                dentista_id = None
+                dentista_name = None
+                
+                for dentista_doc in dentistas_ref.stream():
+                    dentista_data = dentista_doc.to_dict()
+                    dentista_id = dentista_data.get('dentistaId')
+                    dentista_name = dentista_data.get('nombreCompleto', 'Dentista')
+                    print(f"Dentista encontrado en subcolección: {dentista_id}, nombre: {dentista_name}")
+                    break
                 
                 if dentista_id:
                     return {
-                        'consultorioId': doc.id,
-                        'consultorioName': consultorio_data.get('nombre', 'Consultorio'),
+                        'consultorioId': consultorio_id,
+                        'consultorioName': consultorio_nombre,
                         'dentistaId': dentista_id,
-                        'dentistaName': consultorio_data.get('dentistaName', consultorio_data.get('nombre', 'Dentista'))
+                        'dentistaName': dentista_name or 'Dentista'
                     }
+                else:
+                    print(f"No se encontró dentista activo para el consultorio {consultorio_id}")
             
             print("No se encontró ningún consultorio activo")
             return None
         except Exception as e:
             print(f"Error obteniendo consultorio por defecto: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def obtener_citas_usuario(self, usuario_whatsapp: str) -> List[Cita]:
