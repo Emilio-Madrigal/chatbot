@@ -839,72 +839,131 @@ class CitaRepository:
             # Buscar citas existentes - intentar múltiples formatos
             citas_existentes = []
             
-            # Buscar por fechaHora (timestamp)
+            # Buscar citas existentes en TODAS las ubicaciones (como lo hace la web)
+            # 1. Buscar en colección principal Citas
             try:
                 citas_por_timestamp = self.db.collection('Citas')\
                                              .where('dentistaId', '==', dentista_id)\
-                                             .where('estado', 'in', ['confirmado', 'en proceso', 'pendiente'])\
+                                             .where('estado', 'in', ['programada', 'confirmado', 'en proceso', 'pendiente'])\
                                              .stream()
                 for doc in citas_por_timestamp:
                     cita_data = doc.to_dict()
                     # Verificar si la fecha coincide
                     fecha_hora = cita_data.get('fechaHora')
                     if fecha_hora:
-                        # Convertir timestamp a fecha
-                        if hasattr(fecha_hora, 'date'):
-                            cita_fecha = fecha_hora.date()
+                        # Convertir timestamp a datetime
+                        if hasattr(fecha_hora, 'to_datetime'):
+                            cita_datetime = fecha_hora.to_datetime()
+                        elif hasattr(fecha_hora, 'date'):
+                            # Es un Timestamp de Firestore
+                            from google.cloud.firestore import Timestamp
+                            if isinstance(fecha_hora, Timestamp):
+                                cita_datetime = fecha_hora.to_datetime()
+                            else:
+                                continue
                         elif isinstance(fecha_hora, dict) and '_seconds' in fecha_hora:
-                            from datetime import datetime
-                            cita_fecha = datetime.fromtimestamp(fecha_hora['_seconds']).date()
+                            cita_datetime = datetime.fromtimestamp(fecha_hora['_seconds'])
                         else:
                             continue
                         
-                        if cita_fecha == fecha_dt.date():
+                        if cita_datetime.date() == fecha_dt.date():
                             citas_existentes.append(cita_data)
             except Exception as e:
-                print(f"Error buscando citas por timestamp: {e}")
+                print(f"Error buscando citas por timestamp en colección principal: {e}")
             
-            # También buscar por appointmentDate (string)
+            # 2. Buscar también en subcolecciones de pacientes (estructura usada por la web)
+            # Usar filtro por rango de fecha para ser más eficiente
             try:
-                citas_por_fecha = self.db.collection('Citas')\
-                                        .where('dentistaId', '==', dentista_id)\
-                                        .where('appointmentDate', '>=', f"{fecha_str}T00:00:00")\
-                                        .where('appointmentDate', '<=', f"{fecha_str}T23:59:59")\
-                                        .where('estado', 'in', ['confirmado', 'en proceso', 'pendiente'])\
-                                        .stream()
-                for doc in citas_por_fecha:
-                    cita_data = doc.to_dict()
-                    # Evitar duplicados
-                    if cita_data not in citas_existentes:
-                        citas_existentes.append(cita_data)
+                from google.cloud.firestore import Timestamp
+                inicio_dia = datetime.combine(fecha_dt.date(), datetime.min.time())
+                fin_dia = datetime.combine(fecha_dt.date(), datetime.max.time())
+                inicio_timestamp = Timestamp.from_datetime(inicio_dia)
+                fin_timestamp = Timestamp.from_datetime(fin_dia)
+                
+                pacientes_ref = self.db.collection('pacientes')
+                pacientes_docs = pacientes_ref.stream()
+                
+                for paciente_doc in pacientes_docs:
+                    paciente_id = paciente_doc.id
+                    try:
+                        citas_sub_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
+                        # Filtrar por dentista, estado y rango de fecha
+                        citas_sub_query = citas_sub_ref.where('dentistaId', '==', dentista_id)\
+                                                       .where('fechaHora', '>=', inicio_timestamp)\
+                                                       .where('fechaHora', '<=', fin_timestamp)\
+                                                       .where('estado', 'in', ['programada', 'confirmado', 'en proceso', 'pendiente'])\
+                                                       .stream()
+                        
+                        for cita_doc in citas_sub_query:
+                            cita_data = cita_doc.to_dict()
+                            fecha_hora = cita_data.get('fechaHora')
+                            if fecha_hora:
+                                # Convertir timestamp a datetime
+                                if hasattr(fecha_hora, 'to_datetime'):
+                                    cita_datetime = fecha_hora.to_datetime()
+                                elif isinstance(fecha_hora, Timestamp):
+                                    cita_datetime = fecha_hora.to_datetime()
+                                elif isinstance(fecha_hora, dict) and '_seconds' in fecha_hora:
+                                    cita_datetime = datetime.fromtimestamp(fecha_hora['_seconds'])
+                                else:
+                                    continue
+                                
+                                # Verificar que la fecha coincida (doble verificación)
+                                if cita_datetime.date() == fecha_dt.date():
+                                    # Evitar duplicados
+                                    cita_id = cita_doc.id
+                                    if not any(c.get('_id') == cita_id for c in citas_existentes):
+                                        cita_data['_id'] = cita_id
+                                        citas_existentes.append(cita_data)
+                    except Exception as paciente_error:
+                        # Continuar con el siguiente paciente si hay error
+                        continue
             except Exception as e:
-                print(f"Error buscando citas por appointmentDate: {e}")
+                print(f"Error buscando citas en subcolecciones: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Extraer horas ocupadas de las citas encontradas
             horas_ocupadas = []
             for cita_data in citas_existentes:
-                # Obtener hora de inicio y fin de diferentes campos posibles
-                hora_inicio = cita_data.get('horaInicio') or cita_data.get('appointmentTime') or cita_data.get('hora')
+                fecha_hora = cita_data.get('fechaHora')
                 duracion = cita_data.get('duracion') or cita_data.get('Duracion') or 30  # Default 30 min
                 
-                if hora_inicio:
-                    # Convertir hora_inicio a formato HH:MM si es necesario
-                    if isinstance(hora_inicio, str):
-                        # Si tiene formato "HH:MM" o similar
-                        if ':' in hora_inicio:
-                            hora_inicio_dt = datetime.strptime(hora_inicio, '%H:%M')
+                if fecha_hora:
+                    # Convertir timestamp a datetime para extraer hora
+                    if hasattr(fecha_hora, 'to_datetime'):
+                        cita_datetime = fecha_hora.to_datetime()
+                    elif hasattr(fecha_hora, 'date'):
+                        from google.cloud.firestore import Timestamp
+                        if isinstance(fecha_hora, Timestamp):
+                            cita_datetime = fecha_hora.to_datetime()
                         else:
-                            # Intentar otros formatos
-                            try:
-                                hora_inicio_dt = datetime.strptime(hora_inicio, '%H:%M:%S')
-                            except:
-                                continue
+                            continue
+                    elif isinstance(fecha_hora, dict) and '_seconds' in fecha_hora:
+                        cita_datetime = datetime.fromtimestamp(fecha_hora['_seconds'])
                     else:
+                        # Intentar extraer de otros campos
+                        hora_inicio = cita_data.get('horaInicio') or cita_data.get('appointmentTime') or cita_data.get('hora')
+                        if hora_inicio and isinstance(hora_inicio, str) and ':' in hora_inicio:
+                            try:
+                                hora_inicio_dt = datetime.strptime(hora_inicio, '%H:%M')
+                                hora_fin_dt = hora_inicio_dt + timedelta(minutes=duracion)
+                                horas_ocupadas.append({
+                                    'inicio': hora_inicio_dt.strftime('%H:%M'),
+                                    'fin': hora_fin_dt.strftime('%H:%M')
+                                })
+                            except:
+                                pass
                         continue
                     
-                    # Calcular hora fin
-                    hora_fin_dt = hora_inicio_dt + timedelta(minutes=duracion)
+                    # Extraer hora del timestamp
+                    hora_inicio_str = cita_datetime.strftime('%H:%M')
+                    hora_fin_dt = cita_datetime + timedelta(minutes=duracion)
+                    hora_fin_str = hora_fin_dt.strftime('%H:%M')
+                    
                     horas_ocupadas.append({
-                        'inicio': hora_inicio_dt.strftime('%H:%M'),
-                        'fin': hora_fin_dt.strftime('%H:%M')
+                        'inicio': hora_inicio_str,
+                        'fin': hora_fin_str
                     })
             
             print(f"Horas ocupadas: {len(horas_ocupadas)}")

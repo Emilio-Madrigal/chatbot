@@ -783,13 +783,15 @@ def handle_button_response(from_number,button_id):
                 ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
                 if ultimo_consultorio:
                     from datetime import datetime
+                    from google.cloud.firestore import Timestamp
                     fecha_dt = datetime.strptime(fecha_seleccionada, '%Y-%m-%d')
                     fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                    fecha_timestamp_firestore = Timestamp.from_datetime(fecha_timestamp)
                     
                     horarios_disponibles = cita_repo.obtener_horarios_disponibles(
                         ultimo_consultorio['dentistaId'],
                         ultimo_consultorio['consultorioId'],
-                        fecha_timestamp
+                        fecha_timestamp_firestore
                     )
                     # Guardar horarios en estado para detección de botones
                     user_states[from_number]['horarios_disponibles'] = horarios_disponibles
@@ -954,13 +956,15 @@ def handle_reagendamiento(from_number, button_id):
                 ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
                 if ultimo_consultorio:
                     from datetime import datetime
+                    from google.cloud.firestore import Timestamp
                     fecha_dt = datetime.strptime(nueva_fecha, '%Y-%m-%d')
                     fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+                    fecha_timestamp_firestore = Timestamp.from_datetime(fecha_timestamp)
                     
                     horarios_disponibles = cita_repo.obtener_horarios_disponibles(
                         ultimo_consultorio['dentistaId'],
                         ultimo_consultorio['consultorioId'],
-                        fecha_timestamp
+                        fecha_timestamp_firestore
                     )
                     # Guardar horarios en estado para detección de botones
                     user_states[from_number]['horarios_disponibles'] = horarios_disponibles
