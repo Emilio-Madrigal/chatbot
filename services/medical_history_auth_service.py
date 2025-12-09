@@ -1,5 +1,5 @@
 """
-🔐 SISTEMA DE AUTORIZACIÓN DE HISTORIAL MÉDICO
+SISTEMA DE AUTORIZACIÓN DE HISTORIAL MÉDICO
 J.RF11: Solicitud de autorización de acceso al historial médico
 """
 
@@ -57,7 +57,7 @@ class MedicalHistoryAuthService:
             approve_link = f"https://www.densora.com/authorize-history?token={approve_token}" if approve_token else None
             reject_link = f"https://www.densora.com/reject-history?token={reject_token}" if reject_token else None
             
-            mensaje = f"""🔐 *SOLICITUD DE ACCESO AL HISTORIAL MÉDICO*
+            mensaje = f"""*SOLICITUD DE ACCESO AL HISTORIAL MÉDICO*
 
 Hola {paciente.nombre or 'Paciente'},
 
@@ -70,12 +70,12 @@ El Dr(a). {dentista_name} del consultorio {consultorio_name} solicita acceso a t
 
 *¿Deseas autorizar el acceso?*
 
-✅ *Aprobar:* {approve_link if approve_link else 'Contacta con el consultorio'}
-❌ *Rechazar:* {reject_link if reject_link else 'Contacta con el consultorio'}
+*Aprobar:* {approve_link if approve_link else 'Contacta con el consultorio'}
+*Rechazar:* {reject_link if reject_link else 'Contacta con el consultorio'}
 
 *Nota:* Puedes revocar este acceso en cualquier momento desde tu perfil.
 
-¡Gracias! 😊"""
+¡Gracias!"""
             
             result = self.whatsapp.send_text_message(paciente.telefono, mensaje)
             

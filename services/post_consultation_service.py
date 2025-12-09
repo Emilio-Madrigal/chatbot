@@ -1,5 +1,5 @@
 """
-⭐ SISTEMA DE MENSAJES POST-CONSULTA CON RESEÑAS
+# SISTEMA DE MENSAJES POST-CONSULTA CON RESEÑAS
 J.RF9: Mensaje post-consulta con enlace a reseñas (menos de 2 clics)
 """
 
@@ -61,7 +61,7 @@ class PostConsultationService:
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
             fecha_formatted = fecha_obj.strftime('%d/%m/%Y') if hasattr(fecha_obj, 'strftime') else str(fecha)
             
-            mensaje = f"""⭐ *¿CÓMO FUE TU EXPERIENCIA?*
+            mensaje = f"""*¿CÓMO FUE TU EXPERIENCIA?*
 
 Hola {paciente.nombre or 'Paciente'},
 
@@ -71,12 +71,12 @@ Tu cita del {fecha_formatted} con {dentista_name} en {consultorio_name} ya fue c
 
 Nos encantaría conocer tu opinión. Tu feedback nos ayuda a mejorar.
 
-👉 *Califica tu experiencia aquí:*
+*Califica tu experiencia aquí:*
 {review_link}
 
 Solo toma 30 segundos y nos ayuda mucho.
 
-¡Gracias por tu tiempo! 😊"""
+¡Gracias por tu tiempo!"""
             
             result = self.whatsapp.send_text_message(paciente.telefono, mensaje)
             
@@ -142,7 +142,7 @@ Solo toma 30 segundos y nos ayuda mucho.
             
             review_link = f"https://www.densora.com/resena/{cita_id}"
             
-            mensaje = f"""💬 *Recordatorio: Tu Opinión Importa*
+            mensaje = f"""*Recordatorio: Tu Opinión Importa*
 
 Hola {paciente.nombre or 'Paciente'},
 

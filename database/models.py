@@ -308,7 +308,7 @@ class CitaRepository:
             citas = []
             
             # Buscar en colección global de citas
-            citas_ref = self.db.collection('Citas')\
+            citas_ref = self.db.collection('citas')\
                               .where('estado', 'in', ['confirmado', 'programada', 'confirmada'])\
                               .where('fecha', '<=', fecha_limite)\
                               .where('fecha', '>=', datetime.now().strftime('%Y-%m-%d'))
@@ -331,7 +331,7 @@ class CitaRepository:
         Obtiene una cita por su ID desde la colección global
         """
         try:
-            doc = self.db.collection('Citas').document(cita_id).get()
+            doc = self.db.collection('citas').document(cita_id).get()
             if doc.exists:
                 return Cita.from_dict(doc.id, doc.to_dict())
             return None
@@ -387,7 +387,7 @@ class CitaRepository:
             # Usar consultorio específico si se proporciona, sino obtener último consultorio usado
             if consultorio_especifico:
                 ultimo_consultorio = consultorio_especifico
-                print(f"✅ Usando consultorio específico: {ultimo_consultorio.get('consultorioName')} - {ultimo_consultorio.get('dentistaName')}")
+                print(f"Usando consultorio específico: {ultimo_consultorio.get('consultorioName')} - {ultimo_consultorio.get('dentistaName')}")
             else:
                 ultimo_consultorio = self.obtener_ultimo_consultorio_paciente(paciente.uid)
                 if not ultimo_consultorio:
@@ -523,7 +523,7 @@ class CitaRepository:
             doc_ref.set(cita_data)
             cita_id = doc_ref.id
             
-            # También crear en colección global de citas (Citas con mayúscula, como la web)
+            # También crear en colección global de citas (citas minúscula, estándar)
             # Preparar datos completos como la web
             fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
             
@@ -572,7 +572,7 @@ class CitaRepository:
                 'createdAt': SERVER_TIMESTAMP,
                 'updatedAt': SERVER_TIMESTAMP
             }
-            self.db.collection('Citas').document(cita_id).set(cita_global_data)
+            self.db.collection('citas').document(cita_id).set(cita_global_data)
             
             print(f"Cita creada: {cita_id}")
             return cita_id
@@ -609,9 +609,9 @@ class CitaRepository:
                 'updatedAt': datetime.now()
             })
             
-            # También actualizar en colección global (Citas con mayúscula)
+            # También actualizar en colección global (citas minúscula, estándar)
             nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
-            self.db.collection('Citas').document(cita_id).update({
+            self.db.collection('citas').document(cita_id).update({
                 'fecha': fecha_timestamp,
                 'fechaHora': nueva_fecha_hora_completa,
                 'appointmentDate': nueva_fecha_hora_completa.isoformat(),
@@ -662,9 +662,9 @@ class CitaRepository:
                       'updatedAt': SERVER_TIMESTAMP
                   })
             
-            # Actualizar en colección global (Citas con mayúscula)
+            # Actualizar en colección global (citas minúscula, estándar)
             nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
-            self.db.collection('Citas')\
+            self.db.collection('citas')\
                   .document(cita_id)\
                   .update({
                       'fecha': fecha_timestamp,
@@ -695,8 +695,8 @@ class CitaRepository:
                               .document(cita_id)
             cita_ref.delete()
             
-            # También eliminar de colección global (Citas con mayúscula)
-            self.db.collection('Citas').document(cita_id).delete()
+            # También eliminar de colección global (citas minúscula, estándar)
+            self.db.collection('citas').document(cita_id).delete()
             
             print(f"Cita {cita_id} eliminada")
             return True
@@ -731,9 +731,9 @@ class CitaRepository:
                   })
             
             print(f"Cita {cita_id} cancelada en subcolección")
-            # Actualizar en colección global (Citas con mayúscula)
+            # Actualizar en colección global (citas minúscula, estándar)
             # Buscar por pacienteId y cita_id
-            cita_global_ref = self.db.collection('Citas').document(cita_id)
+            cita_global_ref = self.db.collection('citas').document(cita_id)
             cita_global_doc = cita_global_ref.get()
             
             if cita_global_doc.exists:
@@ -742,21 +742,21 @@ class CitaRepository:
                     'status': 'cancelada',
                     'updatedAt': SERVER_TIMESTAMP
                 })
-                print(f"Cita actualizada en colección global Citas")
+                print(f"Cita actualizada en colección global citas")
             else:
                 # Fallback: buscar por pacienteId
-                global_query = self.db.collection('Citas')\
+                global_query = self.db.collection('citas')\
                                      .where('pacienteId', '==', paciente_uid)\
                                      .where('id', '==', cita_id)\
                                      .limit(1)
                 
                 for doc in global_query.stream():
-                    self.db.collection('Citas').document(doc.id).update({
+                    self.db.collection('citas').document(doc.id).update({
                         'estado': 'cancelada',
                         'status': 'cancelada',
                         'updatedAt': SERVER_TIMESTAMP
                     })
-                    print(f"Cita actualizada en colección global Citas (fallback)")
+                    print(f"Cita actualizada en colección global citas (fallback)")
             
             return True
             
@@ -802,7 +802,7 @@ class CitaRepository:
                     break
             
             if not horarios_doc:
-                print(f"⚠️ No se encontró documento de horarios para {dia_nombre}")
+                print(f"No se encontró documento de horarios para {dia_nombre}")
                 # Intentar listar todos los documentos de horarios para debug
                 try:
                     all_horarios = self.db.collection('consultorio')\
@@ -816,7 +816,7 @@ class CitaRepository:
                 return []
             
             if 'horarios' not in horarios_doc:
-                print(f"⚠️ Documento de horarios no tiene campo 'horarios': {list(horarios_doc.keys())}")
+                print(f"Documento de horarios no tiene campo 'horarios': {list(horarios_doc.keys())}")
                 return []
             
             # horarios es un array, tomar el primer elemento
@@ -840,9 +840,9 @@ class CitaRepository:
             citas_existentes = []
             
             # Buscar citas existentes en TODAS las ubicaciones (como lo hace la web)
-            # 1. Buscar en colección principal Citas
+            # 1. Buscar en colección principal citas
             try:
-                citas_por_timestamp = self.db.collection('Citas')\
+                citas_por_timestamp = self.db.collection('citas')\
                                              .where('dentistaId', '==', dentista_id)\
                                              .where('estado', 'in', ['programada', 'confirmado', 'en proceso', 'pendiente'])\
                                              .stream()
@@ -1081,9 +1081,9 @@ class CitaRepository:
             
             print(f"Cita {cita_id} reagendada en subcolección")
 
-            # Actualizar en colección global (Citas con mayúscula)
+            # Actualizar en colección global (citas minúscula, estándar)
             # Intentar actualizar directamente por ID
-            cita_global_ref = self.db.collection('Citas').document(cita_id)
+            cita_global_ref = self.db.collection('citas').document(cita_id)
             cita_global_doc = cita_global_ref.get()
             
             if cita_global_doc.exists:
@@ -1108,10 +1108,10 @@ class CitaRepository:
                     'status': 'confirmado',
                     'updatedAt': SERVER_TIMESTAMP
                 })
-                print(f"Cita actualizada en colección global Citas: {cita_id}")
+                print(f"Cita actualizada en colección global citas: {cita_id}")
             else:
                 # Fallback: buscar por pacienteId
-                global_query = self.db.collection('Citas')\
+                global_query = self.db.collection('citas')\
                                      .where('pacienteId', '==', paciente_uid)\
                                      .where('id', '==', cita_id)\
                                      .limit(1)
@@ -1126,7 +1126,7 @@ class CitaRepository:
                     hora_obj = hora_dt.time()  # Extraer solo la hora (time object)
                     nueva_fecha_hora_completa = datetime.combine(fecha_dt.date(), hora_obj)
                     
-                    self.db.collection('Citas').document(doc.id).update({
+                    self.db.collection('citas').document(doc.id).update({
                         'fecha': nueva_fecha,
                         'fechaHora': nueva_fecha_hora_completa,
                         'appointmentDate': nueva_fecha_hora_completa.isoformat(),
@@ -1137,7 +1137,7 @@ class CitaRepository:
                         'status': 'confirmado',
                         'updatedAt': SERVER_TIMESTAMP
                     })
-                    print(f"Cita actualizada en colección global Citas (fallback): {doc.id}")
+                    print(f"Cita actualizada en colección global citas (fallback): {doc.id}")
                     break 
             
             return True

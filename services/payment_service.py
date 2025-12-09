@@ -1,5 +1,5 @@
 """
-🎯 SERVICIO DE GESTIÓN DE PAGOS Y CONFIRMACIONES
+# SERVICIO DE GESTIÓN DE PAGOS Y CONFIRMACIONES
 Maneja pagos, confirmaciones, verificaciones y tiempos de expiración
 """
 
@@ -113,7 +113,7 @@ class PaymentService:
                     'tiene_tiempo': False,
                     'horas_restantes': 0,
                     'minutos_restantes': 0,
-                    'mensaje': f'⚠️ El tiempo para pagar ha expirado. Debías pagar al menos {tiempo_limite_horas} horas antes de la cita.',
+                    'mensaje': f'El tiempo para pagar ha expirado. Debías pagar al menos {tiempo_limite_horas} horas antes de la cita.',
                     'fecha_limite': fecha_limite.isoformat()
                 }
             
@@ -131,7 +131,7 @@ class PaymentService:
             elif horas_restantes == 1:
                 mensaje = f'¡URGENTE! Tienes 1 hora y {minutos_restantes} minutos para pagar.'
             else:
-                mensaje = f'⚠️ ¡MUY URGENTE! Solo tienes {minutos_restantes} minutos para realizar el pago.'
+                mensaje = f'¡MUY URGENTE! Solo tienes {minutos_restantes} minutos para realizar el pago.'
             
             return {
                 'tiene_tiempo': True,
@@ -208,7 +208,7 @@ class PaymentService:
             
             return {
                 'success': True,
-                'mensaje': '✅ Confirmación recibida. Tu pago está siendo verificado y te notificaremos pronto.',
+                'mensaje': 'Confirmación recibida. Tu pago está siendo verificado y te notificaremos pronto.',
                 'estado': 'pending_verification',
                 'cita_id': cita_id
             }
@@ -340,41 +340,41 @@ class PaymentService:
         info = metodos.get(metodo_pago.lower(), {})
         
         if metodo_pago.lower() == 'efectivo':
-            return """💵 *PAGO EN EFECTIVO*
+            return """*PAGO EN EFECTIVO*
 
 No necesitas hacer nada ahora. Pagarás el monto exacto al momento de tu cita.
 
-ℹ️ Recuerda llevar efectivo suficiente el día de tu cita."""
+Recuerda llevar efectivo suficiente el día de tu cita."""
         
         elif metodo_pago.lower() == 'transferencia':
             # TODO: Obtener datos bancarios del consultorio
-            return """🏦 *PAGO POR TRANSFERENCIA*
+            return """*PAGO POR TRANSFERENCIA*
 
-1️⃣ Realiza la transferencia a:
+1. Realiza la transferencia a:
    • Banco: BBVA
    • CLABE: 012180001234567890
    • Titular: Consultorio Dental
 
-2️⃣ Envía tu comprobante respondiendo a este mensaje
+2. Envía tu comprobante respondiendo a este mensaje
 
-3️⃣ Debes pagar al menos 24 horas antes de tu cita
+3. Debes pagar al menos 24 horas antes de tu cita
 
-⚠️ Tu cita se confirmará una vez que verifiquemos el pago."""
+Tu cita se confirmará una vez que verifiquemos el pago."""
         
         elif metodo_pago.lower() == 'stripe':
             link = self.generar_link_pago_stripe(cita.get('id')) if cita else None
-            mensaje = """💳 *PAGO CON TARJETA (STRIPE)*
+            mensaje = """*PAGO CON TARJETA (STRIPE)*
 
-1️⃣ Haz clic en el siguiente link para pagar en línea de forma segura:
+1. Haz clic en el siguiente link para pagar en línea de forma segura:
 
 """
             if link:
                 mensaje += f"{link}\n\n"
             
-            mensaje += """2️⃣ Tu pago se procesará inmediatamente
-3️⃣ Recibirás confirmación por correo y WhatsApp
+            mensaje += """2. Tu pago se procesará inmediatamente
+3. Recibirás confirmación por correo y WhatsApp
 
-✅ Pago 100% seguro con encriptación SSL"""
+Pago 100% seguro con encriptación SSL"""
             
             return mensaje
         

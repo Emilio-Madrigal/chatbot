@@ -111,7 +111,7 @@ class RetryService:
                         processed += 1
             
             if processed > 0:
-                print(f"✅ Procesados {processed} reintentos pendientes")
+                
             
             return processed
             

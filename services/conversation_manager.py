@@ -466,8 +466,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                         'action': None,
                         'next_step': 'seleccionando_fecha'
                     }
-        
-        # ========== CASO 1: TENEMOS FECHA Y HORA ==========
+
         # Si el usuario dio fecha Y hora desde el principio, CREAR LA CITA DIRECTAMENTE
         if fecha and hora:
             print(f"CASO COMPLETO: Tenemos fecha ({fecha}) y hora ({hora}), creando cita directamente...")
@@ -547,8 +546,7 @@ Soy Densorita, tu asistente virtual. Puedo ayudarte a:
                     'action': None,
                     'next_step': 'inicial'
                 }
-        
-        # ========== CASO 2: SOLO TENEMOS FECHA ==========
+
         # Si tenemos fecha pero no hora, mostrar horarios disponibles
         if fecha and not hora:
             print(f"CASO PARCIAL: Tenemos fecha ({fecha}) pero no hora, mostrando horarios...")
@@ -1389,7 +1387,7 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                     calificacion = d.get('calificacion', 0)
                     response += f"• Dr(a). {nombre} - {especialidad}"
                     if calificacion > 0:
-                        response += f" ⭐ {calificacion:.1f}"
+                        response += f" {calificacion:.1f}"
                     response += "\n"
                 response += "\n"
             

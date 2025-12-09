@@ -90,17 +90,17 @@ class NotificacionesService:
         try:
             fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
             
-            mensaje = f"""🔔 *RECORDATORIO DE CITA*
+            mensaje = f"""*RECORDATORIO DE CITA*
 
-            👤 *Paciente:* {cita.nombre_cliente}
-            📅 *Mañana:* {fecha_formatted}
-            ⏰ *Hora:* {cita.hora}
-            📝 *Motivo:* {cita.descripcion}
+            *Paciente:* {cita.nombre_cliente}
+            *Mañana:* {fecha_formatted}
+            *Hora:* {cita.hora}
+            *Motivo:* {cita.descripcion}
 
-            📍 No olvides confirmar tu asistencia.
-            💬 Responde *CONFIRMO* si asistirás o *CANCELAR* si necesitas cancelar.
+            No olvides confirmar tu asistencia.
+            Responde *CONFIRMO* si asistirás o *CANCELAR* si necesitas cancelar.
 
-            ¡Te esperamos! 👩‍⚕️"""
+            ¡Te esperamos!"""
             
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
@@ -113,15 +113,15 @@ class NotificacionesService:
             print(f"error canijo en el reminder de 24 horas: {e}")
     def send_2_hour_reminder(self, cita):
         try:
-            mensaje = f"""⏰ *RECORDATORIO URGENTE*
+            mensaje = f"""*RECORDATORIO URGENTE*
 
-            👤 *{cita.nombre_cliente}*
-            🕐 Tu cita es en *2 horas* ({cita.hora})
+            *{cita.nombre_cliente}*
+            Tu cita es en *2 horas* ({cita.hora})
 
-            📍 *¿Ya estás preparado/a?*
-            🚗 Recuerda considerar el tiempo de traslado.
+            *¿Ya estás preparado/a?*
+            Recuerda considerar el tiempo de traslado.
 
-            ¡Nos vemos pronto! 👋"""
+            ¡Nos vemos pronto!"""
             
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
@@ -153,23 +153,23 @@ class NotificacionesService:
         try:
             if len(citas_hoy) == 1:
                 cita = citas_hoy[0]
-                mensaje = f"""🌅 *BUENOS DÍAS*
+                mensaje = f"""*BUENOS DÍAS*
 
-                📋 Tienes *1 cita* programada para hoy:
+                Tienes *1 cita* programada para hoy:
 
-                👤 *{cita.nombre_cliente}*
-                ⏰ *{cita.hora}*
-                📝 {cita.descripcion}
+                *{cita.nombre_cliente}*
+                *{cita.hora}*
+                {cita.descripcion}
 
-                ¡Que tengas un excelente día! ☀️"""
+                ¡Que tengas un excelente día!"""
             
             else:
-                mensaje = "🌅 *BUENOS DÍAS*\n\n📋 Tienes *{} citas* programadas para hoy:\n\n".format(len(citas_hoy))
+                mensaje = "*BUENOS DÍAS*\n\nTienes *{} citas* programadas para hoy:\n\n".format(len(citas_hoy))
                 
                 for i, cita in enumerate(citas_hoy, 1):
                     mensaje += f"{i}. *{cita.nombre_cliente}* - {cita.hora}\n"
                 
-                mensaje += "\n¡Que tengas un día productivo! ✨"
+                mensaje += "\n¡Que tengas un día productivo!"""
             
             self.whatsapp.send_text_message(usuario_whatsapp, mensaje)
             print(f"resumen diario enviado a {usuario_whatsapp}")
@@ -186,11 +186,11 @@ class NotificacionesService:
                 mensaje=mensaje_personalizado
             else:
                 fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y')
-                mensaje = f"""📢 *RECORDATORIO ESPECIAL*
+                mensaje = f"""*RECORDATORIO ESPECIAL*
 
-                👤 {cita.nombre_cliente}
-                📅 {fecha_formatted} - {cita.hora}
-                📝 {cita.descripcion}
+                {cita.nombre_cliente}
+                {fecha_formatted} - {cita.hora}
+                {cita.descripcion}
 
                 Este es un recordatorio especial sobre tu cita próxima."""
             result=self.whatsapp.send_text_message(cita.usuario_whatsapp,mensaje)
@@ -313,54 +313,54 @@ class NotificacionesService:
                 necesita_actualizar_datos = True
             
             # Construir mensaje de resumen semanal
-            mensaje = f"""📅 *RESUMEN SEMANAL - Densora*
+            mensaje = f"""*RESUMEN SEMANAL - Densora*
 
-Hola {nombre}! 👋
+Hola {nombre}!
 
 """
             
             # Próximas citas
             if citas_semana:
-                mensaje += f"""📋 *Tus próximas citas esta semana:*
+                mensaje += f"""*Tus próximas citas esta semana:*
 
 """
                 for i, cita in enumerate(citas_semana[:5], 1):  # Máximo 5 citas
                     fecha_formatted = datetime.strptime(cita.fecha, '%Y-%m-%d').strftime('%d/%m/%Y') if isinstance(cita.fecha, str) else cita.fecha.strftime('%d/%m/%Y')
-                    mensaje += f"{i}. 📅 {fecha_formatted} - ⏰ {cita.horaInicio or cita.hora}\n"
-                    mensaje += f"   👨‍⚕️ {cita.dentistaName or 'Dentista'}\n"
-                    mensaje += f"   📝 {cita.motivo or cita.descripcion or 'Consulta'}\n\n"
+                    mensaje += f"{i}. {fecha_formatted} - {cita.horaInicio or cita.hora}\n"
+                    mensaje += f"   {cita.dentistaName or 'Dentista'}\n"
+                    mensaje += f"   {cita.motivo or cita.descripcion or 'Consulta'}\n\n"
             else:
-                mensaje += """📋 *Próximas citas:* No tienes citas programadas esta semana.
+                mensaje += """*Próximas citas:* No tienes citas programadas esta semana.
 
 """
             
             # Historial pendiente
             if citas_sin_historial:
-                mensaje += f"""📄 *Historial médico pendiente:*
+                mensaje += f"""*Historial médico pendiente:*
 Tienes {len(citas_sin_historial)} cita(s) completada(s) sin historial médico actualizado.
-💡 Visita tu perfil para actualizar tu historial.
+Visita tu perfil para actualizar tu historial.
 
 """
             
             # Reseñas pendientes
             if citas_sin_resena:
-                mensaje += f"""⭐ *Reseñas pendientes:*
+                mensaje += f"""*Reseñas pendientes:*
 Tienes {len(citas_sin_resena)} cita(s) completada(s) sin reseña.
-💬 Escribe "calificar" para dejar tu opinión.
+Escribe "calificar" para dejar tu opinión.
 
 """
             
             # Recordatorio de actualización de datos
             if necesita_actualizar_datos:
-                mensaje += """🔄 *Actualiza tus datos:*
+                mensaje += """*Actualiza tus datos:*
 Hace más de 30 días que no inicias sesión.
-💡 Visita nuestra web para mantener tu información actualizada.
+Visita nuestra web para mantener tu información actualizada.
 
 """
             
-            mensaje += f"""🌐 *Visita nuestra web:* https://www.densora.com
+            mensaje += f"""*Visita nuestra web:* https://www.densora.com
 
-¡Que tengas una excelente semana! ✨"""
+¡Que tengas una excelente semana!"""
             
             # Enviar mensaje
             self.whatsapp.send_text_message(telefono, mensaje)

@@ -1,5 +1,5 @@
 """
-🤖 SISTEMA DE CONFIGURACIÓN DEL BOT
+# SISTEMA DE CONFIGURACIÓN DEL BOT
 J.RF16: Interfaz de configuración del bot
 J.RNF18: Configuración de firma del bot
 """

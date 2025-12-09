@@ -1,7 +1,5 @@
-"""
-📝 SISTEMA DE LOGGING DE MENSAJES DEL BOT
-J.RF13, J.RNF4: Registro completo de mensajes enviados por el bot
-"""
+# SISTEMA DE LOGGING DE MENSAJES DEL BOT
+# J.RF13, J.RNF4: Registro completo de mensajes enviados por el bot
 
 from database.database import FirebaseConfig
 from datetime import datetime

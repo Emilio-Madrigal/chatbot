@@ -1,5 +1,5 @@
 """
-🎯 SERVICIO DE ACCIONES DEL CHATBOT
+# SERVICIO DE ACCIONES DEL CHATBOT
 Integra con Firestore para realizar todas las acciones del sistema
 """
 
@@ -289,7 +289,7 @@ class ActionsService:
                 return None
             
             nombre_lower = nombre_dentista.lower().strip()
-            print(f"🔍 Buscando dentista por nombre: '{nombre_dentista}'")
+            
             
             # Si hay consultorio_id, buscar primero en ese consultorio
             if consultorio_id:
@@ -308,7 +308,6 @@ class ActionsService:
                         nombre_lower in nombre_simple or
                         nombre_completo.startswith(nombre_lower) or
                         nombre_simple.startswith(nombre_lower)):
-                        print(f"✅ Dentista encontrado en consultorio: {data.get('nombreCompleto')} (ID: {data.get('dentistaId')})")
                         return {
                             'dentistaId': data.get('dentistaId'),
                             'dentistaName': data.get('nombreCompleto', nombre_dentista),
@@ -329,7 +328,6 @@ class ActionsService:
                     nombre_lower in nombre_simple or
                     nombre_completo.startswith(nombre_lower) or
                     nombre_simple.startswith(nombre_lower)):
-                    print(f"✅ Dentista encontrado en colección global: {data.get('nombreCompleto')} (ID: {doc.id})")
                     # Buscar en qué consultorio está asociado
                     consultorios_ref = doc.reference.collection('consultorios')
                     for consultorio_doc in consultorios_ref.stream():
@@ -341,7 +339,7 @@ class ActionsService:
                                 'consultorioId': consultorio_data.get('consultorioID')
                             }
             
-            print(f"⚠️ No se encontró dentista con nombre '{nombre_dentista}'")
+            
             return None
             
         except Exception as e:
@@ -389,7 +387,6 @@ class ActionsService:
             if nombre_dentista:
                 dentista_encontrado = self.buscar_dentista_por_nombre(nombre_dentista, ultimo_consultorio['consultorioId'])
                 if dentista_encontrado:
-                    print(f"✅ Usando dentista mencionado: {dentista_encontrado['dentistaName']}")
                     consultorio_final = {
                         'consultorioId': dentista_encontrado['consultorioId'],
                         'consultorioName': ultimo_consultorio.get('consultorioName', 'Consultorio'),
@@ -397,7 +394,7 @@ class ActionsService:
                         'dentistaName': dentista_encontrado['dentistaName']
                     }
                 else:
-                    print(f"⚠️ No se encontró dentista con nombre '{nombre_dentista}', usando dentista por defecto")
+                    pass
             
             # Preparar datos de la cita
             payment_method = 'cash'  # Por defecto efectivo desde chatbot

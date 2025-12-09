@@ -416,7 +416,7 @@ class FirebaseFunctionsService:
             
             # También crear en colección principal para compatibilidad
             try:
-                citas_principal_ref = self.db.collection('Citas')
+                citas_principal_ref = self.db.collection('citas')
                 cita_principal_data = {
                     **cita_data,
                     'id': cita_id,
@@ -473,7 +473,7 @@ class FirebaseFunctionsService:
             
             # También actualizar en colección principal si existe
             try:
-                citas_principal_ref = self.db.collection('Citas')
+                citas_principal_ref = self.db.collection('citas')
                 query = citas_principal_ref.where('pacienteCitaId', '==', cita_id).limit(1)
                 docs = list(query.stream())
                 if docs:
@@ -531,7 +531,7 @@ class FirebaseFunctionsService:
             
             # También actualizar en colección principal si existe
             try:
-                citas_principal_ref = self.db.collection('Citas')
+                citas_principal_ref = self.db.collection('citas')
                 query = citas_principal_ref.where('pacienteCitaId', '==', cita_id).limit(1)
                 docs = list(query.stream())
                 if docs:

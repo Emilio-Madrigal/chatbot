@@ -122,27 +122,27 @@ class LanguageService:
         
         templates = {
             'es': {
-                'appointment_confirmation': """✅ *CITA AGENDADA EXITOSAMENTE*
+                'appointment_confirmation': """*CITA AGENDADA EXITOSAMENTE*
 
 Hola {nombre},
 
 Tu cita ha sido confirmada:
 
-📅 *Fecha:* {fecha}
-⏰ *Hora:* {hora}
-👨‍⚕️ *Dentista:* {dentista}
+*Fecha:* {fecha}
+*Hora:* {hora}
+*Dentista:* {dentista}
 
 Te enviaremos un recordatorio 24 horas antes.
 
-¡Te esperamos! 😊""",
-                'appointment_cancelled': """❌ *CITA CANCELADA*
+¡Te esperamos!""",
+                'appointment_cancelled': """*CITA CANCELADA*
 
 Hola {nombre},
 
 Tu cita del {fecha} a las {hora} ha sido cancelada.
 
 ¿Deseas agendar una nueva cita? Escribe *'agendar cita'*.""",
-                'review_request': """⭐ *¿CÓMO FUE TU EXPERIENCIA?*
+                'review_request': """*¿CÓMO FUE TU EXPERIENCIA?*
 
 Hola {nombre},
 
@@ -155,30 +155,30 @@ Nos encantaría conocer tu opinión.
 👉 *Califica tu experiencia aquí:*
 {link}
 
-¡Gracias! 😊"""
+¡Gracias!"""
             },
             'en': {
-                'appointment_confirmation': """✅ *APPOINTMENT SCHEDULED SUCCESSFULLY*
+                'appointment_confirmation': """*APPOINTMENT SCHEDULED SUCCESSFULLY*
 
 Hello {nombre},
 
 Your appointment has been confirmed:
 
-📅 *Date:* {fecha}
-⏰ *Time:* {hora}
-👨‍⚕️ *Dentist:* {dentista}
+*Date:* {fecha}
+*Time:* {hora}
+*Dentist:* {dentista}
 
 We will send you a reminder 24 hours before.
 
-See you soon! 😊""",
-                'appointment_cancelled': """❌ *APPOINTMENT CANCELLED*
+See you soon!""",
+                'appointment_cancelled': """*APPOINTMENT CANCELLED*
 
 Hello {nombre},
 
 Your appointment on {fecha} at {hora} has been cancelled.
 
 Would you like to schedule a new appointment? Type *'schedule appointment'*.""",
-                'review_request': """⭐ *HOW WAS YOUR EXPERIENCE?*
+                'review_request': """*HOW WAS YOUR EXPERIENCE?*
 
 Hello {nombre},
 
@@ -191,7 +191,7 @@ We would love to hear your feedback.
 👉 *Rate your experience here:*
 {link}
 
-Thank you! 😊"""
+Thank you!"""
             }
         }
         

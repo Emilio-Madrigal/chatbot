@@ -1,5 +1,5 @@
 """
-🔐 SISTEMA DE OTP POR WHATSAPP
+SISTEMA DE OTP POR WHATSAPP
 J.RF4: Envío de código OTP de verificación durante registro, agendamiento y acciones sensibles
 J.RNF10: Límite de reenvío de OTP (1 vez por día)
 """
@@ -31,7 +31,8 @@ class OTPService:
     
     async def send_otp(self, paciente_id: str, telefono: str, 
                       action_type: str = 'verification',
-                      nombre: str = 'Usuario') -> Dict:
+                      nombre: str = 'Usuario',
+                      language: str = 'es') -> Dict:
         """
         Envía un código OTP por WhatsApp
         
@@ -72,8 +73,17 @@ class OTPService:
                 'resendCount': resends_today + 1
             })
             
+            # Obtener idioma del paciente si no se proporcionó
+            if language == 'es' and paciente_id:
+                try:
+                    from services.language_service import LanguageService
+                    lang_service = LanguageService()
+                    language = lang_service.get_patient_language(paciente_id)
+                except:
+                    language = 'es'
+            
             # Construir mensaje según tipo de acción
-            mensaje = self._build_otp_message(otp_code, action_type, nombre, expires_at)
+            mensaje = self._build_otp_message(otp_code, action_type, nombre, expires_at, language)
             
             # Enviar por WhatsApp
             result = self.whatsapp.send_text_message(telefono, mensaje)
@@ -111,37 +121,71 @@ class OTPService:
             }
     
     def _build_otp_message(self, otp_code: str, action_type: str, 
-                          nombre: str, expires_at: datetime) -> str:
-        """Construye el mensaje de OTP según el tipo de acción"""
+                          nombre: str, expires_at: datetime, language: str = 'es') -> str:
+        """Construye el mensaje de OTP según el tipo de acción y idioma"""
         
-        action_messages = {
-            'registration': 'verificar tu registro',
-            'appointment': 'confirmar tu cita',
-            'cancel': 'cancelar tu cita',
-            'reschedule': 'reagendar tu cita',
-            'verification': 'verificar tu identidad'
+        translations = {
+            'es': {
+                'action_messages': {
+                    'registration': 'verificar tu registro',
+                    'appointment': 'confirmar tu cita',
+                    'cancel': 'cancelar tu cita',
+                    'reschedule': 'reagendar tu cita',
+                    'verification': 'verificar tu identidad'
+                },
+                'title': '*CÓDIGO DE VERIFICACIÓN - Densora*',
+                'greeting': 'Hola',
+                'code_for': 'Tu código de verificación para',
+                'code_is': 'es:',
+                'valid_for': 'Válido por 15 minutos (hasta las',
+                'important': '*IMPORTANTE:*',
+                'dont_share': '• No compartas este código con nadie',
+                'expires': '• El código expira en 15 minutos',
+                'ignore': '• Si no lo solicitaste, ignora este mensaje',
+                'thanks': '¡Gracias por usar Densora!'
+            },
+            'en': {
+                'action_messages': {
+                    'registration': 'verify your registration',
+                    'appointment': 'confirm your appointment',
+                    'cancel': 'cancel your appointment',
+                    'reschedule': 'reschedule your appointment',
+                    'verification': 'verify your identity'
+                },
+                'title': '*VERIFICATION CODE - Densora*',
+                'greeting': 'Hello',
+                'code_for': 'Your verification code for',
+                'code_is': 'is:',
+                'valid_for': 'Valid for 15 minutes (until',
+                'important': '*IMPORTANT:*',
+                'dont_share': '• Do not share this code with anyone',
+                'expires': '• The code expires in 15 minutes',
+                'ignore': '• If you did not request it, ignore this message',
+                'thanks': 'Thank you for using Densora!'
+            }
         }
         
-        action_text = action_messages.get(action_type, 'verificar tu acción')
-        
+        t = translations.get(language, translations['es'])
+        action_messages = t['action_messages']
+        action_text = action_messages.get(action_type, action_messages.get('verification', 'verify your action'))
         expires_formatted = expires_at.strftime('%H:%M')
         
-        mensaje = f"""🔐 *CÓDIGO DE VERIFICACIÓN - Densora*
+        mensaje = f"""{t['title']}
 
-Hola {nombre},
+{t['greeting']} {nombre},
 
-Tu código de verificación para {action_text} es:
+{t['code_for']} {action_text} {t['code_is']}
 
 *{otp_code}*
 
-⏰ Válido por 15 minutos (hasta las {expires_formatted})
+{t['valid_for']} {expires_formatted})
 
-⚠️ *IMPORTANTE:*
-• No compartas este código con nadie
-• El código expira en 15 minutos
-• Si no lo solicitaste, ignora este mensaje
+{t['important']}
+{t['dont_share']}
+{t['expires']}
+{t['ignore']}
 
-¡Gracias por usar Densora! 😊"""
+{t['thanks']}"""
         
         return mensaje
     

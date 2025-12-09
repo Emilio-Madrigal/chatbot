@@ -1,5 +1,5 @@
 """
-⚙️ SISTEMA DE CONFIGURACIÓN DE NOTIFICACIONES
+# SISTEMA DE CONFIGURACIÓN DE NOTIFICACIONES
 J.RF8: Configuración de notificaciones desde app
 J.RNF7: Desactivación de notificaciones WhatsApp
 """

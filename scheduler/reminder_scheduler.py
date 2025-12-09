@@ -1,5 +1,5 @@
 """
-🔔 SISTEMA AUTOMATIZADO DE RECORDATORIOS
+# SISTEMA AUTOMATIZADO DE RECORDATORIOS
 Scheduler mejorado para enviar recordatorios por WhatsApp
 """
 
@@ -27,7 +27,7 @@ class ReminderScheduler:
         
     def start(self):
         """Inicia el scheduler con todas las tareas programadas"""
-        print("🔔 Iniciando sistema de recordatorios...")
+        
         
         # Recordatorios de citas (ejecutar cada hora)
         self.scheduler.add_job(
@@ -92,17 +92,17 @@ class ReminderScheduler:
         )
         
         self.scheduler.start()
-        print("✅ Sistema de recordatorios iniciado correctamente")
+        
         
     def stop(self):
         """Detiene el scheduler"""
         self.scheduler.shutdown()
-        print("🛑 Sistema de recordatorios detenido")
+        
     
     def send_appointment_reminders_24h(self):
         """Envía recordatorios 24 horas antes de las citas"""
         try:
-            print("📧 Ejecutando recordatorios 24h...")
+            
             now = datetime.now(self.mexico_tz)
             target_time = now + timedelta(hours=24)
             
@@ -137,19 +137,19 @@ class ReminderScheduler:
                     # Registrar recordatorio enviado
                     self._registrar_recordatorio_enviado(cita.id, '24h')
                     enviados += 1
-                    print(f"✅ Recordatorio 24h enviado para cita {cita.id}")
+                    
             
-            print(f"📊 Recordatorios 24h: {enviados} enviados")
+            
             
         except Exception as e:
-            print(f"❌ Error en recordatorios 24h: {e}")
+            
             import traceback
             traceback.print_exc()
     
     def send_appointment_reminders_2h(self):
         """Envía recordatorios 2 horas antes de las citas"""
         try:
-            print("📧 Ejecutando recordatorios 2h...")
+            
             now = datetime.now(self.mexico_tz)
             target_time = now + timedelta(hours=2)
             
@@ -184,19 +184,19 @@ class ReminderScheduler:
                     # Registrar recordatorio enviado
                     self._registrar_recordatorio_enviado(cita.id, '2h')
                     enviados += 1
-                    print(f"✅ Recordatorio 2h enviado para cita {cita.id}")
+                    
             
-            print(f"📊 Recordatorios 2h: {enviados} enviados")
+            
             
         except Exception as e:
-            print(f"❌ Error en recordatorios 2h: {e}")
+            
             import traceback
             traceback.print_exc()
     
     def check_pending_payments(self):
         """Verifica pagos pendientes y envía recordatorios"""
         try:
-            print("💰 Verificando pagos pendientes...")
+            
             now = datetime.now(self.mexico_tz)
             
             # Obtener citas con pago pendiente
@@ -256,17 +256,17 @@ class ReminderScheduler:
                 elif horas_restantes <= 0:
                     self._auto_cancel_cita_sin_pago(cita_id, cita_data)
             
-            print(f"📊 Recordatorios de pago: {recordatorios_enviados} enviados")
+            
             
         except Exception as e:
-            print(f"❌ Error verificando pagos: {e}")
+            
             import traceback
             traceback.print_exc()
     
     def remind_pending_medical_history(self):
         """Recuerda a pacientes completar su historial médico"""
         try:
-            print("📋 Recordando historial médico pendiente...")
+            
             
             # Obtener pacientes sin historial médico completo
             pacientes_ref = self.db.collection('pacientes')\
@@ -317,10 +317,10 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
                     self._registrar_recordatorio_enviado(paciente_id, 'medical_history')
                     enviados += 1
             
-            print(f"📊 Recordatorios historial médico: {enviados} enviados")
+            
             
         except Exception as e:
-            print(f"❌ Error en recordatorios historial: {e}")
+            
             import traceback
             traceback.print_exc()
     
@@ -330,12 +330,12 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
         J.RF9: Mensaje post-consulta con enlace a reseñas
         """
         try:
-            print("⭐ Solicitando reseñas post-cita...")
+            
             now = datetime.now(self.mexico_tz)
             yesterday = now - timedelta(days=1)
             
             # Obtener citas completadas ayer
-            citas_ref = self.db.collection('Citas')\
+            citas_ref = self.db.collection('citas')\
                 .where('estado', '==', 'completada')\
                 .where('fecha', '>=', yesterday.strftime('%Y-%m-%d'))\
                 .where('fecha', '<=', yesterday.strftime('%Y-%m-%d'))\
@@ -380,17 +380,17 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
                     self._registrar_recordatorio_enviado(cita_id, 'review_request')
                     enviados += 1
             
-            print(f"📊 Solicitudes de reseña: {enviados} enviadas")
+            
             
         except Exception as e:
-            print(f"❌ Error solicitando reseñas: {e}")
+            
             import traceback
             traceback.print_exc()
     
     def auto_cancel_unpaid_appointments(self):
         """Cancela automáticamente citas sin pago después del deadline"""
         try:
-            print("🚫 Verificando citas para auto-cancelación...")
+            
             now = datetime.now(self.mexico_tz)
             
             # Obtener citas con pago pendiente vencido
@@ -427,14 +427,13 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
                     self._auto_cancel_cita_sin_pago(cita_id, cita_data)
                     canceladas += 1
             
-            print(f"📊 Citas auto-canceladas: {canceladas}")
+            
             
         except Exception as e:
-            print(f"❌ Error en auto-cancelación: {e}")
+            
             import traceback
             traceback.print_exc()
-    
-    # ================ MÉTODOS AUXILIARES ================
+
     
     def _get_citas_en_rango(self, start_time: datetime, end_time: datetime) -> List:
         """Obtiene citas en un rango de tiempo específico"""
@@ -488,23 +487,23 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
         
         mensaje = f"""Hola {nombre},
 
-🔔 *Recordatorio de Cita - Mañana*
+*Recordatorio de Cita - Mañana*
 
-📅 Fecha: {fecha_str}
-⏰ Hora: {hora_str}
-👨‍⚕️ Dentista: {dentista}
-🏥 Consultorio: {consultorio}
+*Fecha:* {fecha_str}
+*Hora:* {hora_str}
+*Dentista:* {dentista}
+*Consultorio:* {consultorio}
 
-📍 Dirección: {cita.direccion or 'Ver en la app'}
+*Dirección:* {cita.direccion or 'Ver en la app'}
 
-💡 *Recomendaciones:*
+*Recomendaciones:*
 • Llega 10 minutos antes
 • Trae tu identificación
 • Cepilla tus dientes antes de asistir
 
 ¿Necesitas reagendar? Responde *"reagendar"*
 
-¡Te esperamos! 😊"""
+¡Te esperamos!"""
         
         return mensaje
     
@@ -516,28 +515,28 @@ Es rápido (2 minutos) y seguro. Tu información está encriptada.
         
         mensaje = f"""Hola {nombre},
 
-⏰ *Tu cita es en 2 HORAS*
+*Tu cita es en 2 HORAS*
 
-Hora: {hora_str}
-Dentista: {dentista}
+*Hora:* {hora_str}
+*Dentista:* {dentista}
 
-No olvides:
-✅ Llegar 10 min antes
-✅ Traer identificación
-✅ Cepillar tus dientes
+*No olvides:*
+* Llegar 10 min antes
+* Traer identificación
+* Cepillar tus dientes
 
-¡Nos vemos pronto! 😊"""
+¡Nos vemos pronto!"""
         
         return mensaje
     
     def _construir_mensaje_pago_pendiente(self, cita_data: Dict, horas_restantes: float) -> str:
         """Construye mensaje de pago pendiente"""
         if horas_restantes <= 2:
-            urgencia = "🔴 ¡MUY URGENTE!"
+            urgencia = "¡MUY URGENTE!"
         elif horas_restantes <= 6:
-            urgencia = "🟠 ¡URGENTE!"
+            urgencia = "¡URGENTE!"
         else:
-            urgencia = "🟡"
+            urgencia = ""
         
         horas_enteras = int(horas_restantes)
         minutos = int((horas_restantes - horas_enteras) * 60)
@@ -548,7 +547,7 @@ No olvides:
 
 Tu cita del {cita_data.get('fecha', 'N/A')} a las {cita_data.get('horaInicio', 'N/A')} tiene pago pendiente.
 
-⏱️ Tiempo restante: {tiempo_text}
+*Tiempo restante:* {tiempo_text}
 
 Si no confirmas el pago, tu cita será CANCELADA automáticamente.
 
@@ -627,7 +626,7 @@ Para pagar o confirmar, responde: *"ya pagué"*"""
             if paciente_id:
                 paciente = self.paciente_repo.buscar_por_id(paciente_id)
                 if paciente and paciente.telefono:
-                    mensaje = f"""❌ *Cita Cancelada*
+                    mensaje = f"""*Cita Cancelada*
 
 Tu cita del {cita_data.get('fecha', 'N/A')} a las {cita_data.get('horaInicio', 'N/A')} fue cancelada por falta de confirmación de pago.
 
@@ -640,7 +639,7 @@ Disculpa las molestias."""
                         message=mensaje
                     )
             
-            print(f"✅ Cita {cita_id} auto-cancelada por falta de pago")
+            
             
         except Exception as e:
             print(f"Error auto-cancelando cita: {e}")
@@ -652,14 +651,14 @@ Disculpa las molestias."""
         """
         try:
             from services.retry_service import retry_service
-            print("🔄 Procesando reintentos de mensajes...")
+            
             processed = retry_service.process_pending_retries()
             if processed > 0:
-                print(f"✅ Procesados {processed} reintentos de mensajes")
+                
             else:
-                print("ℹ️ No hay reintentos pendientes")
+                
         except Exception as e:
-            print(f"❌ Error procesando reintentos: {e}")
+            
             import traceback
             traceback.print_exc()
 

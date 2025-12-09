@@ -1,7 +1,5 @@
-"""
-🔔 SISTEMA CENTRALIZADO DE NOTIFICACIONES POR EVENTOS
-J.RF1: Mensajes automatizados para todos los eventos del sistema
-"""
+# SISTEMA CENTRALIZADO DE NOTIFICACIONES POR EVENTOS
+# J.RF1: Mensajes automatizados para todos los eventos del sistema
 
 from services.whatsapp_service import WhatsAppService
 from services.message_logger import message_logger
@@ -37,7 +35,7 @@ class EventNotifier:
             language = language_service.get_patient_language(paciente_id)
             
             if language == 'en':
-                mensaje = f"""Welcome to Densora, {nombre}! 👋
+                mensaje = f"""Welcome to Densora, {nombre}!
 
 Your account has been created successfully.
 
@@ -49,9 +47,9 @@ Now you can:
 
 Need help? Type *"help"* or *"menu"*.
 
-Thank you for trusting us! 😊"""
+Thank you for trusting us!"""
             else:
-                mensaje = f"""¡Bienvenido a Densora, {nombre}! 👋
+                mensaje = f"""¡Bienvenido a Densora, {nombre}!
 
 Tu cuenta ha sido creada exitosamente.
 
@@ -63,7 +61,7 @@ Ahora puedes:
 
 ¿Necesitas ayuda? Escribe *"ayuda"* o *"menu"*.
 
-¡Gracias por confiar en nosotros! 😊"""
+¡Gracias por confiar en nosotros!"""
             
             result = self.whatsapp.send_text_message(telefono, mensaje)
             
@@ -128,36 +126,36 @@ Ahora puedes:
             
             # J.RNF19: Mensaje adaptado al idioma
             if language == 'en':
-                mensaje = f"""✅ *APPOINTMENT SCHEDULED SUCCESSFULLY*
+                mensaje = f"""*APPOINTMENT SCHEDULED SUCCESSFULLY*
 
 Hello {paciente.nombre or 'Patient'},
 
 Your appointment has been confirmed:
 
-📅 *Date:* {fecha_formatted}
-⏰ *Time:* {hora}
-👨‍⚕️ *Dentist:* {dentista_name}
-🏥 *Clinic:* {consultorio_name}
-📝 *Reason:* {motivo}
+*Date:* {fecha_formatted}
+*Time:* {hora}
+*Dentist:* {dentista_name}
+*Clinic:* {consultorio_name}
+*Reason:* {motivo}
 
 We will send you a reminder 24 hours before.
 
 Need to cancel? Use this link:
 {cancel_link if cancel_link else 'Contact the clinic'}
 
-See you soon! 😊"""
+See you soon!"""
             else:
-                mensaje = f"""✅ *CITA AGENDADA EXITOSAMENTE*
+                mensaje = f"""*CITA AGENDADA EXITOSAMENTE*
 
 Hola {paciente.nombre or 'Paciente'},
 
 Tu cita ha sido confirmada:
 
-📅 *Fecha:* {fecha_formatted}
-⏰ *Hora:* {hora}
-👨‍⚕️ *Dentista:* {dentista_name}
-🏥 *Consultorio:* {consultorio_name}
-📝 *Motivo:* {motivo}
+*Fecha:* {fecha_formatted}
+*Hora:* {hora}
+*Dentista:* {dentista_name}
+*Consultorio:* {consultorio_name}
+# *Motivo:* {motivo}
 
 Te enviaremos un recordatorio 24 horas antes.
 
@@ -221,7 +219,7 @@ Te enviaremos un recordatorio 24 horas antes.
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
             fecha_formatted = fecha_obj.strftime('%d/%m/%Y') if hasattr(fecha_obj, 'strftime') else str(fecha)
             
-            mensaje = f"""❌ *CITA CANCELADA*
+            mensaje = f"""*CITA CANCELADA*
 
 Hola {paciente.nombre or 'Paciente'},
 
@@ -231,7 +229,7 @@ Tu cita del {fecha_formatted} a las {hora} ha sido cancelada."""
                 mensaje += f"\n\n*Motivo:* {motivo}"
             
             if refund_amount > 0:
-                mensaje += f"\n\n💰 *Reembolso:* ${refund_amount:.2f}"
+                mensaje += f"\n\n*Reembolso:* ${refund_amount:.2f}"
                 mensaje += "\nEl reembolso se procesará en 3-5 días hábiles."
             
             mensaje += "\n\n¿Deseas agendar una nueva cita? Escribe *'agendar cita'*."
@@ -285,19 +283,19 @@ Tu cita del {fecha_formatted} a las {hora} ha sido cancelada."""
             new_date_obj = datetime.strptime(new_date, '%Y-%m-%d') if isinstance(new_date, str) else new_date
             new_date_formatted = new_date_obj.strftime('%d/%m/%Y') if hasattr(new_date_obj, 'strftime') else str(new_date)
             
-            mensaje = f"""🔄 *CITA REAGENDADA*
+            mensaje = f"""*CITA REAGENDADA*
 
 Hola {paciente.nombre or 'Paciente'},
 
 Tu cita ha sido reagendada:
 
-❌ *Anterior:*
+*Anterior:*
    {old_date_formatted} a las {old_time}
 
-✅ *Nueva:*
+*Nueva:*
    {new_date_formatted} a las {new_time}
 
-👨‍⚕️ *Dentista:* {dentista_name}
+*Dentista:* {dentista_name}
 
 Te enviaremos un recordatorio 24 horas antes de tu nueva cita.
 
@@ -347,19 +345,19 @@ Te enviaremos un recordatorio 24 horas antes de tu nueva cita.
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
             fecha_formatted = fecha_obj.strftime('%d/%m/%Y') if hasattr(fecha_obj, 'strftime') else str(fecha)
             
-            mensaje = f"""✅ *PAGO CONFIRMADO*
+            mensaje = f"""*PAGO CONFIRMADO*
 
 Hola {paciente.nombre or 'Paciente'},
 
 Tu pago ha sido confirmado exitosamente:
 
-💰 *Monto:* ${amount:.2f}
-💳 *Método:* {payment_method.title()}
-📅 *Cita:* {fecha_formatted} a las {hora}
+*Monto:* ${amount:.2f}
+*Método:* {payment_method.title()}
+*Cita:* {fecha_formatted} a las {hora}
 
 Tu cita está asegurada. Te esperamos.
 
-¡Gracias por tu pago! 😊"""
+¡Gracias por tu pago!"""
             
             result = self.whatsapp.send_text_message(paciente.telefono, mensaje)
             
@@ -400,11 +398,11 @@ Hola {paciente.nombre or 'Paciente'},
 
 Tu cita ha sido reasignada a otro profesional:
 
-📅 *Fecha:* {fecha_formatted}
-⏰ *Hora:* {hora}
+*Fecha:* {fecha_formatted}
+*Hora:* {hora}
 
-👨‍⚕️ *Dentista Anterior:* {old_dentista}
-👨‍⚕️ *Nuevo Dentista:* {new_dentista}
+*Dentista Anterior:* {old_dentista}
+*Nuevo Dentista:* {new_dentista}
 
 Tu cita sigue programada para la misma fecha y hora, solo cambió el profesional que te atenderá.
 
