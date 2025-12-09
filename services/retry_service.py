@@ -110,9 +110,6 @@ class RetryService:
                     if success:
                         processed += 1
             
-            if processed > 0:
-                
-            
             return processed
             
         except Exception as e:
