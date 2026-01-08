@@ -274,7 +274,7 @@ def web_chat():
                 user_id=user_id,
                 phone=phone,
                 user_name=user_name,
-                mode='menu'  # Siempre menú
+                mode='hybrid'  # Modo híbrido inteligente
             )
             bot_response_text = response_data.get('response', '')
             print(f"Sistema de menús procesó correctamente - Response: {bot_response_text[:100]}...")
@@ -296,7 +296,7 @@ def web_chat():
             'success': True,
             'response': bot_response_text,
             'session_id': session_id,
-            'mode': 'menu'  # Siempre menú
+            'mode': 'hybrid'
         })
 
     except Exception as e:
@@ -441,6 +441,18 @@ def webhook():
                     except:
                         button_text_to_id[hora_inicio] = f"hora_{hora_inicio}"
             
+            # Manejo de Multimedia (Gap Analysis)
+            # Si el usuario envía fotos (comprobantes, x-rays), no ignorarlas.
+            media_url = None
+            if int(num_media) > 0:
+                media_url = request.values.get('MediaUrl0', '') or request.form.get('MediaUrl0', '')
+                print(f"Multimedia recibido: {media_url}")
+                # Si viene solo la foto, el body puede estar vacío
+                if not message_body:
+                    message_body = "[MEDIA_RECEIVED]"
+                else:
+                    message_body += " [MEDIA_RECEIVED]"
+            
             # Intentar obtener user_id desde Firestore usando el teléfono
             from services.actions_service import ActionsService
             actions_service = ActionsService()
@@ -458,7 +470,8 @@ def webhook():
                     user_id=user_id,
                     phone=from_number,
                     user_name=user_name,
-                    mode='menu'  # Siempre menú
+                    mode='hybrid',  # Modo híbrido inteligente
+                    context_extras={'media_url': media_url} if media_url else None
                 )
                 response_text = response_data.get('response', '')
                 print(f"[APP] Respuesta del conversation_manager: tiene texto={bool(response_text)}, longitud={len(response_text) if response_text else 0}")

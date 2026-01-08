@@ -55,7 +55,7 @@ class PostConsultationService:
                 'pacienteId': paciente_id
             })
             
-            review_link = f"https://www.densora.com/resena/{cita_id}?token={review_token}" if review_token else f"https://www.densora.com/resena/{cita_id}"
+            review_link = f"http://localhost:4321/resena/{cita_id}?token={review_token}" if review_token else f"http://localhost:4321/resena/{cita_id}"
             
             # Formatear fecha
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
@@ -140,7 +140,7 @@ Solo toma 30 segundos y nos ayuda mucho.
             if not paciente or not paciente.telefono:
                 return None
             
-            review_link = f"https://www.densora.com/resena/{cita_id}"
+            review_link = f"http://localhost:4321/resena/{cita_id}"
             
             mensaje = f"""*Recordatorio: Tu Opinión Importa*
 

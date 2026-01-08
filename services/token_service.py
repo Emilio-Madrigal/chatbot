@@ -120,7 +120,7 @@ class TokenService:
         })
         
         if token:
-            return f"https://www.densora.com/cancelar-cita?token={token}"
+            return f"http://localhost:4321/CancelarCita?citaId={cita_id}&pacienteId={paciente_id}"
         return None
     
     def generate_medical_history_link(self, paciente_id: str) -> str:
@@ -134,7 +134,7 @@ class TokenService:
         })
         
         if token:
-            return f"https://www.densora.com/historial-medico?token={token}"
+            return f"http://localhost:4321/historialMedico?token={token}"
         return None
     
     def generate_reschedule_link(self, cita_id: str, paciente_id: str) -> str:
@@ -148,7 +148,7 @@ class TokenService:
         })
         
         if token:
-            return f"https://www.densora.com/reagendar-cita?token={token}"
+            return f"http://localhost:4321/Reagendar?citaId={cita_id}&pacienteId={paciente_id}"
         return None
 
 # Instancia global

@@ -221,6 +221,27 @@ class MLService:
                 'contacto', 'contactar', 'teléfono', 'telefono', 'email', 'correo',
                 'llamar', 'llamada', 'comunicar', 'hablar con', 'contact', 'phone',
                 'call', 'email', 'reach out', 'ubicacion', 'ubicación', 'location'  # Inglés
+            ],
+            'buscar_dentista': [
+                'buscar dentista', 'necesito un doctor', 'encuentra un dentista', 'busca un doctor',
+                'hay algún dentista', 'busco ortodoncista', 'busco pediatra', 'busco cirujano',
+                'recomiéndame un dentista', 'lista de doctores', 'mostrar dentistas',
+                'find dentist', 'looking for a doctor', 'search dentist'  # Inglés
+            ],
+            'ver_resenas': [
+                'ver reseñas', 'opiniones', 'qué dicen del doctor', 'calificación', 'rating',
+                'comentarios', 'reviews', 'qué tal es', 'es buen doctor', 'reputación',
+                'show reviews', 'doctor ratings', 'opinions'  # Inglés
+            ],
+            'confirmar_pago': [
+                'ya pagué', 'confirmar pago', 'pago realizado', 'enviar comprobante', 
+                'ya deposité', 'ya transferí', 'reportar pago', 'subir comprobante',
+                'payment sent', 'confirm payment', 'paid'  # Inglés
+            ],
+            'urgencia': [
+                'dolor', 'me duele mucho', 'sangrado', 'emergencia', 'urgencia',
+                'se me rompió un diente', 'accidente', 'hinchado', 'infección',
+                'pain', 'emergency', 'bleeding', 'hurts'  # Inglés
             ]
         }
         
@@ -333,6 +354,18 @@ ayuda: SOLO pide ayuda explícita
 despedirse: Usuario se despide
   Ejemplos: "adiós", "hasta luego", "gracias", "chao", "nos vemos", "bye"
 
+buscar_dentista: El usuario quiere BUSCAR o encontrar un profesional
+  Ejemplos: "busco dentista", "necesito ortodoncista", "hay doctores en el centro?", "recomienda un doctor"
+
+ver_resenas: El usuario quiere ver OPINIONES o CALIFICACIONES
+  Ejemplos: "qué tal es el dr juan?", "ver reseñas", "tiene buenas opiniones?", "qué dicen los pacientes"
+
+confirmar_pago: El usuario quiere reportar que YA PAGÓ
+  Ejemplos: "ya deposité", "aquí está mi comprobante", "ya hice la transferencia", "confirmar mi pago"
+
+urgencia: El usuario tiene DOLOR, SANGRADO o una EMERGENCIA médica
+  Ejemplos: "me duele mucho la muela", "estoy sangrando", "se me cayó un diente", "ayuda urgente"
+
 otro: Si REALMENTE no encaja en ninguna (úsalo poco)
 
 REGLAS CRITICAS:
@@ -357,7 +390,8 @@ FORMATO DE RESPUESTA: Responde SOLO con la intención en minúsculas (ej: "agend
                 
                 # Validar que sea una intención válida
                 valid_intents = ['agendar_cita', 'reagendar_cita', 'cancelar_cita', 'ver_citas', 
-                               'consultar_informacion', 'saludar', 'ayuda', 'otro']
+                               'consultar_informacion', 'saludar', 'ayuda', 'otro', 'buscar_dentista', 
+                               'ver_resenas', 'confirmar_pago', 'urgencia']
                 if intent in valid_intents:
                     return {
                         'intent': intent,
@@ -812,23 +846,16 @@ Reagendar:
 Cancelar:
 "Entiendo perfectamente. Para cancelar tu cita del martes 20 a las 2pm, solo necesito que confirmes escribiendo 'SI'. Estas seguro?"
 
-Problema:
-"Uy, parece que no hay horarios disponibles esa semana. Te parece bien si buscamos la siguiente semana? Ahi tengo varios espacios."
-
-Informacion:
-"Claro, Densora conecta pacientes con dentistas certificados. Puedes agendar, pagar en linea y gestionar todo desde tu celular. Te gustaria agendar una cita ahora?"
-
-[LO QUE NUNCA DEBES HACER]:
-[NO] Responder con "..." o mensajes vacios
-[NO] Ser frio o robotico: "Su solicitud ha sido procesada"
-[NO] Dar respuestas genericas que no ayuden
-[NO] Ignorar el contexto de la conversacion
-[NO] Ser impersonal: usa el nombre del usuario si lo sabes
-[NO] Hacer promesas que el sistema no puede cumplir
+[RESOLUCIÓN DE PROBLEMAS - CRÍTICO]:
+- Si el usuario tiene un problema (ej: "no puedo pagar", "duele mucho", "error"), NO des respuestas genéricas.
+- Ofrece SOLUCIONES concretas:
+  - Dolor: "Entiendo que tienes dolor. Te sugiero agendar lo antes posible. Tengo hueco mañana a las..."
+  - Pago fallido: "No te preocupes. Si la tarjeta falla, puedes pagar en efectivo en el consultorio."
+  - Dudas complejas: "Esa es una buena pregunta. Para darte la mejor respuesta, te sugiero llamar directamente al..."
 
 [RECUERDA]: Eres el MEJOR asistente dental del mundo. Cada interaccion debe dejar al usuario MAS contento que antes.
 
-IMPORTANTE FINAL: Responde de forma natural, cálida y útil, como si fueras un asistente humano excepcional. Tu objetivo es que el usuario piense "wow, qué buena atención"."""
+IMPORTANTE FINAL: Responde de forma natural, cálida y útil. Si detectas un problema, resuélvelo o da una alternativa clara."""
         
         # Construir mensaje con contexto completo
         messages = [{"role": "system", "content": system_prompt}]

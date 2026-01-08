@@ -54,44 +54,177 @@ class ConversationManager:
     
     def process_message(self, session_id: str, message: str, 
                        user_id: str = None, phone: str = None,
-                       user_name: str = None, mode: str = None) -> Dict:
+                       user_name: str = None, mode: str = 'hybrid',
+                       context_extras: Dict = None) -> Dict:
         """
-        Procesa mensajes usando SOLO el sistema de menús estructurado
-        Ignora el parámetro mode - siempre usa menús
-        Sin IA/ML, solo opciones numeradas y flujos fijos
+        Procesa mensajes usando un enfoque HÍBRIDO inteligente:
+        1. Si el usuario está en un flujo específico (ej: agendando), sigue el flujo.
+        2. Si el mensaje es un número, lo trata como opción de menú.
+        3. Si es texto natural, usa IA para entender intención/problema.
         """
         # Obtener contexto
         context = self.get_conversation_context(session_id)
-        print(f"[CONVERSATION_MANAGER] process_message - session_id={session_id}, message='{message}', context_step={context.get('step')}, user_id={user_id}, phone={phone}")
+        current_step = context.get('step', 'inicial')
         
-        # Actualizar datos del usuario si están disponibles
+        print(f"[CONVERSATION_MANAGER] process_message - session_id={session_id}, msg='{message}', step={current_step}, mode={mode}")
+        
+        # Actualizar datos del usuario
         if user_id or phone:
             from services.actions_service import ActionsService
-            actions_service = ActionsService()
-            user_data = actions_service.get_user_info(user_id=user_id, phone=phone)
-            if user_data:
-                context['user_data'] = user_data
-            elif user_name:
-                context['user_data'] = {'nombre': user_name}
+            # Solo instanciar si no existe para ahorrar recursos
+            if not hasattr(self, 'actions_service'):
+                self.actions_service = ActionsService()
+            
+            # Actualizar datos si es necesario (no en cada mensaje para optimizar)
+            if not context.get('user_data'):
+                user_data = self.actions_service.get_user_info(user_id=user_id, phone=phone)
+                if user_data:
+                    context['user_data'] = user_data
+                elif user_name:
+                    context['user_data'] = {'nombre': user_name}
         
         # Agregar mensaje al historial
         self.add_to_history(session_id, 'user', message)
+
+        # 0. Manejo de Multimedia (Contexto Extra)
+        if context_extras:
+            context.update(context_extras)
+            if '[MEDIA_RECEIVED]' in message:
+                print(f"[CONVERSATION_MANAGER] Multimedia detectada: {context_extras.get('media_url')}")
+                # Si estamos pagando, asumir que es comprobante
+                if context.get('intent') == 'confirmar_pago' or 'pago' in message.lower():
+                     return self._handle_confirm_payment(session_id, {}, context, user_id, phone)
+                
+                # Respuesta genérica para imágenes
+                return {
+                    'response': "📷 He recibido tu imagen/archivo. Por ahora solo puedo guardarlo, un humano lo revisará pronto.",
+                    'action': 'media_received',
+                    'next_step': current_step
+                }
         
-        # SIEMPRE usar sistema de menús - ignorar cualquier referencia a modo agente
-        result = self.menu_system.process_message(session_id, message, context, user_id, phone)
+        # LÓGICA HÍBRIDA MEJORADA
         
-        # Actualizar contexto con el siguiente paso
+        # 1. Si es un comando de sistema, procesarlo siempre
+        if message.lower().strip() in ['menu', 'menú', 'salir', 'cancelar', 'inicio']:
+             result = self.menu_system.process_message(session_id, message, context, user_id, phone)
+             self._update_context_and_history(session_id, result)
+             return result
+
+        # 1.5 Detección de Usuario Nuevo (Gap Analysis)
+        # Si no tenemos user_id Y no estamos ya en el flujo de registro
+        if not user_id and context.get('step') != 'registro_nombre':
+            # Verificar si ya le pedimos el nombre
+            if not context.get('registro_iniciado'):
+                print(f"[CONVERSATION_MANAGER] Usuario nuevo detectado (sin ID). Iniciando flujo de registro.")
+                self.update_conversation_context(session_id, {
+                    'step': 'registro_nombre',
+                    'registro_iniciado': True,
+                    'last_intent_pending': self.ml_service.classify_intent(message, context)['intent'] # Guardar intención original
+                })
+                return {
+                    'response': "¡Hola! 👋 Veo que es la primera vez que nos escribes.\n\nPara poder atenderte mejor, ¿podrías decirme tu nombre completo?",
+                    'action': 'ask_name',
+                    'next_step': 'registro_nombre'
+                }
+
+        # 1.6 Flujo de Registro Activo
+        if context.get('step') == 'registro_nombre':
+            nombre = message.strip()
+            if len(nombre) < 3:
+                 return {
+                    'response': "Por favor ingresa un nombre válido (al menos 3 letras).",
+                    'action': None,
+                    'next_step': 'registro_nombre'
+                }
+            
+            # Registrar usuario
+            print(f"[CONVERSATION_MANAGER] Registrando usuario: {nombre}, {phone}")
+            nuevo_usuario = self.actions_service.quick_register_user(phone, nombre)
+            
+            if nuevo_usuario:
+                # Actualizar contexto con nuevo ID
+                try:
+                    user_id = nuevo_usuario['uid']
+                    context['user_data'] = nuevo_usuario
+                    
+                    # Recuperar intención original si existía
+                    intent_original = context.get('last_intent_pending')
+                    response_text = f"¡Gracias {nombre}! Ya te he registrado.\n\n"
+                    
+                    self.update_conversation_context(session_id, {
+                        'step': 'inicial', # Salir del flujo de registro
+                        'registro_iniciado': False
+                    })
+                    
+                    # Si tenía una intención clara (ej: "quiero agendar"), intentar procesarla ahora o volver al flujo normal
+                    # Para simplificar, volvemos a procesar el mensaje original si podemos, o pedimos confirmar.
+                    # Dado que message ahora es el nombre, mejor preguntamos en qué ayudar.
+                    response_text += "¿En qué puedo ayudarte hoy?"
+                    
+                    return {
+                        'response': response_text,
+                        'action': 'user_registered',
+                        'next_step': 'inicial'
+                    }
+                except Exception as e:
+                    print(f"Error procesando nuevo usuario: {e}")
+            
+            return {
+                'response': "Hubo un pequeño error registrando tus datos, pero no te preocupes. ¿En qué puedo ayudarte?",
+                'action': None,
+                'next_step': 'inicial'
+            }
+
+        # 2. Si estamos en un paso que REQUIERE input específico (no 'inicial' ni 'menu_principal')
+
+        # 2. Si estamos en un paso que REQUIERE input específico (no 'inicial' ni 'menu_principal')
+        # Y el mensaje parece ser ese input (número, fecha, etc), usar sistema de menús/flujos
+        steps_requiring_input = ['seleccionando_fecha', 'selecionando_hora', 'reagendando_fecha', 
+                               'reagendando_hora', 'confirmando_cancelacion', 'esperando_nombre',
+                               'esperando_descripcion']
+        
+        if current_step in steps_requiring_input:
+            # Intentar procesar con sistema de menús primero
+            # Si el sistema de menús dice "opción inválida" y es texto largo, quizás es una duda
+            result = self.menu_system.process_message(session_id, message, context, user_id, phone)
+            
+            # Si el resultado es válido o avanza el paso, usarlo
+            if result.get('next_step') != current_step or (result.get('action') and result.get('action') != 'error'):
+                self._update_context_and_history(session_id, result)
+                return result
+            
+            # Si el menú no lo entendió (ej: usuario preguntó algo en medio del flujo),
+            # y es texto natural, dejar que el Agente IA intente ayudar
+            if len(message) > 4 and not message.strip().isdigit():
+                print(f"Input no reconocido en flujo {current_step}, intentando con Agente IA...")
+                pass # Caer al bloque de Agente
+            else:
+                self._update_context_and_history(session_id, result)
+                return result
+
+        # 3. Si el mensaje es NUMÉRICO, priorizar menú (navegación rápida)
+        if message.strip().isdigit():
+             result = self.menu_system.process_message(session_id, message, context, user_id, phone)
+             self._update_context_and_history(session_id, result)
+             return result
+
+        # 4. Para todo lo demás (texto natural, dudas, problemas), usar MODO AGENTE (IA)
+        print("Usando MODO AGENTE para procesamiento de lenguaje natural")
+        result = self._process_agent_mode(session_id, message, context, user_id, phone)
+        
+        self._update_context_and_history(session_id, result)
+        return result
+
+    def _update_context_and_history(self, session_id, result):
+        """Helper para actualizar estado tras procesar"""
         if result.get('next_step'):
             self.update_conversation_context(session_id, {'step': result['next_step']})
         
-        # Agregar respuesta al historial
         if result.get('response'):
             self.add_to_history(session_id, 'assistant', result['response'])
         
-        # Siempre retornar modo 'menu'
-        result['mode'] = 'menu'
-        
-        return result
+        # Marcar modo usado
+        result['mode'] = 'hybrid'
     
     def _process_menu_mode(self, session_id: str, message: str, context: Dict,
                           user_id: str, phone: str) -> Dict:
@@ -166,6 +299,17 @@ class ConversationManager:
                 )
                 if ai_response and len(ai_response) > len(response_data['response']):
                     response_data['response'] = ai_response
+        
+        # Robustez: Si la confianza es muy baja, ofrecer menú o ayuda
+        elif confidence < 0.4:
+            print(f"Confianza baja ({confidence}) para intent '{intent}'. Ofreciendo menú.")
+            return {
+                'response': "No estoy seguro de haber entendido bien. ¿Te gustaría ver el menú de opciones?",
+                'action': 'offer_menu',
+                'next_step': 'menu_principal',
+                'mode': 'menu' # Sugerir volver a menú
+            }
+            
         else:
             # Generar respuesta usando ML mejorado con historial completo
             response = self.ml_service.generate_response(
@@ -298,7 +442,7 @@ class ConversationManager:
         # J.RF12: Procesamiento mejorado de palabras clave específicas
         elif intent == 'contacto' or 'contacto' in message_lower or 'contact' in message_lower:
             return {
-                'response': 'Para contactarnos:\n\nTeléfono: [Número de contacto]\nEmail: contacto@densora.com\nWeb: www.densora.com\n\n¿Necesitas algo más?',
+                'response': 'Para contactarnos:\n\nTeléfono: [Número de contacto]\nEmail: contacto@densora.com\nWeb: localhost:4321\n\n¿Necesitas algo más?',
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -327,35 +471,38 @@ class ConversationManager:
         elif intent == 'consultar_tiempo_pago':
             return self._handle_check_payment_time(context, user_id, phone)
         
-        elif intent == 'consultar_servicios':
+        elif intent == 'consultar_servicios' or intent == 'informacion_servicios':
             return self._handle_services_info(context)
         
         elif intent == 'ver_historial':
             return self._handle_appointment_history(context, user_id, phone)
         
-        elif intent == 'contacto':
-            return {
-                'response': 'Para contactarnos:\n\nTeléfono: [Número de contacto]\nEmail: contacto@densora.com\nWeb: www.densora.com\nUbicación: [Dirección]\n\n¿Necesitas algo más?',
-                'action': None,
-                'next_step': 'inicial'
-            }
-        
-        elif intent == 'confirmar_pago':
-            return self._handle_confirm_payment(context, user_id, phone)
-        
-        elif intent == 'consultar_tiempo_pago':
-            return self._handle_check_payment_time(context, user_id, phone)
-        
-        elif intent == 'informacion_servicios':
-            return self._handle_services_info(context, entities)
-        
+        elif intent == 'buscar_dentista':
+            return self._handle_search_dentist_intent(session_id, context, entities, message)
+            
+        elif intent == 'ver_resenas':
+            return self._handle_reviews_intent(session_id, context, entities)
+            
+        elif intent == 'consultar_informacion':
+            # Verificar si pide historial específicamente
+            msg_lower = message.lower()
+            if 'historial' in msg_lower or 'expediente' in msg_lower:
+                return self._handle_native_history_view(context, user_id, phone)
+            return self._handle_info_query(session_id, context, message)
+            
+        elif intent == 'ayuda':
+            return self.menu_system._handle_help(context)
+
         elif intent == 'despedirse':
             return {
                 'response': '¡Hasta luego! Que tengas un excelente día.',
                 'action': None,
                 'next_step': 'inicial'
             }
-        
+            
+        elif intent == 'urgencia':
+            return self._handle_emergency(context)
+
         else:
             # Intención no reconocida
             return {
@@ -1108,6 +1255,96 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
             'action': None,
             'next_step': 'inicial'
         }
+
+    def _handle_search_dentist_intent(self, session_id: str, context: Dict, entities: Dict, message: str) -> Dict:
+        """Maneja la búsqueda de dentistas"""
+        # Extraer query de búsqueda (especialidad o nombre)
+        query = entities.get('especialidad') or entities.get('dentista') or message
+        
+        # Limpiar query básica
+        ignore_words = ['busco', 'necesito', 'un', 'el', 'la', 'doctor', 'dentista', 'para']
+        query_words = query.lower().split()
+        clean_query = ' '.join([w for w in query_words if w not in ignore_words])
+        
+        resultados = self.actions_service.search_dentists(clean_query)
+        
+        if not resultados:
+            return {
+                'response': f"No encontré dentistas específicos para '{clean_query}', pero tenemos excelentes profesionales generales. ¿Te gustaría agendar una cita de valoración?",
+                'action': 'offer_general_appointment',
+                'next_step': context.get('step', 'inicial'),
+                'mode': 'agent'
+            }
+        
+        # Formatear resultados
+        respuesta = f"Encontré {len(resultados)} dentistas:\n\n"
+        for i, dentista in enumerate(resultados[:3]):
+            respuesta += f"*{i+1}. {dentista['nombre']}* ({dentista['especialidad']})\n   ⭐ {dentista['calificacion']}\n   🏥 {dentista['ubicacion']}\n\n"
+            
+        respuesta += "¿Te gustaría agendar con alguno? (Escribe el nombre o 'agendar')"
+        
+        return {
+            'response': respuesta,
+            'action': 'search_results',
+            'next_step': 'inicial', # Mantener en inicial para permitir flujo natural
+            'mode': 'agent'
+        }
+
+    def _handle_reviews_intent(self, session_id: str, context: Dict, entities: Dict) -> Dict:
+        """Maneja la visualización de reseñas"""
+        dentista_name = entities.get('dentista')
+        
+        reseñas = self.actions_service.get_dentist_reviews(dentista_name)
+        
+        if not reseñas:
+            return {
+                'response': "Aún no hay reseñas disponibles para este criterio, pero todos nuestros doctores están certificados.",
+                'action': None,
+                'next_step': context.get('step'),
+                'mode': 'agent'
+            }
+            
+        respuesta = "*Opiniones recientes:*\n\n"
+        for r in reseñas[:3]:
+            respuesta += f"⭐ {r['calificacion']}/5 - {r['autor']}\n\"{r['comentario']}\"\n\n"
+            
+        return {
+            'response': respuesta,
+            'action': 'show_reviews',
+            'next_step': context.get('step'),
+            'mode': 'agent'
+        }
+
+    def _handle_native_history_view(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra historial médico nativo"""
+        if not user_id and not phone:
+             return {
+                'response': "Necesitas iniciar sesión o registrarte para ver tu historial.",
+                'action': 'require_auth',
+                'next_step': context.get('step'),
+                'mode': 'agent'
+            }
+            
+        historial = self.actions_service.get_medical_history(user_id, phone)
+        
+        if not historial:
+             return {
+                'response': "No tienes historial médico registrado aún.",
+                'action': None,
+                'next_step': context.get('step'),
+                'mode': 'agent'
+            }
+            
+        respuesta = "*Tu Historial Médico (Reciente):*\n\n"
+        for h in historial[:3]:
+            respuesta += f"📅 {h['fecha']} - {h['tratamiento']}\n   Dr. {h['dentista']}\n\n"
+            
+        return {
+            'response': respuesta,
+            'action': 'show_history',
+            'next_step': context.get('step'),
+            'mode': 'agent'
+        }
     
     def _handle_appointment_history(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Maneja consulta de historial de citas"""
@@ -1198,72 +1435,64 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                 'next_step': 'inicial'
             }
 
-    def _handle_confirm_payment(self, session_id: str, entities: Dict, context: Dict,
-                                user_id: str, phone: str) -> Dict:
-        """Maneja la confirmación de pago por parte del usuario"""
+    def _handle_confirm_payment(self, session_id: str, entities: Dict, context: Dict, 
+                               user_id: str, phone: str) -> Dict:
+        """Maneja la confirmación de pago automatizada"""
         try:
-            # Obtener citas pendientes de pago del usuario
+            # 1. Obtener citas pendientes
             citas = self.actions_service.get_user_appointments(
-                user_id=user_id,
-                phone=phone,
-                status='confirmado'
+                user_id=user_id, phone=phone
             )
-            
-            if not citas:
-                return {
-                    'response': "No tienes citas pendientes de confirmación de pago.\n\nSi crees que esto es un error, por favor contacta con el consultorio.",
-                    'action': None,
-                    'next_step': 'inicial'
-                }
-            
-            # Filtrar solo las que tienen pago pendiente
-            citas_pendientes = [c for c in citas if c.get('payment_status') == 'pending' or c.get('paymentStatus') == 'pending']
-            
+            # Filtrar manual si get_user_appointments no filtró por estado de pago
+            citas_pendientes = []
+            for c in citas:
+                 # Check payment status variants
+                 status = c.get('payment_status') or c.get('paymentStatus') or c.get('estado_pago')
+                 if status in ['pending', 'pendiente', None]:
+                     # Verificar si es cita futura
+                     citas_pendientes.append(c)
+
             if not citas_pendientes:
                 return {
-                    'response': "Todas tus citas ya tienen el pago confirmado.\n\n¿Necesitas algo más?",
+                    'response': "No encontré citas pendientes de pago. ¡Todo está en orden!",
                     'action': None,
                     'next_step': 'inicial'
                 }
             
-            # Si solo hay una cita pendiente, confirmarla directamente
-            if len(citas_pendientes) == 1:
-                cita = citas_pendientes[0]
-                response = f"Cita pendiente de confirmación:\n\n"
-                response += f"Fecha: {cita.get('fecha', 'N/A')}\n"
-                response += f"Hora: {cita.get('hora', 'N/A')}\n"
-                response += f"Dentista: {cita.get('dentista', 'N/A')}\n\n"
-                response += "Importante: Para confirmar tu pago, por favor contacta directamente con el consultorio para verificar y actualizar el estado de tu pago.\n\n"
-                response += "Una vez confirmado, tu cita quedará asegurada y no será cancelada."
-                
+            # 2. Si hay citas, confirmar
+            # Simplificación: Si hay 1, confirmar esa. Si hay más, pedir ID (por ahora asumimos 1 o la más próxima)
+            cita_a_confirmar = citas_pendientes[0]
+            cita_id = cita_a_confirmar['id']
+            
+            # Llamar al servicio de pagos
+            resultado = self.payment_service.confirmar_pago(
+                cita_id=cita_id,
+                metodo_confirmacion='whatsapp_bot',
+                notas="Usuario reportó pago vía chat"
+            )
+            
+            if resultado['success']:
+                fecha = cita_a_confirmar.get('fecha', 'tu cita')
                 return {
-                    'response': response,
-                    'action': None,
+                    'response': f"✅ ¡Listo! He registrado tu reporte de pago para la cita del {fecha}.\n\nEstado actual: *Pendiente de Verificación*.\n\nEl consultorio validará tu pago pronto. Te avisaré cuando esté confirmado al 100%.",
+                    'action': 'payment_reported',
                     'next_step': 'inicial'
                 }
-            
-            # Si hay múltiples citas, mostrarlas
-            citas_text = []
-            for i, c in enumerate(citas_pendientes, 1):
-                citas_text.append(f"{i}. {c.get('fecha', 'N/A')} {c.get('hora', 'N/A')}")
-            
-            response = f"Tienes {len(citas_pendientes)} citas pendientes de pago:\n\n"
-            response += "\n".join(citas_text)
-            response += "\n\nPara confirmar el pago de cualquiera de estas citas, por favor contacta directamente con el consultorio."
-            
-            return {
-                'response': response,
-                'action': None,
-                'next_step': 'inicial'
-            }
-            
+            else:
+                return {
+                    'response': f"Hubo un problema registrando tu pago: {resultado.get('error')}. Por favor intenta más tarde o contacta al consultorio.",
+                    'action': 'error',
+                    'next_step': 'inicial'
+                }
+
         except Exception as e:
             print(f"Error en _handle_confirm_payment: {e}")
             return {
-                'response': "Lo siento, hubo un error al verificar tus citas. Por favor intenta nuevamente o contacta con el consultorio.",
-                'action': None,
+                'response': "Lo siento, ocurrió un error procesando tu solicitud. Por favor contacta al consultorio.",
+                'action': 'error',
                 'next_step': 'inicial'
             }
+
     
     def _handle_check_payment_time(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Maneja la consulta sobre tiempo restante para pagar"""
@@ -1512,4 +1741,21 @@ Los precios varían según el tratamiento. Para obtener un presupuesto exacto, a
                 'action': None,
                 'next_step': 'inicial'
             }
+
+    def _handle_emergency(self, context: Dict) -> Dict:
+        """Maneja solicitudes de urgencia/emergencia"""
+        # Respuesta prioritaria
+        response = "🚨 *ATENCIÓN DE URGENCIA* 🚨\n\n"
+        response += "Si tienes dolor severo, sangrado incontrolable o infección grave:\n\n"
+        response += "📞 *Llama INMEDIATAMENTE al: (55) 1234-5678* (Línea de Urgencias)\n\n"
+        response += "O acude directamente a nuestra sucursal de urgencias:\n"
+        response += "📍 Av. Reforma 123 (Abierto 24h)\n\n"
+        response += "Si es una molestia menor que puede esperar a mañana, escribe 'agendar cita' para buscarte un espacio prioritario."
+        
+        return {
+            'response': response,
+            'action': 'emergency_info',
+            'next_step': 'inicial',
+            'mode': 'agent'
+        }
 

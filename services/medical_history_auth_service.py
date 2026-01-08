@@ -54,8 +54,8 @@ class MedicalHistoryAuthService:
                 'citaId': cita_id
             })
             
-            approve_link = f"https://www.densora.com/authorize-history?token={approve_token}" if approve_token else None
-            reject_link = f"https://www.densora.com/reject-history?token={reject_token}" if reject_token else None
+            approve_link = f"http://localhost:4321/authorize-history?token={approve_token}" if approve_token else None
+            reject_link = f"http://localhost:4321/reject-history?token={reject_token}" if reject_token else None
             
             mensaje = f"""*SOLICITUD DE ACCESO AL HISTORIAL MÉDICO*
 

@@ -614,7 +614,7 @@ Escribe el *número* de la opción que deseas."""
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Opción 5: Historial médico"""
-        web_url = 'https://www.densora.com'  # TODO: obtener de config
+        web_url = 'http://localhost:4321'  # TODO: obtener de config
         return {
             'response': f'*Historial Médico*\n\nPara acceder a tu historial médico, visita:\n\n{web_url}/historialMedico\n\nEscribe "menu" para volver al menú principal.',
             'action': None,
@@ -624,7 +624,7 @@ Escribe el *número* de la opción que deseas."""
     
     def _handle_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Opción 6: Reseñas y calificaciones"""
-        web_url = 'https://www.densora.com'  # TODO: obtener de config
+        web_url = 'http://localhost:4321'  # TODO: obtener de config
         return {
             'response': f'*Reseñas y Calificaciones*\n\nPara dejar una reseña o ver tus calificaciones, visita:\n\n{web_url}/mis-resenas\n\nEscribe "menu" para volver al menú principal.',
             'action': None,
@@ -1107,7 +1107,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
 Recibirás un recordatorio 24h antes de tu cita.
 
 Para completar o actualizar tu historial médico, visita:
-https://www.densora.com/historialMedico
+http://localhost:4321/historialMedico
 
 Escribe "menu" para volver al menú principal."""
                 

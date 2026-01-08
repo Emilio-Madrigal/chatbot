@@ -301,7 +301,7 @@ class ReminderScheduler:
 Notamos que aún no has completado tu historial médico. Esto nos ayuda a brindarte una mejor atención.
 
 Completa tu historial en:
-👉 densora.com/perfil/historial
+👉 localhost:4321/historialMedico
 
 Es rápido (2 minutos) y seguro. Tu información está encriptada.
 

@@ -358,7 +358,7 @@ Visita nuestra web para mantener tu información actualizada.
 
 """
             
-            mensaje += f"""*Visita nuestra web:* https://www.densora.com
+            mensaje += f"""*Visita nuestra web:* http://localhost:4321
 
 ¡Que tengas una excelente semana!"""
             

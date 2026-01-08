@@ -327,7 +327,7 @@ class PaymentService:
         try:
             # TODO: Implementar integración con Stripe Payment Links
             # Por ahora retornar placeholder
-            return f"https://densora.com/pagar/{cita_id}"
+            return f"http://localhost:4321/pagar/{cita_id}"
         except Exception as e:
             print(f"Error generando link de pago: {e}")
             return None

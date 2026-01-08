@@ -737,3 +737,140 @@ class ActionsService:
             traceback.print_exc()
             return []
 
+    def quick_register_user(self, phone: str, name: str = None) -> Optional[Dict]:
+        """Registro rápido de usuario desde chatbot"""
+        try:
+            # Verificar si ya existe
+            paciente = self.paciente_repo.buscar_por_telefono(phone)
+            if paciente:
+                 return {
+                    'uid': paciente.uid,
+                    'nombre': paciente.nombreCompleto or name or 'Paciente',
+                    'telefono': paciente.telefono
+                }
+            
+            # Crear nuevo paciente
+            # Usar timestamp como ID temporal si no hay auth
+            temp_uid = f"chat_{int(datetime.now().timestamp())}"
+            
+            datos_paciente = {
+                'telefono': phone,
+                'nombreCompleto': name or 'Usuario Chat',
+                'origen': 'whatsapp_bot',
+                'fecha_registro': datetime.now(self.mexico_tz).isoformat(),
+                'activo': True
+            }
+            
+            # Guardar en Firestore
+            self.db.collection('pacientes').document(temp_uid).set(datos_paciente)
+            
+            return {
+                'uid': temp_uid,
+                'nombre': name or 'Usuario Chat',
+                'telefono': phone
+            }
+            
+        except Exception as e:
+            print(f"Error en registro rápido: {e}")
+            return None
+
+    def get_medical_history(self, user_id: str = None, phone: str = None) -> List[Dict]:
+        """Obtiene el historial médico del paciente (versión lectura para chat)"""
+        try:
+            paciente = None
+            if user_id:
+                paciente = self.paciente_repo.buscar_por_id(user_id)
+            elif phone:
+                paciente = self.paciente_repo.buscar_por_telefono(phone)
+            
+            if not paciente:
+                return []
+            
+            # Obtener citas pasadas como proxy de historial (MVP)
+            # En un sistema real buscaríamos en una colección 'historial_medico'
+            # pero podemos usar las citas completadas
+            citas = self.cita_repo.obtener_citas_paciente(paciente.uid)
+            historial = []
+            
+            for cita in citas:
+                if cita.estado == 'completada':
+                    historial.append({
+                        'fecha': cita.fecha if isinstance(cita.fecha, str) else cita.fecha.strftime('%Y-%m-%d'),
+                        'tratamiento': cita.motivo or 'Consulta General',
+                        'dentista': cita.dentistaName or 'No especificado',
+                        'notas': cita.notas or 'Sin notas adicionales'
+                    })
+            
+            return sorted(historial, key=lambda x: x['fecha'], reverse=True)
+            
+        except Exception as e:
+            print(f"Error obteniendo historial: {e}")
+            return []
+
+    def get_dentist_reviews(self, dentista_name: str = None) -> List[Dict]:
+        """Obtiene reseñas de dentistas"""
+        try:
+            # Si no hay nombre, traer reseñas generales destacadas
+            reseñas_ref = self.db.collection('resenas')
+            
+            query = reseñas_ref
+            if dentista_name:
+                # Búsqueda simple por nombre de dentista en la reseña
+                # Idealmente sería por ID, pero el chat maneja nombres
+                pass 
+                
+            docs = query.order_by('fecha', direction='DESCENDING').limit(5).stream()
+            
+            reseñas = []
+            for doc in docs:
+                data = doc.to_dict()
+                reseñas.append({
+                    'autor': data.get('autor', 'Anónimo'),
+                    'calificacion': data.get('calificacion', 5),
+                    'comentario': data.get('comentario', ''),
+                    'dentista': data.get('dentistaName', 'General'),
+                    'fecha': data.get('fecha', '')
+                })
+            
+            # Filtrar manual si se pidió un dentista específico (por limitación de firestore en queries complejos)
+            if dentista_name:
+                dentista_lower = dentista_name.lower()
+                reseñas = [r for r in reseñas if dentista_lower in r['dentista'].lower()]
+                
+            return reseñas
+            
+        except Exception as e:
+            print(f"Error obteniendo reseñas: {e}")
+            # Mock data si falla la DB (para demo)
+            return [
+                {'autor': 'María G.', 'calificacion': 5, 'comentario': 'Excelente atención, muy suave.', 'dentista': 'Dr. Ana García'},
+                {'autor': 'Carlos P.', 'calificacion': 5, 'comentario': 'Me explicaron todo el procedimiento.', 'dentista': 'Dr. Juan Pérez'},
+                {'autor': 'Sofia L.', 'calificacion': 4, 'comentario': 'Un poco de espera pero valió la pena.', 'dentista': 'Dra. Laura'}
+            ]
+
+    def search_dentists(self, query: str) -> List[Dict]:
+        """Busca dentistas por nombre o especialidad"""
+        try:
+            query_lower = query.lower().strip()
+            dentistas_ref = self.db.collection('dentistas').where('activo', '==', True)
+            
+            resultados = []
+            for doc in dentistas_ref.stream():
+                data = doc.to_dict()
+                nombre = data.get('nombreCompleto', '').lower()
+                especialidad = data.get('especialidad', '').lower()
+                
+                # Coincidencia simple
+                if query_lower in nombre or query_lower in especialidad:
+                     resultados.append({
+                        'id': doc.id,
+                        'nombre': data.get('nombreCompleto', 'Doctor'),
+                        'especialidad': data.get('especialidad', 'General'),
+                        'calificacion': data.get('calificacion', 5.0),
+                        'ubicacion': data.get('ubicacion', 'Consultorio Central')
+                    })
+            
+            return resultados
+        except Exception as e:
+            print(f"Error buscando dentistas: {e}")
+            return []
