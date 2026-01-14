@@ -1,11 +1,97 @@
+import asyncio
+from datetime import datetime
 from database.models import Cita, CitaRepository
 from services.whatsapp_service import WhatsAppService
-from datetime import datetime
+from services.event_notifier import event_notifier
 
 class CitasService:
     def __init__(self):
         self.cita_repo=CitaRepository()
         self.whatsapp=WhatsAppService()
+
+    @staticmethod
+    def _run_async(coro):
+        """Ejecuta una corrutina sin bloquear Flask."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+        else:
+            return loop.create_task(coro)
+
+    def _get_paciente_uid(self, usuario_whatsapp: str, paciente_id: str = None):
+        """Obtiene el uid del paciente usando id explícito o teléfono."""
+        if paciente_id:
+            return paciente_id
+        try:
+            paciente = self.cita_repo.paciente_repo.buscar_por_telefono(usuario_whatsapp)
+            return paciente.uid if paciente else None
+        except Exception:
+            return None
+
+    def _date_to_str(self, fecha):
+        if not fecha:
+            return ''
+        if isinstance(fecha, str):
+            return fecha
+        try:
+            return fecha.strftime('%Y-%m-%d')
+        except Exception:
+            return str(fecha)
+
+    def _notify_created(self, paciente_uid, cita: Cita):
+        if not paciente_uid or not cita:
+            return
+        try:
+            self._run_async(
+                event_notifier.notify_appointment_created(
+                    cita_id=cita.id,
+                    paciente_id=paciente_uid,
+                    fecha=self._date_to_str(cita.fecha),
+                    hora=cita.horaInicio or cita.hora or '',
+                    dentista_name=getattr(cita, 'dentistaName', None) or 'Dentista',
+                    consultorio_name=getattr(cita, 'consultorioName', None) or 'Consultorio',
+                    motivo=cita.motivo or '',
+                    dentista_id=getattr(cita, 'dentistaId', None)
+                )
+            )
+        except Exception as e:
+            print(f"[notifier] error al notificar creación: {e}")
+
+    def _notify_rescheduled(self, paciente_uid, cita: Cita, old_date, old_time, new_date, new_time):
+        if not paciente_uid or not cita:
+            return
+        try:
+            self._run_async(
+                event_notifier.notify_appointment_rescheduled(
+                    cita_id=cita.id,
+                    paciente_id=paciente_uid,
+                    old_date=self._date_to_str(old_date),
+                    old_time=old_time or '',
+                    new_date=self._date_to_str(new_date),
+                    new_time=new_time or '',
+                    dentista_name=getattr(cita, 'dentistaName', None) or 'Dentista'
+                )
+            )
+        except Exception as e:
+            print(f"[notifier] error al notificar reagendo: {e}")
+
+    def _notify_cancelled(self, paciente_uid, cita: Cita):
+        if not paciente_uid or not cita:
+            return
+        try:
+            self._run_async(
+                event_notifier.notify_appointment_cancelled(
+                    cita_id=cita.id,
+                    paciente_id=paciente_uid,
+                    fecha=self._date_to_str(cita.fecha),
+                    hora=cita.horaInicio or cita.hora or '',
+                    motivo=cita.motivo or '',
+                    dentista_id=getattr(cita, 'dentistaId', None)
+                )
+            )
+        except Exception as e:
+            print(f"[notifier] error al notificar cancelación: {e}")
     
     def crear_cita(self, usuario_whatsapp:str, datos_cita:dict, paciente_id:str=None, whatsapp_service=None)-> bool:
         try:
@@ -27,6 +113,8 @@ class CitasService:
                     service.send_confirmation_message(
                         usuario_whatsapp, cita, is_new=True
                     )
+                    paciente_uid = self._get_paciente_uid(usuario_whatsapp, paciente_id)
+                    self._notify_created(paciente_uid, cita)
                     print(f"cita creada: {cita_id}")
                     return True
                 else:
@@ -43,6 +131,8 @@ class CitasService:
                     service.send_confirmation_message(
                         usuario_whatsapp, nueva_cita, is_new=True
                     )
+                    paciente_uid = self._get_paciente_uid(usuario_whatsapp, paciente_id)
+                    self._notify_created(paciente_uid, nueva_cita)
                     return True
             else:
                 service.send_text_message(
@@ -114,6 +204,10 @@ class CitasService:
                 )
                 return False
             
+            # Guardar datos previos para notificación
+            old_date = self._date_to_str(cita.fecha) if cita else ''
+            old_time = cita.horaInicio or cita.hora if cita else ''
+
             # Actualizar cita usando paciente_id o usuario_whatsapp
             if paciente_id:
                 success = self.cita_repo.actualizar_cita_por_id(paciente_id, cita_id, nueva_fecha, nueva_hora)
@@ -127,6 +221,15 @@ class CitasService:
                 cita.hora = nueva_hora
                 service.send_confirmation_message(
                     usuario_whatsapp, cita, is_new=False
+                )
+                paciente_uid = self._get_paciente_uid(usuario_whatsapp, paciente_id)
+                self._notify_rescheduled(
+                    paciente_uid,
+                    cita,
+                    old_date,
+                    old_time,
+                    nueva_fecha,
+                    nueva_hora
                 )
                 print(f"cita {cita_id} reagendada")
                 return True
@@ -182,6 +285,8 @@ class CitasService:
 *Hora:* {cita.horaInicio or cita.hora or 'N/A'}
 Tu cita ha sido cancelada"""
                 self.whatsapp.send_text_message(usuario_whatsapp, mensaje_cancelacion)
+                paciente_uid = self._get_paciente_uid(usuario_whatsapp, paciente_id)
+                self._notify_cancelled(paciente_uid, cita)
                 print(f"Cita cancelada {cita_id}")
                 return True
             else:

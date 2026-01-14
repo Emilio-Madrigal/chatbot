@@ -6,6 +6,7 @@ from services.message_logger import message_logger
 from services.token_service import token_service
 from services.retry_service import retry_service
 from services.language_service import language_service
+from services.notification_config_service import notification_config_service
 from database.models import PacienteRepository, CitaRepository
 from database.database import FirebaseConfig
 from datetime import datetime
