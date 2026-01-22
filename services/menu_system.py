@@ -1104,19 +1104,17 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             from database.models import CitaRepository
             cita_repo = CitaRepository()
             
-            # Crear timestamp con timezone UTC para Firestore
+            # Crear datetime con timezone para pasar a obtener_horarios_disponibles
+            # La función solo necesita un objeto con .timestamp() method
             from datetime import datetime, timezone
-            fecha_midnight = datetime(fecha_dt.year, fecha_dt.month, fecha_dt.day, 0, 0, 0, tzinfo=timezone.utc)
-            
-            from google.cloud.firestore import Timestamp
-            fecha_timestamp_firestore = Timestamp.from_datetime(fecha_midnight)
+            fecha_midnight = datetime(fecha_dt.year, fecha_dt.month, fecha_dt.day, 12, 0, 0, tzinfo=timezone.utc)
             
             print(f"[MENU_SYSTEM] Getting horarios for dentista={dentista_id}, consultorio={consultorio_id}, fecha={fecha_midnight}")
             
             horarios_slots = cita_repo.obtener_horarios_disponibles(
                 dentista_id,
                 consultorio_id,
-                fecha_timestamp_firestore
+                fecha_midnight  # datetime tiene .timestamp() method
             )
             
             print(f"[MENU_SYSTEM] Horarios slots received: {len(horarios_slots) if horarios_slots else 0}")
