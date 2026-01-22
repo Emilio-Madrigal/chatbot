@@ -45,24 +45,39 @@ class FirebaseFunctionsService:
                     break
             
             if not paciente_id:
+                print(f"[get_user_appointments] No se encontró paciente - user_id={user_id}, phone={phone}")
                 return []
+            
+            print(f"[get_user_appointments] Buscando citas para paciente_id={paciente_id}")
             
             # Obtener citas desde la subcolección (misma estructura que la web)
             citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
             
-            # Filtrar por estado si se especifica
-            if status:
-                query = citas_ref.where('estado', 'in', ['programada', 'confirmada', status]).order_by('fechaHora', direction='ASCENDING')
-            else:
-                query = citas_ref.order_by('fechaHora', direction='ASCENDING')
+            # Obtener fecha actual para filtrar citas futuras
+            from datetime import datetime
+            ahora = datetime.now()
+            
+            # Obtener todas las citas y filtrar en Python (más robusto que filtros compuestos)
+            all_docs = list(citas_ref.stream())
+            print(f"[get_user_appointments] Total documentos en subcolección: {len(all_docs)}")
             
             citas = []
-            for doc in query.stream():
+            for doc in all_docs:
                 data = doc.to_dict()
+                estado_cita = data.get('estado', data.get('status', ''))
+                
+                # Excluir citas canceladas y completadas si estamos buscando próximas
+                if status == 'confirmado' and estado_cita in ['cancelada', 'cancelled']:
+                    continue
+                
+                # Si buscamos específicamente completadas, solo mostrar esas
+                if status == 'completado' and estado_cita not in ['completado', 'completada', 'completed']:
+                    continue
                 
                 # Convertir fechaHora
                 fecha_str = ''
                 hora_str = ''
+                fecha_dt = None
                 if data.get('fechaHora'):
                     fecha_obj = data['fechaHora']
                     if hasattr(fecha_obj, 'to_datetime'):
@@ -75,18 +90,28 @@ class FirebaseFunctionsService:
                     fecha_str = fecha_dt.strftime('%d/%m/%Y')
                     hora_str = fecha_dt.strftime('%H:%M')
                 
+                # Para citas próximas, solo mostrar las que son futuras (o del día de hoy)
+                if status == 'confirmado' and fecha_dt:
+                    # Citas de hoy o futuras
+                    if fecha_dt.date() < ahora.date():
+                        continue
+                
                 citas.append({
                     'id': doc.id,
                     'fecha': fecha_str,
                     'hora': hora_str,
-                    'dentista': data.get('dentistaName', 'Dr. García'),
-                    'consultorio': data.get('consultorioName', 'Consultorio'),
-                    'estado': data.get('estado', 'confirmado'),
+                    'dentista': data.get('dentistaName', data.get('dentista', 'Dentista')),
+                    'consultorio': data.get('consultorioName', data.get('consultorio', 'Consultorio')),
+                    'estado': estado_cita or 'programada',
                     'motivo': data.get('motivo', data.get('Motivo', 'Consulta')),
-                    'tratamiento': data.get('tratamientoNombre', 'N/A'),
+                    'tratamiento': data.get('tratamientoNombre', data.get('tratamiento', 'N/A')),
                     'fechaHora': data.get('fechaHora')
                 })
             
+            # Ordenar por fecha
+            citas.sort(key=lambda x: x.get('fechaHora') or datetime.max)
+            
+            print(f"[get_user_appointments] Citas encontradas después de filtrar: {len(citas)}")
             return citas
             
         except Exception as e:
