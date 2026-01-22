@@ -287,8 +287,9 @@ Escribe el *número* de la opción que deseas."""
         # Confirmando resumen
         elif current_step == 'mostrando_resumen':
             if button_num == 1:  # Confirmar
-                context['step'] = 'solicitando_otp'
-                return self._request_otp_for_appointment(session_id, context, user_id, phone)
+                # Para WhatsApp no necesitamos OTP - el usuario ya está verificado por su teléfono
+                # Confirmar directamente la cita
+                return self._confirm_appointment(session_id, context, user_id, phone)
             elif button_num == 2:  # Cancelar
                 context['step'] = 'menu_principal'
                 return {
@@ -299,7 +300,7 @@ Escribe el *número* de la opción que deseas."""
                 }
             else:
                 return {
-                    'response': 'Por favor selecciona:\n*1.* Confirmar y continuar\n*2.* Cancelar',
+                    'response': 'Por favor selecciona:\n*1.* Confirmar cita\n*2.* Cancelar',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
