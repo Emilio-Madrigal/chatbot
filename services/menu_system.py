@@ -440,11 +440,20 @@ Escribe el *número* de la opción que deseas."""
             
             context['consultorios_disponibles'] = consultorios
             
-            # Format consultorios list
-            consultorios_texto = '\n'.join([
-                f'*{i+1}.* {c["nombre"]}\n   📍 {c.get("direccion", "")}'
-                for i, c in enumerate(consultorios)
-            ])
+            # Format consultorios list - format direccion properly
+            consultorios_texto = ''
+            for i, c in enumerate(consultorios):
+                direccion = c.get('direccion', '')
+                # Format direccion if it's a dict
+                if isinstance(direccion, dict):
+                    calle = direccion.get('calle', '')
+                    numero = direccion.get('numero', '')
+                    colonia = direccion.get('colonia', '')
+                    ciudad = direccion.get('ciudad', '')
+                    direccion_str = f"{calle} #{numero}, {colonia}, {ciudad}"
+                else:
+                    direccion_str = str(direccion) if direccion else ''
+                consultorios_texto += f'*{i+1}.* {c["nombre"]}\n   {direccion_str}\n'
             
             return {
                 'response': f'*Agendar Nueva Cita*\n\n*Paso 1/6: Selecciona un consultorio:*\n\n{consultorios_texto}\n\nEscribe el *número* del consultorio.',
@@ -501,7 +510,7 @@ Escribe el *número* de la opción que deseas."""
             context['dentistas_disponibles'] = dentistas
             
             dentistas_texto = '\n'.join([
-                f'*{i+1}.* {d["nombre"]}\n   🦷 {d.get("especialidad", "General")}'
+                f'*{i+1}.* {d["nombre"]}\n   Especialidad: {d.get("especialidad", "General")}'
                 for i, d in enumerate(dentistas)
             ])
             
@@ -1069,11 +1078,15 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
     def _show_available_times(self, context: Dict, user_id: str, phone: str, fecha) -> Dict:
         """Muestra horarios disponibles para una fecha - Usa la misma lógica que la web"""
         try:
-            # Convertir fecha string a datetime si es necesario
+            # Convertir fecha a datetime si es necesario
             if isinstance(fecha, str):
+                from datetime import datetime
                 fecha_dt = datetime.strptime(fecha, '%Y-%m-%d')
-            else:
+            elif hasattr(fecha, 'date'):
                 fecha_dt = fecha
+            else:
+                from datetime import datetime
+                fecha_dt = datetime.now()
             
             # Obtener dentista_id y consultorio_id del contexto
             dentista_id = context.get('dentista_id')
@@ -1091,11 +1104,14 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             from database.models import CitaRepository
             cita_repo = CitaRepository()
             
-            # Convertir fecha a timestamp para el método
-            from datetime import datetime
-            fecha_timestamp = datetime.combine(fecha_dt.date(), datetime.min.time())
+            # Crear timestamp con timezone UTC para Firestore
+            from datetime import datetime, timezone
+            fecha_midnight = datetime(fecha_dt.year, fecha_dt.month, fecha_dt.day, 0, 0, 0, tzinfo=timezone.utc)
+            
             from google.cloud.firestore import Timestamp
-            fecha_timestamp_firestore = Timestamp.from_datetime(fecha_timestamp)
+            fecha_timestamp_firestore = Timestamp.from_datetime(fecha_midnight)
+            
+            print(f"[MENU_SYSTEM] Getting horarios for dentista={dentista_id}, consultorio={consultorio_id}, fecha={fecha_midnight}")
             
             horarios_slots = cita_repo.obtener_horarios_disponibles(
                 dentista_id,
@@ -1103,10 +1119,12 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 fecha_timestamp_firestore
             )
             
+            print(f"[MENU_SYSTEM] Horarios slots received: {len(horarios_slots) if horarios_slots else 0}")
+            
             # Convertir slots a formato de texto para mostrar
             if not horarios_slots or len(horarios_slots) == 0:
                 return {
-                    'response': 'Lo siento, no hay horarios disponibles para esta fecha.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': 'No hay horarios disponibles para esta fecha.\n\nEscribe "menu" para seleccionar otra fecha.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1122,17 +1140,17 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             ])
             
             return {
-                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\nEscribe el *número* del horario.',
+                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\nEscribe el *numero* del horario.',
                 'action': 'show_times',
                 'next_step': context['step'],
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo horarios: {e}")
+            print(f"[MENU_SYSTEM] Error obteniendo horarios: {e}")
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener horarios disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': 'Error al obtener horarios. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
