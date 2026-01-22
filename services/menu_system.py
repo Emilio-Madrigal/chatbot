@@ -410,6 +410,160 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
         
+        # Menú de Historial Médico (Opción 5)
+        elif current_step == 'menu_historial_medico':
+            if button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif button_num == 1:
+                # Ver información médica
+                return self._show_medical_info(context, user_id, phone)
+            elif button_num == 2:
+                # Ver alergias y medicamentos
+                return self._show_allergies_medications(context, user_id, phone)
+            elif button_num == 3:
+                # Ver completitud
+                return self._show_medical_completeness(context, user_id, phone)
+            else:
+                return {
+                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Menú de Reseñas (Opción 6)
+        elif current_step == 'menu_resenas':
+            if button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif button_num == 1:
+                # Ver mis reseñas
+                return self._show_user_reviews(context, user_id, phone)
+            elif button_num == 2:
+                # Calificar cita pendiente
+                return self._show_pending_reviews_to_rate(context, user_id, phone)
+            elif button_num == 3:
+                # Información sobre reseñas
+                return self._show_reviews_info(context)
+            else:
+                return {
+                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Seleccionando cita para calificar
+        elif current_step == 'seleccionando_cita_calificar':
+            citas = context.get('citas_pendientes_resena', [])
+            if button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif citas and 0 <= button_num - 1 < len(citas):
+                cita_seleccionada = citas[button_num - 1]
+                context['cita_a_calificar'] = cita_seleccionada
+                context['step'] = 'ingresando_calificacion'
+                return {
+                    'response': f'*Calificar cita del {cita_seleccionada.get("fecha", "")}*\n\nDentista: {cita_seleccionada.get("dentista", "")}\n\n¿Qué calificación le das? (1-5 estrellas)\n\n*1.* ⭐ (Muy malo)\n*2.* ⭐⭐ (Malo)\n*3.* ⭐⭐⭐ (Regular)\n*4.* ⭐⭐⭐⭐ (Bueno)\n*5.* ⭐⭐⭐⭐⭐ (Excelente)\n\nEscribe el número de estrellas.',
+                    'action': None,
+                    'next_step': 'ingresando_calificacion',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(citas)} o 0 para volver.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Ingresando calificación
+        elif current_step == 'ingresando_calificacion':
+            if 1 <= button_num <= 5:
+                context['calificacion_seleccionada'] = button_num
+                context['step'] = 'confirmando_resena'
+                cita = context.get('cita_a_calificar', {})
+                return {
+                    'response': f'*Confirmar Reseña*\n\nDentista: {cita.get("dentista", "")}\nFecha: {cita.get("fecha", "")}\nCalificación: {"⭐" * button_num}\n\n¿Deseas publicarla como anónimo?\n*1.* Sí, publicar anónimo\n*2.* No, publicar con mi nombre\n*0.* Cancelar',
+                    'action': None,
+                    'next_step': 'confirmando_resena',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': 'Por favor selecciona una calificación del 1 al 5.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Confirmando reseña
+        elif current_step == 'confirmando_resena':
+            if button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Reseña cancelada.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif button_num in [1, 2]:
+                anonimo = button_num == 1
+                return self._submit_review(session_id, context, user_id, phone, anonimo)
+            else:
+                return {
+                    'response': 'Por favor selecciona 1, 2 o 0.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Menú de Ayuda (Opción 7)
+        elif current_step == 'menu_ayuda':
+            if button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif button_num == 1:
+                # FAQ
+                return self._show_faq(context)
+            elif button_num == 2:
+                # Cómo usar el chatbot
+                return self._show_chatbot_guide(context)
+            elif button_num == 3:
+                # Contactar soporte
+                return self._show_support_contact(context)
+            elif button_num == 4:
+                # Horarios
+                return self._show_support_hours(context)
+            else:
+                return {
+                    'response': 'Opción inválida. Selecciona 1, 2, 3, 4 o 0 para volver.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
         # Si no coincide con ningún paso, volver al menú
         context['step'] = 'menu_principal'
         return {
@@ -681,111 +835,97 @@ Escribe el *número* de la opción que deseas."""
             }
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opcion 5: Historial medico - J.RF7 Enhanced"""
+        """Opcion 5: Historial medico - J.RF7 Enhanced con submenu"""
+        context['step'] = 'menu_historial_medico'
         
-        # Get medical history status if possible
+        # Obtener datos del historial médico
+        historial_result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
+        
         status_text = ""
-        try:
-            if user_id or phone:
-                # Try to get patient data to check history status
-                paciente_ref = None
-                if user_id:
-                    paciente_ref = self.db.collection('pacientes').document(user_id)
-                elif phone:
-                    # Search by phone
-                    query = self.db.collection('pacientes').where('telefono', '==', phone).limit(1)
-                    docs = list(query.stream())
-                    if docs:
-                        paciente_ref = docs[0].reference
-                
-                if paciente_ref:
-                    # Check if has historial_medico subcollection
-                    historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
-                    if historial_docs:
-                        status_text = "*Estado:* Historial registrado\n\n"
-                    else:
-                        status_text = "*Estado:* Historial pendiente de completar\n\n"
-        except Exception as e:
-            print(f"Error checking medical history status: {e}")
-            status_text = ""
+        if historial_result.get('success'):
+            data = historial_result.get('data', {})
+            completitud = data.get('completitud', 0)
+            if completitud >= 80:
+                status_text = f"*Estado:* ✅ Completado ({completitud}%)\n"
+            elif completitud >= 40:
+                status_text = f"*Estado:* ⚠️ Parcialmente completado ({completitud}%)\n"
+            else:
+                status_text = f"*Estado:* ❌ Pendiente de completar ({completitud}%)\n"
         
-        response = f"""*Historial Medico*
+        response = f"""*📋 Historial Médico*
 
-{status_text}Tu historial medico es importante para recibir la mejor atencion dental.
+{status_text}
+¿Qué deseas consultar?
 
-*Secciones del historial:*
-- Informacion medica general
-- Historial dental
-- Documentos (radiografias, etc.)
-- Alergias y medicamentos
+*1.* Ver mi información médica
+*2.* Ver alergias y medicamentos
+*3.* Ver porcentaje de completitud
+*0.* Volver al menú principal
 
-*Por que completarlo?*
-- El dentista conoce tu salud
-- Consultas mas rapidas y seguras
-- Atencion personalizada
-
-Puedes completar y actualizar tu historial desde tu perfil en la app.
-
-Escribe *"menu"* para volver al menu principal."""
+Escribe el *número* de la opción."""
 
         return {
             'response': response,
-            'action': 'show_medical_history',
-            'next_step': 'menu_principal',
+            'action': 'show_medical_history_menu',
+            'next_step': 'menu_historial_medico',
             'mode': 'menu'
         }
     
     def _handle_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opcion 6: Resenas y calificaciones - J.RF9 Enhanced"""
+        """Opcion 6: Resenas y calificaciones - J.RF9 Enhanced con submenu"""
+        context['step'] = 'menu_resenas'
         
-        # Check for pending reviews
-        pending_reviews_text = ""
+        # Obtener reseñas pendientes
+        pending_count = 0
         try:
-            if user_id or phone:
-                # Get completed appointments without reviews
-                citas_completadas = self.firebase_service.get_user_appointments(
-                    user_id=user_id, 
-                    phone=phone, 
-                    status='completado'
-                )
-                
-                # Filter those without review (this is simplified - may need to check resenas subcollection)
-                if citas_completadas:
-                    pending_count = len(citas_completadas)
-                    if pending_count > 0:
-                        pending_reviews_text = f"*Tienes {pending_count} cita(s) pendiente(s) de calificar*\n\n"
+            pending_reviews = self.firebase_service.get_pending_reviews(user_id=user_id, phone=phone)
+            pending_count = len(pending_reviews)
+            context['citas_pendientes_resena'] = pending_reviews
         except Exception as e:
             print(f"Error checking pending reviews: {e}")
         
-        response = f"""*Resenas y Calificaciones*
+        pending_text = ""
+        if pending_count > 0:
+            pending_text = f"\n📌 *Tienes {pending_count} cita(s) pendiente(s) de calificar*\n"
+        
+        response = f"""*⭐ Reseñas y Calificaciones*
+{pending_text}
+¿Qué deseas hacer?
 
-{pending_reviews_text}Tus opiniones ayudan a otros pacientes y mejoran el servicio.
+*1.* Ver mis reseñas escritas
+*2.* Calificar una cita pendiente
+*3.* ¿Cómo funcionan las reseñas?
+*0.* Volver al menú principal
 
-*Como funciona?*
-- Despues de cada cita, te enviaremos un enlace
-- Califica de 1 a 5 estrellas
-- Escribe un comentario opcional (max. 500 caracteres)
-- Puedes ser anonimo si lo prefieres
-
-*Importante:*
-- Puedes editar tu resena dentro de las primeras 24h
-- El dentista puede responder a tu resena
-
-Escribe *"menu"* para volver al menu principal."""
+Escribe el *número* de la opción."""
 
         return {
             'response': response,
-            'action': 'show_reviews',
-            'next_step': 'menu_principal',
+            'action': 'show_reviews_menu',
+            'next_step': 'menu_resenas',
             'mode': 'menu'
         }
     
     def _handle_help(self, context: Dict) -> Dict:
-        """Opción 7: Ayuda y soporte"""
+        """Opción 7: Ayuda y soporte con submenu"""
+        context['step'] = 'menu_ayuda'
+        
+        response = """*❓ Ayuda y Soporte*
+
+¿En qué podemos ayudarte?
+
+*1.* Preguntas frecuentes (FAQ)
+*2.* Cómo usar el chatbot
+*3.* Contactar soporte
+*4.* Horarios de atención
+*0.* Volver al menú principal
+
+Escribe el *número* de la opción."""
+
         return {
-            'response': f'*Ayuda y Soporte*\n\n{self.get_main_menu()}\n\n*Contacto:*\nsoporte@densora.com\n+52 55 1234 5678\n\n*Horario:*\nLun-Vie: 9:00 AM - 6:00 PM\nSáb: 9:00 AM - 2:00 PM',
-            'action': None,
-            'next_step': 'menu_principal',
+            'response': response,
+            'action': 'show_help_menu',
+            'next_step': 'menu_ayuda',
             'mode': 'menu'
         }
     
@@ -1392,4 +1532,414 @@ Escribe "menu" para volver al menu principal."""
                 'next_step': 'menu_principal',
                 'mode': 'menu'
             }
+
+    # ============================================================
+    # HELPER METHODS FOR MEDICAL HISTORY SUBMENU (Option 5)
+    # ============================================================
+    
+    def _show_medical_info(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra información médica general del paciente"""
+        try:
+            result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
+            
+            if not result.get('success'):
+                return {
+                    'response': 'No se pudo obtener tu información médica.\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            data = result.get('data', {})
+            nombre = data.get('nombre', 'No registrado')
+            edad = data.get('edad', 'No registrada')
+            
+            response = f"""*📋 Tu Información Médica*
+
+*Nombre:* {nombre}
+*Edad:* {edad}
+
+Para actualizar o completar tu historial médico, visita tu perfil en la app o web de Densora.
+
+Escribe *"menu"* para volver al menú principal."""
+
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando info médica: {e}")
+            return {
+                'response': 'Error al obtener información. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_allergies_medications(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra alergias y medicamentos del paciente"""
+        try:
+            result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
+            
+            if not result.get('success'):
+                return {
+                    'response': 'No se pudo obtener tu información.\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            data = result.get('data', {})
+            alergias = data.get('alergias', [])
+            medicamentos = data.get('medicamentos', [])
+            
+            alergias_texto = ', '.join(alergias) if alergias else 'Ninguna registrada'
+            medicamentos_texto = ', '.join(medicamentos) if medicamentos else 'Ninguno registrado'
+            
+            response = f"""*💊 Alergias y Medicamentos*
+
+*Alergias:*
+{alergias_texto}
+
+*Medicamentos actuales:*
+{medicamentos_texto}
+
+⚠️ Es importante mantener esta información actualizada para una atención segura.
+
+Escribe *"menu"* para volver al menú principal."""
+
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando alergias: {e}")
+            return {
+                'response': 'Error al obtener información. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_medical_completeness(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra porcentaje de completitud del historial médico"""
+        try:
+            result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
+            
+            if not result.get('success'):
+                return {
+                    'response': 'No se pudo obtener tu información.\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            data = result.get('data', {})
+            completitud = data.get('completitud', 0)
+            
+            # Barra de progreso visual
+            filled = int(completitud / 10)
+            empty = 10 - filled
+            barra = '█' * filled + '░' * empty
+            
+            if completitud >= 80:
+                estado = "✅ Excelente"
+                mensaje = "Tu historial está muy completo. ¡Gracias!"
+            elif completitud >= 40:
+                estado = "⚠️ Parcial"
+                mensaje = "Te recomendamos completar los campos faltantes."
+            else:
+                estado = "❌ Incompleto"
+                mensaje = "Por favor, completa tu historial para mejor atención."
+            
+            response = f"""*📊 Completitud del Historial*
+
+{barra} *{completitud}%*
+
+*Estado:* {estado}
+
+{mensaje}
+
+Puedes completar tu historial desde tu perfil en la app.
+
+Escribe *"menu"* para volver al menú principal."""
+
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando completitud: {e}")
+            return {
+                'response': 'Error al obtener información. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+
+    # ============================================================
+    # HELPER METHODS FOR REVIEWS SUBMENU (Option 6)
+    # ============================================================
+    
+    def _show_user_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra las reseñas escritas por el usuario"""
+        try:
+            reviews = self.firebase_service.get_user_reviews(user_id=user_id, phone=phone)
+            
+            if not reviews:
+                return {
+                    'response': '*📝 Mis Reseñas*\n\nNo has escrito ninguna reseña todavía.\n\nDespués de cada cita, podrás calificar tu experiencia.\n\nEscribe *"menu"* para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            reviews_texto = '\n'.join([
+                f"• {r.get('dentista', 'Dentista')} - {'⭐' * r.get('calificacion', 0)} ({r.get('fecha', '')})"
+                for r in reviews[:5]
+            ])
+            
+            response = f"""*📝 Mis Reseñas*
+
+{reviews_texto}
+
+Total: {len(reviews)} reseña(s)
+
+Escribe *"menu"* para volver al menú principal."""
+
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando reseñas: {e}")
+            return {
+                'response': 'Error al obtener reseñas. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_pending_reviews_to_rate(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra citas pendientes de calificar"""
+        try:
+            pending = self.firebase_service.get_pending_reviews(user_id=user_id, phone=phone)
+            context['citas_pendientes_resena'] = pending
+            
+            if not pending:
+                return {
+                    'response': '*⭐ Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podrás dejar tu reseña aquí.\n\nEscribe *"menu"* para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            context['step'] = 'seleccionando_cita_calificar'
+            
+            citas_texto = '\n'.join([
+                f"*{i+1}.* {c.get('fecha', '')} - {c.get('dentista', 'Dentista')}"
+                for i, c in enumerate(pending[:5])
+            ])
+            
+            response = f"""*⭐ Calificar Cita*
+
+Selecciona la cita que deseas calificar:
+
+{citas_texto}
+
+*0.* Volver
+
+Escribe el *número* de la cita."""
+
+            return {
+                'response': response,
+                'action': 'show_pending_reviews',
+                'next_step': 'seleccionando_cita_calificar',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando citas pendientes: {e}")
+            return {
+                'response': 'Error al obtener citas. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_reviews_info(self, context: Dict) -> Dict:
+        """Muestra información sobre cómo funcionan las reseñas"""
+        response = """*ℹ️ ¿Cómo funcionan las reseñas?*
+
+• Después de cada cita completada, puedes calificar
+• Califica de 1 a 5 estrellas
+• Puedes escribir un comentario opcional (máx. 500 caracteres)
+• Puedes publicar como anónimo si prefieres
+• Puedes editar tu reseña dentro de las primeras 24 horas
+• El dentista puede responder a tu reseña
+
+Tus opiniones ayudan a otros pacientes y mejoran el servicio.
+
+Escribe *"menu"* para volver al menú principal."""
+
+        return {
+            'response': response,
+            'action': None,
+            'next_step': 'menu_principal',
+            'mode': 'menu'
+        }
+    
+    def _submit_review(self, session_id: str, context: Dict, user_id: str, phone: str, anonimo: bool) -> Dict:
+        """Envía la reseña a la base de datos"""
+        try:
+            cita = context.get('cita_a_calificar', {})
+            calificacion = context.get('calificacion_seleccionada', 0)
+            
+            if not cita or not calificacion:
+                return {
+                    'response': 'Error: datos incompletos. Escribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            result = self.firebase_service.submit_review(
+                user_id=user_id,
+                dentista_id=cita.get('dentistaId'),
+                cita_id=cita.get('id'),
+                calificacion=calificacion,
+                comentario='',  # Comentario vacío por ahora (simplificado para chat)
+                anonimo=anonimo
+            )
+            
+            if result.get('success'):
+                context['step'] = 'menu_principal'
+                return {
+                    'response': f'*✅ ¡Gracias por tu reseña!*\n\nTu calificación de {"⭐" * calificacion} ha sido registrada{" de forma anónima" if anonimo else ""}.\n\n{self.get_main_menu()}',
+                    'action': 'review_submitted',
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': f'Error al enviar reseña: {result.get("error", "Error desconocido")}\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+        except Exception as e:
+            print(f"Error enviando reseña: {e}")
+            return {
+                'response': 'Error al enviar reseña. Escribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+
+    # ============================================================
+    # HELPER METHODS FOR HELP SUBMENU (Option 7)
+    # ============================================================
+    
+    def _show_faq(self, context: Dict) -> Dict:
+        """Muestra preguntas frecuentes"""
+        response = """*❓ Preguntas Frecuentes*
+
+*¿Cómo agendo una cita?*
+Escribe "1" en el menú principal y sigue los pasos.
+
+*¿Puedo cancelar mi cita?*
+Sí, puedes cancelar hasta 24h antes sin penalización.
+
+*¿Cómo pago mi cita?*
+Aceptamos efectivo, tarjeta y transferencia.
+
+*¿Puedo reagendar?*
+Sí, selecciona "3" en el menú principal.
+
+*¿Mis datos están seguros?*
+Sí, cumplimos con estándares de privacidad médica.
+
+Escribe *"menu"* para volver al menú principal."""
+
+        return {
+            'response': response,
+            'action': None,
+            'next_step': 'menu_principal',
+            'mode': 'menu'
+        }
+    
+    def _show_chatbot_guide(self, context: Dict) -> Dict:
+        """Muestra guía de uso del chatbot"""
+        response = """*📱 Cómo usar el Chatbot*
+
+*Navegar:* Usa números para seleccionar opciones
+
+*Volver atrás:* Escribe "menu" en cualquier momento
+
+*Agendar cita:* Escribe "1"
+*Ver mis citas:* Escribe "2"
+*Reagendar:* Escribe "3"
+*Cancelar:* Escribe "4"
+*Historial médico:* Escribe "5"
+*Reseñas:* Escribe "6"
+*Ayuda:* Escribe "7"
+
+Escribe *"menu"* para volver al menú principal."""
+
+        return {
+            'response': response,
+            'action': None,
+            'next_step': 'menu_principal',
+            'mode': 'menu'
+        }
+    
+    def _show_support_contact(self, context: Dict) -> Dict:
+        """Muestra información de contacto de soporte"""
+        response = """*📞 Contactar Soporte*
+
+*Email:* soporte@densora.com
+
+*WhatsApp:* +52 55 1234 5678
+
+*Tiempo de respuesta:* 24-48 horas
+
+Para urgencias médicas, contacta directamente a tu consultorio o servicios de emergencia.
+
+Escribe *"menu"* para volver al menú principal."""
+
+        return {
+            'response': response,
+            'action': None,
+            'next_step': 'menu_principal',
+            'mode': 'menu'
+        }
+    
+    def _show_support_hours(self, context: Dict) -> Dict:
+        """Muestra horarios de atención"""
+        response = """*🕐 Horarios de Atención*
+
+*Chatbot:* Disponible 24/7
+
+*Soporte humano:*
+Lunes a Viernes: 9:00 AM - 6:00 PM
+Sábados: 9:00 AM - 2:00 PM
+Domingos: Cerrado
+
+*Nota:* Los horarios de los consultorios pueden variar.
+
+Escribe *"menu"* para volver al menú principal."""
+
+        return {
+            'response': response,
+            'action': None,
+            'next_step': 'menu_principal',
+            'mode': 'menu'
+        }
 

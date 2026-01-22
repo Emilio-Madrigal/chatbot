@@ -547,3 +547,246 @@ class FirebaseFunctionsService:
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
 
+    def get_medical_history(self, user_id: str = None, phone: str = None) -> Dict:
+        """
+        Obtiene el historial médico del paciente para mostrar en el chat
+        Usa la misma estructura que la web
+        """
+        try:
+            # Obtener paciente
+            paciente_id = None
+            if user_id:
+                paciente_id = user_id
+            elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
+                pacientes_ref = self.db.collection('pacientes')
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
+                docs = list(query.stream())
+                if docs:
+                    paciente_id = docs[0].id
+            
+            if not paciente_id:
+                return {'success': False, 'error': 'Paciente no encontrado'}
+            
+            # Obtener documento del paciente
+            paciente_ref = self.db.collection('pacientes').document(paciente_id)
+            paciente_doc = paciente_ref.get()
+            
+            if not paciente_doc.exists:
+                return {'success': False, 'error': 'Paciente no encontrado'}
+            
+            paciente_data = paciente_doc.to_dict()
+            
+            # Verificar si tiene historial_medico en subcolección
+            historial_completado = False
+            try:
+                historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
+                historial_completado = len(historial_docs) > 0
+            except:
+                pass
+            
+            # Calcular porcentaje de completitud
+            campos_totales = ['nombre', 'apellidos', 'edad', 'telefono', 'email', 'alergias', 
+                             'medicamentos', 'enfermedadesCronicas', 'antecedentesMedicos']
+            campos_completados = sum(1 for c in campos_totales if paciente_data.get(c))
+            completitud = int((campos_completados / len(campos_totales)) * 100)
+            
+            return {
+                'success': True,
+                'data': {
+                    'nombre': paciente_data.get('nombreCompleto') or f"{paciente_data.get('nombre', '')} {paciente_data.get('apellidos', '')}".strip(),
+                    'edad': paciente_data.get('edad', 'No especificada'),
+                    'alergias': paciente_data.get('alergias', []),
+                    'medicamentos': paciente_data.get('medicamentos', []),
+                    'enfermedadesCronicas': paciente_data.get('enfermedadesCronicas', []),
+                    'contactoEmergencia': paciente_data.get('contactoEmergencia', {}),
+                    'historialCompletado': historial_completado,
+                    'completitud': completitud
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error obteniendo historial médico: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': str(e)}
+    
+    def get_pending_reviews(self, user_id: str = None, phone: str = None) -> List[Dict]:
+        """
+        Obtiene las citas completadas pendientes de reseña
+        """
+        try:
+            # Obtener paciente
+            paciente_id = None
+            if user_id:
+                paciente_id = user_id
+            elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
+                pacientes_ref = self.db.collection('pacientes')
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
+                docs = list(query.stream())
+                if docs:
+                    paciente_id = docs[0].id
+            
+            if not paciente_id:
+                return []
+            
+            # Obtener citas completadas
+            citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
+            query = citas_ref.where('estado', '==', 'completado').order_by('fechaHora', direction='DESCENDING').limit(10)
+            
+            citas_completadas = []
+            for doc in query.stream():
+                data = doc.to_dict()
+                cita_id = doc.id
+                
+                # Verificar si ya tiene reseña
+                tiene_resena = False
+                try:
+                    dentista_id = data.get('dentistaId')
+                    if dentista_id:
+                        resenas_ref = self.db.collection('dentistas').document(dentista_id).collection('resenas')
+                        resena_query = resenas_ref.where('citaId', '==', cita_id).limit(1)
+                        tiene_resena = len(list(resena_query.stream())) > 0
+                except:
+                    pass
+                
+                if not tiene_resena:
+                    # Formatear fecha
+                    fecha_str = ''
+                    if data.get('fechaHora'):
+                        fecha_obj = data['fechaHora']
+                        if hasattr(fecha_obj, 'to_datetime'):
+                            fecha_dt = fecha_obj.to_datetime()
+                        elif hasattr(fecha_obj, 'timestamp'):
+                            fecha_dt = datetime.fromtimestamp(fecha_obj.timestamp())
+                        else:
+                            fecha_dt = fecha_obj
+                        fecha_str = fecha_dt.strftime('%d/%m/%Y')
+                    
+                    citas_completadas.append({
+                        'id': cita_id,
+                        'fecha': fecha_str,
+                        'dentista': data.get('dentistaName', 'Dentista'),
+                        'dentistaId': data.get('dentistaId'),
+                        'consultorio': data.get('consultorioName', 'Consultorio'),
+                        'tratamiento': data.get('tratamientoNombre', 'Consulta')
+                    })
+            
+            return citas_completadas
+            
+        except Exception as e:
+            print(f"Error obteniendo citas pendientes de reseña: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def get_user_reviews(self, user_id: str = None, phone: str = None) -> List[Dict]:
+        """
+        Obtiene las reseñas escritas por el usuario
+        """
+        try:
+            # Obtener paciente
+            paciente_id = None
+            if user_id:
+                paciente_id = user_id
+            elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
+                pacientes_ref = self.db.collection('pacientes')
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
+                docs = list(query.stream())
+                if docs:
+                    paciente_id = docs[0].id
+            
+            if not paciente_id:
+                return []
+            
+            reviews = []
+            
+            # Buscar en dentistas
+            dentistas_ref = self.db.collection('dentistas')
+            for dentista_doc in dentistas_ref.stream():
+                try:
+                    resenas_ref = dentista_doc.reference.collection('resenas')
+                    query = resenas_ref.where('pacienteId', '==', paciente_id).limit(5)
+                    
+                    for resena_doc in query.stream():
+                        data = resena_doc.to_dict()
+                        dentista_data = dentista_doc.to_dict()
+                        
+                        # Formatear fecha
+                        fecha_str = ''
+                        if data.get('created_at'):
+                            fecha_obj = data['created_at']
+                            if hasattr(fecha_obj, 'to_datetime'):
+                                fecha_dt = fecha_obj.to_datetime()
+                            else:
+                                fecha_dt = fecha_obj
+                            fecha_str = fecha_dt.strftime('%d/%m/%Y')
+                        
+                        reviews.append({
+                            'id': resena_doc.id,
+                            'dentista': dentista_data.get('Nombre', dentista_data.get('nombre', 'Dentista')),
+                            'calificacion': data.get('calificacion', 0),
+                            'comentario': data.get('comentario', ''),
+                            'fecha': fecha_str,
+                            'anonimo': data.get('anonimo', False)
+                        })
+                except:
+                    continue
+            
+            return reviews[:10]  # Máximo 10 reseñas
+            
+        except Exception as e:
+            print(f"Error obteniendo reseñas del usuario: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def submit_review(self, user_id: str, dentista_id: str, cita_id: str,
+                     calificacion: int, comentario: str = '', anonimo: bool = False) -> Dict:
+        """
+        Envía una reseña para un dentista
+        Usa la misma estructura que la web
+        """
+        try:
+            if not user_id or not dentista_id:
+                return {'success': False, 'error': 'Faltan datos requeridos'}
+            
+            if calificacion < 1 or calificacion > 5:
+                return {'success': False, 'error': 'La calificación debe ser entre 1 y 5'}
+            
+            # Obtener datos del paciente
+            paciente_doc = self.db.collection('pacientes').document(user_id).get()
+            paciente_data = paciente_doc.to_dict() if paciente_doc.exists else {}
+            
+            # Crear reseña
+            resena_data = {
+                'pacienteId': user_id,
+                'userId': user_id,
+                'citaId': cita_id,
+                'calificacion': calificacion,
+                'comentario': comentario[:500] if comentario else '',
+                'anonimo': anonimo,
+                'created_at': datetime.now(),
+                'editada': False,
+                'nombrePaciente': '' if anonimo else paciente_data.get('nombreCompleto', 
+                    f"{paciente_data.get('nombre', '')} {paciente_data.get('apellidos', '')}".strip())
+            }
+            
+            # Guardar en subcolección del dentista
+            resenas_ref = self.db.collection('dentistas').document(dentista_id).collection('resenas')
+            doc_ref = resenas_ref.add(resena_data)
+            
+            return {
+                'success': True,
+                'resenaId': doc_ref[1].id,
+                'message': 'Reseña enviada exitosamente'
+            }
+            
+        except Exception as e:
+            print(f"Error enviando reseña: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'success': False, 'error': str(e)}
+
