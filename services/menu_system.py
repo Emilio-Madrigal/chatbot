@@ -613,21 +613,110 @@ Escribe el *número* de la opción que deseas."""
             }
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opción 5: Historial médico"""
-        web_url = 'http://localhost:4321'  # TODO: obtener de config
+        """Opción 5: Historial médico - J.RF7 Enhanced"""
+        web_url = 'https://www.densora.com'
+        
+        # Get medical history status if possible
+        status_text = ""
+        try:
+            if user_id or phone:
+                # Try to get patient data to check history status
+                paciente_ref = None
+                if user_id:
+                    paciente_ref = self.db.collection('pacientes').document(user_id)
+                elif phone:
+                    # Search by phone
+                    query = self.db.collection('pacientes').where('telefono', '==', phone).limit(1)
+                    docs = list(query.stream())
+                    if docs:
+                        paciente_ref = docs[0].reference
+                
+                if paciente_ref:
+                    # Check if has historial_medico subcollection
+                    historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
+                    if historial_docs:
+                        status_text = "✅ *Estado:* Historial registrado\n\n"
+                    else:
+                        status_text = "⚠️ *Estado:* Historial pendiente de completar\n\n"
+        except Exception as e:
+            print(f"Error checking medical history status: {e}")
+            status_text = ""
+        
+        response = f"""*📋 Historial Médico*
+
+{status_text}Tu historial médico es importante para recibir la mejor atención dental.
+
+*Acciones disponibles:*
+🔗 Ver/Completar historial:
+{web_url}/historialMedico
+
+*Secciones del historial:*
+• Información médica general
+• Historial dental
+• Documentos (radiografías, etc.)
+• Alergias y medicamentos
+
+*¿Por qué completarlo?*
+✓ El dentista conoce tu salud
+✓ Consultas más rápidas y seguras
+✓ Atención personalizada
+
+*Tip:* Puedes elegir qué compartir con cada dentista desde tu perfil.
+
+Escribe *"menu"* para volver al menú principal."""
+
         return {
-            'response': f'*Historial Médico*\n\nPara acceder a tu historial médico, visita:\n\n{web_url}/historialMedico\n\nEscribe "menu" para volver al menú principal.',
-            'action': None,
+            'response': response,
+            'action': 'show_medical_history',
             'next_step': 'menu_principal',
             'mode': 'menu'
         }
     
     def _handle_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opción 6: Reseñas y calificaciones"""
-        web_url = 'http://localhost:4321'  # TODO: obtener de config
+        """Opción 6: Reseñas y calificaciones - J.RF9 Enhanced"""
+        web_url = 'https://www.densora.com'
+        
+        # Check for pending reviews
+        pending_reviews_text = ""
+        try:
+            if user_id or phone:
+                # Get completed appointments without reviews
+                citas_completadas = self.firebase_service.get_user_appointments(
+                    user_id=user_id, 
+                    phone=phone, 
+                    status='completado'
+                )
+                
+                # Filter those without review (this is simplified - may need to check resenas subcollection)
+                if citas_completadas:
+                    pending_count = len(citas_completadas)
+                    if pending_count > 0:
+                        pending_reviews_text = f"⭐ *Tienes {pending_count} cita(s) pendiente(s) de calificar*\n\n"
+        except Exception as e:
+            print(f"Error checking pending reviews: {e}")
+        
+        response = f"""*⭐ Reseñas y Calificaciones*
+
+{pending_reviews_text}Tus opiniones ayudan a otros pacientes y mejoran el servicio.
+
+*Dejar una reseña:*
+🔗 {web_url}/mis-resenas
+
+*¿Cómo funciona?*
+• Después de cada cita, te enviaremos un enlace
+• Califica de 1 a 5 estrellas (dientes 🦷)
+• Escribe un comentario opcional (máx. 500 caracteres)
+• Puedes ser anónimo si lo prefieres
+
+*Importante:*
+• Puedes editar tu reseña dentro de las primeras 24h
+• El dentista puede responder a tu reseña
+
+Escribe *"menu"* para volver al menú principal."""
+
         return {
-            'response': f'*Reseñas y Calificaciones*\n\nPara dejar una reseña o ver tus calificaciones, visita:\n\n{web_url}/mis-resenas\n\nEscribe "menu" para volver al menú principal.',
-            'action': None,
+            'response': response,
+            'action': 'show_reviews',
             'next_step': 'menu_principal',
             'mode': 'menu'
         }

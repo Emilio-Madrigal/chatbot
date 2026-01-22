@@ -110,6 +110,14 @@ class ConversationManager:
              self._update_context_and_history(session_id, result)
              return result
 
+        # 1.1 J.RF12: Keyword-based quick responses
+        # Check for predefined keywords that trigger helpful responses
+        keyword_result = self._handle_keyword_response(message, context, user_id, phone)
+        if keyword_result:
+            self._update_context_and_history(session_id, keyword_result)
+            return keyword_result
+
+
         # 1.5 Detección de Usuario Nuevo (Gap Analysis)
         # Si no tenemos user_id Y no estamos ya en el flujo de registro
         if not user_id and context.get('step') != 'registro_nombre':
@@ -225,6 +233,370 @@ class ConversationManager:
         
         # Marcar modo usado
         result['mode'] = 'hybrid'
+    
+    def _handle_keyword_response(self, message: str, context: Dict, 
+                                  user_id: str, phone: str) -> Optional[Dict]:
+        """
+        J.RF12: Handles predefined keyword responses
+        Returns None if no keyword matched, otherwise returns response dict
+        """
+        msg_lower = message.lower().strip()
+        language = context.get('language', 'es')
+        user_name = context.get('user_data', {}).get('nombre', '')
+        web_url = 'https://www.densora.com'
+        
+        # Define keyword mappings with responses
+        # Keywords map to response type
+        keyword_map = {
+            # Spanish keywords
+            'ayuda': 'help',
+            'help': 'help',
+            'cita': 'appointment_info',
+            'citas': 'appointment_info',
+            'appointment': 'appointment_info',
+            'appointments': 'appointment_info',
+            'historial': 'medical_history',
+            'historia': 'medical_history',
+            'expediente': 'medical_history',
+            'history': 'medical_history',
+            'medical': 'medical_history',
+            'contacto': 'contact',
+            'contact': 'contact',
+            'telefono': 'contact',
+            'phone': 'contact',
+            'reagendar': 'reschedule_info',
+            'reprogramar': 'reschedule_info',
+            'cambiar cita': 'reschedule_info',
+            'reschedule': 'reschedule_info',
+            'pagar': 'payment_info',
+            'pago': 'payment_info',
+            'pay': 'payment_info',
+            'payment': 'payment_info',
+            'precio': 'payment_info',
+            'cost': 'payment_info',
+            'reseña': 'reviews',
+            'resena': 'reviews',
+            'reseñas': 'reviews',
+            'calificacion': 'reviews',
+            'review': 'reviews',
+            'reviews': 'reviews',
+            'rating': 'reviews',
+            'dentista': 'dentist_search',
+            'dentist': 'dentist_search',
+            'doctor': 'dentist_search',
+            'consultorio': 'consultorio_search',
+            'clinic': 'consultorio_search',
+            'clinica': 'consultorio_search',
+            'ubicacion': 'consultorio_search',
+            'direccion': 'consultorio_search',
+            'location': 'consultorio_search',
+            'horario': 'schedule_info',
+            'horarios': 'schedule_info',
+            'hours': 'schedule_info',
+            'disponibilidad': 'schedule_info',
+            'available': 'schedule_info',
+            'urgente': 'emergency',
+            'emergencia': 'emergency',
+            'urgent': 'emergency',
+            'emergency': 'emergency',
+            'dolor': 'emergency',
+            'pain': 'emergency',
+        }
+        
+        # Check if message starts with or equals any keyword
+        matched_type = None
+        for keyword, response_type in keyword_map.items():
+            if msg_lower == keyword or msg_lower.startswith(keyword + ' '):
+                matched_type = response_type
+                break
+        
+        if not matched_type:
+            return None
+        
+        # Generate response based on type
+        print(f"[KEYWORD_HANDLER] Matched keyword type: {matched_type}")
+        
+        if matched_type == 'help':
+            greeting = f"Hola {user_name}, " if user_name else "Hola, "
+            response = f"""{greeting}¡Soy Densorita, tu asistente virtual! 🦷
+
+*Puedo ayudarte con:*
+1️⃣ *Agendar* una cita
+2️⃣ *Ver* tus próximas citas
+3️⃣ *Reagendar* una cita existente
+4️⃣ *Cancelar* una cita
+5️⃣ *Historial médico*
+6️⃣ *Reseñas* y calificaciones
+7️⃣ *Ayuda* y soporte
+
+*También puedes escribir palabras como:*
+• "cita" - para ver opciones de agendamiento
+• "historial" - para acceder a tu expediente
+• "contacto" - para información de contacto
+
+Escribe el *número* de la opción o describe lo que necesitas."""
+            return {
+                'response': response,
+                'action': 'keyword_help',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'appointment_info':
+            # Check if user has upcoming appointments
+            citas = self.actions_service.get_user_appointments(user_id=user_id, phone=phone, status='confirmado')
+            
+            if citas and len(citas) > 0:
+                citas_texto = '\n'.join([
+                    f"• {cita.get('fecha', 'N/A')} {cita.get('hora', '')} - Dr. {cita.get('dentista', 'N/A')}"
+                    for cita in citas[:3]
+                ])
+                response = f"""*📅 Tus Próximas Citas:*
+
+{citas_texto}
+
+*¿Qué te gustaría hacer?*
+1️⃣ Agendar una nueva cita
+2️⃣ Reagendar una cita
+3️⃣ Cancelar una cita
+4️⃣ Ver detalles completos
+
+Escribe el número de la opción."""
+            else:
+                response = """*📅 No tienes citas programadas actualmente.*
+
+¿Te gustaría agendar una cita?
+
+1️⃣ Sí, agendar ahora
+2️⃣ Ver dentistas disponibles
+3️⃣ Volver al menú
+
+Escribe el número de la opción."""
+            
+            return {
+                'response': response,
+                'action': 'keyword_appointments',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'medical_history':
+            response = f"""*📋 Historial Médico*
+
+Tu historial médico es importante para recibir la mejor atención.
+
+*Opciones:*
+• Ver/Actualizar historial: {web_url}/historialMedico
+• Compartir con dentista: Desde tu perfil
+
+*¿Por qué es importante?*
+✓ Permite al dentista conocer tu salud
+✓ Agiliza tus consultas
+✓ Mejora la atención personalizada
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_history',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'contact':
+            response = """*📞 Información de Contacto*
+
+*Densora - Plataforma Dental*
+
+📧 Email: soporte@densora.com
+🌐 Web: www.densora.com
+📱 WhatsApp: Este chat
+
+*Horario de atención:*
+Lun-Vie: 9:00 AM - 6:00 PM
+Sábado: 9:00 AM - 2:00 PM
+
+*¿Necesitas ayuda específica?*
+Escribe tu pregunta y te orientaré.
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_contact',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'reschedule_info':
+            response = """*🔄 Reagendar Cita*
+
+Para reagendar tu cita, necesito saber cuál deseas modificar.
+
+*Opciones:*
+1️⃣ Ver mis citas para reagendar
+2️⃣ Tengo el código de la cita
+3️⃣ Volver al menú
+
+*Importante:*
+⚠️ Reagenda con al menos 24h de anticipación
+⚠️ Solo puedes reagendar 1 vez por cita
+
+Escribe el número de la opción."""
+            return {
+                'response': response,
+                'action': 'keyword_reschedule',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'payment_info':
+            response = """*💳 Información de Pagos*
+
+*Métodos de pago aceptados:*
+• 💵 Efectivo - Pago en la cita
+• 💳 Tarjeta - Pago online con Stripe
+• 🏦 Transferencia - 2h para confirmar
+
+*¿Tienes un pago pendiente?*
+Escribe "ver citas" para revisar el estado.
+
+*¿Necesitas comprobante?*
+Lo recibirás por este chat tras el pago.
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_payment',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'reviews':
+            response = f"""*⭐ Reseñas y Calificaciones*
+
+*Tus opiniones nos ayudan a mejorar.*
+
+Para dejar una reseña después de tu cita:
+{web_url}/mis-resenas
+
+*¿Tienes citas pendientes de calificar?*
+Te enviaremos un enlace después de cada consulta.
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_reviews',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'dentist_search':
+            # Get some dentists info
+            dentistas = self.actions_service.get_dentists_info(limit=3)
+            if dentistas:
+                dentistas_texto = '\n'.join([
+                    f"• Dr. {d.get('nombreCompleto', d.get('nombre', 'N/A'))} - {d.get('especialidad', 'General')}"
+                    for d in dentistas
+                ])
+                response = f"""*👨‍⚕️ Dentistas Disponibles*
+
+{dentistas_texto}
+
+*Para buscar por especialidad:*
+Escribe: "buscar [especialidad]"
+Ej: "buscar ortodoncia"
+
+*Para ver perfil completo:*
+Visita: {web_url}/dentistas
+
+Escribe *"menu"* para volver al menú principal."""
+            else:
+                response = """*👨‍⚕️ Dentistas*
+
+No encontré dentistas registrados en este momento.
+
+Visita nuestra web para más opciones:
+www.densora.com/dentistas
+
+Escribe *"menu"* para volver al menú principal."""
+            
+            return {
+                'response': response,
+                'action': 'keyword_dentist',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'consultorio_search':
+            consultorios = self.actions_service.get_consultorios_info(limit=3)
+            if consultorios:
+                consultorios_texto = '\n'.join([
+                    f"• {c.get('nombre', 'Consultorio')} - {c.get('direccion', {}).get('ciudad', 'N/A') if isinstance(c.get('direccion'), dict) else 'N/A'}"
+                    for c in consultorios
+                ])
+                response = f"""*🏥 Consultorios Disponibles*
+
+{consultorios_texto}
+
+*Para ver ubicación y horarios:*
+Visita: {web_url}/consultorios
+
+Escribe *"menu"* para volver al menú principal."""
+            else:
+                response = """*🏥 Consultorios*
+
+No encontré consultorios en este momento.
+
+Visita nuestra web para más opciones:
+www.densora.com/consultorios
+
+Escribe *"menu"* para volver al menú principal."""
+            
+            return {
+                'response': response,
+                'action': 'keyword_consultorio',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'schedule_info':
+            response = """*🕐 Horarios y Disponibilidad*
+
+Los horarios varían según el dentista y consultorio.
+
+*Para ver disponibilidad:*
+1️⃣ Escribe "1" para agendar cita
+2️⃣ Selecciona el servicio deseado
+3️⃣ Te mostraré las fechas/horas disponibles
+
+*Horario general de atención:*
+Lun-Vie: 9:00 AM - 7:00 PM
+Sábado: 9:00 AM - 2:00 PM
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_schedule',
+                'next_step': 'menu_principal'
+            }
+        
+        elif matched_type == 'emergency':
+            response = """*🚨 ¿URGENCIA DENTAL?*
+
+⚠️ *Si es una emergencia médica grave, llama al 911*
+
+*Para atención urgente:*
+📞 Línea de emergencias: +52 55 1234 5678
+📍 Busca consultorios con atención 24h
+
+*Síntomas que requieren atención inmediata:*
+• Dolor intenso que no cede
+• Sangrado abundante
+• Hinchazón severa
+• Traumatismo dental
+
+*¿Necesitas agendar urgente?*
+Escribe "1" y buscaré la cita más próxima disponible.
+
+Escribe *"menu"* para volver al menú principal."""
+            return {
+                'response': response,
+                'action': 'keyword_emergency',
+                'next_step': 'menu_principal'
+            }
+        
+        return None
+
     
     def _process_menu_mode(self, session_id: str, message: str, context: Dict,
                           user_id: str, phone: str) -> Dict:
