@@ -653,15 +653,10 @@ Disculpa las molestias."""
             from services.retry_service import retry_service
             
             processed = retry_service.process_pending_retries()
-            if processed > 0:
-                
-            else:
-                
+            # Procesados: {processed} mensajes
         except Exception as e:
-            
             import traceback
             traceback.print_exc()
-
 
 # Instancia global del scheduler
 reminder_scheduler = ReminderScheduler()
