@@ -535,7 +535,7 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
         
-        # Menú de Ayuda (Opción 7)
+        # Menú de Ayuda (Opción 7) - Simplificado
         elif current_step == 'menu_ayuda':
             if button_num == 0:
                 context['step'] = 'menu_principal'
@@ -551,15 +551,9 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 2:
                 # Cómo usar el chatbot
                 return self._show_chatbot_guide(context)
-            elif button_num == 3:
-                # Contactar soporte
-                return self._show_support_contact(context)
-            elif button_num == 4:
-                # Horarios
-                return self._show_support_hours(context)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2, 3, 4 o 0 para volver.',
+                    'response': 'Opción inválida. Selecciona 1, 2 o 0 para volver.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -847,13 +841,13 @@ Escribe el *número* de la opción que deseas."""
             data = historial_result.get('data', {})
             completitud = data.get('completitud', 0)
             if completitud >= 80:
-                status_text = f"*Estado:* ✅ Completado ({completitud}%)\n"
+                status_text = f"*Estado:* Completado ({completitud}%)\n"
             elif completitud >= 40:
-                status_text = f"*Estado:* ⚠️ Parcialmente completado ({completitud}%)\n"
+                status_text = f"*Estado:* Parcialmente completado ({completitud}%)\n"
             else:
-                status_text = f"*Estado:* ❌ Pendiente de completar ({completitud}%)\n"
+                status_text = f"*Estado:* Pendiente de completar ({completitud}%)\n"
         
-        response = f"""*📋 Historial Médico*
+        response = f"""*Historial Medico*
 
 {status_text}
 ¿Qué deseas consultar?
@@ -887,9 +881,9 @@ Escribe el *número* de la opción."""
         
         pending_text = ""
         if pending_count > 0:
-            pending_text = f"\n📌 *Tienes {pending_count} cita(s) pendiente(s) de calificar*\n"
+            pending_text = f"\n*Tienes {pending_count} cita(s) pendiente(s) de calificar*\n"
         
-        response = f"""*⭐ Reseñas y Calificaciones*
+        response = f"""*Resenas y Calificaciones*
 {pending_text}
 ¿Qué deseas hacer?
 
@@ -908,17 +902,15 @@ Escribe el *número* de la opción."""
         }
     
     def _handle_help(self, context: Dict) -> Dict:
-        """Opción 7: Ayuda y soporte con submenu"""
+        """Opción 7: Ayuda con submenu simplificado"""
         context['step'] = 'menu_ayuda'
         
-        response = """*❓ Ayuda y Soporte*
+        response = """*Ayuda*
 
 ¿En qué podemos ayudarte?
 
 *1.* Preguntas frecuentes (FAQ)
 *2.* Cómo usar el chatbot
-*3.* Contactar soporte
-*4.* Horarios de atención
 *0.* Volver al menú principal
 
 Escribe el *número* de la opción."""
@@ -1587,14 +1579,14 @@ Escribe "menu" para volver al menu principal."""
             nombre = data.get('nombre', 'No registrado')
             edad = data.get('edad', 'No registrada')
             
-            response = f"""*📋 Tu Información Médica*
+            response = f"""*Tu Informacion Medica*
 
 *Nombre:* {nombre}
 *Edad:* {edad}
 
-Para actualizar o completar tu historial médico, visita tu perfil en la app o web de Densora.
+Para actualizar o completar tu historial medico, visita tu perfil en la app o web de Densora.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
             return {
                 'response': response,
@@ -1631,7 +1623,7 @@ Escribe *"menu"* para volver al menú principal."""
             alergias_texto = ', '.join(alergias) if alergias else 'Ninguna registrada'
             medicamentos_texto = ', '.join(medicamentos) if medicamentos else 'Ninguno registrado'
             
-            response = f"""*💊 Alergias y Medicamentos*
+            response = f"""*Alergias y Medicamentos*
 
 *Alergias:*
 {alergias_texto}
@@ -1639,9 +1631,9 @@ Escribe *"menu"* para volver al menú principal."""
 *Medicamentos actuales:*
 {medicamentos_texto}
 
-⚠️ Es importante mantener esta información actualizada para una atención segura.
+Es importante mantener esta informacion actualizada para una atencion segura.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
             return {
                 'response': response,
@@ -1680,16 +1672,16 @@ Escribe *"menu"* para volver al menú principal."""
             barra = '█' * filled + '░' * empty
             
             if completitud >= 80:
-                estado = "✅ Excelente"
-                mensaje = "Tu historial está muy completo. ¡Gracias!"
+                estado = "Excelente"
+                mensaje = "Tu historial esta muy completo. Gracias!"
             elif completitud >= 40:
-                estado = "⚠️ Parcial"
+                estado = "Parcial"
                 mensaje = "Te recomendamos completar los campos faltantes."
             else:
-                estado = "❌ Incompleto"
-                mensaje = "Por favor, completa tu historial para mejor atención."
+                estado = "Incompleto"
+                mensaje = "Por favor, completa tu historial para mejor atencion."
             
-            response = f"""*📊 Completitud del Historial*
+            response = f"""*Completitud del Historial*
 
 {barra} *{completitud}%*
 
@@ -1699,7 +1691,7 @@ Escribe *"menu"* para volver al menú principal."""
 
 Puedes completar tu historial desde tu perfil en la app.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
             return {
                 'response': response,
@@ -1727,24 +1719,24 @@ Escribe *"menu"* para volver al menú principal."""
             
             if not reviews:
                 return {
-                    'response': '*📝 Mis Reseñas*\n\nNo has escrito ninguna reseña todavía.\n\nDespués de cada cita, podrás calificar tu experiencia.\n\nEscribe *"menu"* para volver.',
+                    'response': '*Mis Resenas*\n\nNo has escrito ninguna resena todavia.\n\nDespues de cada cita, podras calificar tu experiencia.\n\nEscribe *"menu"* para volver.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             
             reviews_texto = '\n'.join([
-                f"• {r.get('dentista', 'Dentista')} - {'⭐' * r.get('calificacion', 0)} ({r.get('fecha', '')})"
+                f"- {r.get('dentista', 'Dentista')} - {r.get('calificacion', 0)}/5 ({r.get('fecha', '')})"
                 for r in reviews[:5]
             ])
             
-            response = f"""*📝 Mis Reseñas*
+            response = f"""*Mis Resenas*
 
 {reviews_texto}
 
-Total: {len(reviews)} reseña(s)
+Total: {len(reviews)} resena(s)
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
             return {
                 'response': response,
@@ -1769,7 +1761,7 @@ Escribe *"menu"* para volver al menú principal."""
             
             if not pending:
                 return {
-                    'response': '*⭐ Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podrás dejar tu reseña aquí.\n\nEscribe *"menu"* para volver.',
+                    'response': '*Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podras dejar tu resena aqui.\n\nEscribe *"menu"* para volver.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1782,7 +1774,7 @@ Escribe *"menu"* para volver al menú principal."""
                 for i, c in enumerate(pending[:5])
             ])
             
-            response = f"""*⭐ Calificar Cita*
+            response = f"""*Calificar Cita*
 
 Selecciona la cita que deseas calificar:
 
@@ -1790,7 +1782,7 @@ Selecciona la cita que deseas calificar:
 
 *0.* Volver
 
-Escribe el *número* de la cita."""
+Escribe el *numero* de la cita."""
 
             return {
                 'response': response,
@@ -1809,18 +1801,18 @@ Escribe el *número* de la cita."""
     
     def _show_reviews_info(self, context: Dict) -> Dict:
         """Muestra información sobre cómo funcionan las reseñas"""
-        response = """*ℹ️ ¿Cómo funcionan las reseñas?*
+        response = """*Como funcionan las resenas?*
 
-• Después de cada cita completada, puedes calificar
-• Califica de 1 a 5 estrellas
-• Puedes escribir un comentario opcional (máx. 500 caracteres)
-• Puedes publicar como anónimo si prefieres
-• Puedes editar tu reseña dentro de las primeras 24 horas
-• El dentista puede responder a tu reseña
+- Despues de cada cita completada, puedes calificar
+- Califica de 1 a 5 estrellas
+- Puedes escribir un comentario opcional (max. 500 caracteres)
+- Puedes publicar como anonimo si prefieres
+- Puedes editar tu resena dentro de las primeras 24 horas
+- El dentista puede responder a tu resena
 
 Tus opiniones ayudan a otros pacientes y mejoran el servicio.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
         return {
             'response': response,
@@ -1855,7 +1847,7 @@ Escribe *"menu"* para volver al menú principal."""
             if result.get('success'):
                 context['step'] = 'menu_principal'
                 return {
-                    'response': f'*✅ ¡Gracias por tu reseña!*\n\nTu calificación de {"⭐" * calificacion} ha sido registrada{" de forma anónima" if anonimo else ""}.\n\n{self.get_main_menu()}',
+                    'response': f'*Gracias por tu resena!*\n\nTu calificacion de {calificacion}/5 ha sido registrada{" de forma anonima" if anonimo else ""}.\n\n{self.get_main_menu()}',
                     'action': 'review_submitted',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1882,24 +1874,24 @@ Escribe *"menu"* para volver al menú principal."""
     
     def _show_faq(self, context: Dict) -> Dict:
         """Muestra preguntas frecuentes"""
-        response = """*❓ Preguntas Frecuentes*
+        response = """*Preguntas Frecuentes*
 
-*¿Cómo agendo una cita?*
-Escribe "1" en el menú principal y sigue los pasos.
+*Como agendo una cita?*
+Escribe "1" en el menu principal y sigue los pasos.
 
-*¿Puedo cancelar mi cita?*
-Sí, puedes cancelar hasta 24h antes sin penalización.
+*Puedo cancelar mi cita?*
+Si, puedes cancelar hasta 24h antes sin penalizacion.
 
-*¿Cómo pago mi cita?*
+*Como pago mi cita?*
 Aceptamos efectivo, tarjeta y transferencia.
 
-*¿Puedo reagendar?*
-Sí, selecciona "3" en el menú principal.
+*Puedo reagendar?*
+Si, selecciona "3" en el menu principal.
 
-*¿Mis datos están seguros?*
-Sí, cumplimos con estándares de privacidad médica.
+*Mis datos estan seguros?*
+Si, cumplimos con estandares de privacidad medica.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
         return {
             'response': response,
@@ -1910,21 +1902,21 @@ Escribe *"menu"* para volver al menú principal."""
     
     def _show_chatbot_guide(self, context: Dict) -> Dict:
         """Muestra guía de uso del chatbot"""
-        response = """*📱 Cómo usar el Chatbot*
+        response = """*Como usar el Chatbot*
 
-*Navegar:* Usa números para seleccionar opciones
+*Navegar:* Usa numeros para seleccionar opciones
 
-*Volver atrás:* Escribe "menu" en cualquier momento
+*Volver atras:* Escribe "menu" en cualquier momento
 
 *Agendar cita:* Escribe "1"
 *Ver mis citas:* Escribe "2"
 *Reagendar:* Escribe "3"
 *Cancelar:* Escribe "4"
-*Historial médico:* Escribe "5"
-*Reseñas:* Escribe "6"
+*Historial medico:* Escribe "5"
+*Resenas:* Escribe "6"
 *Ayuda:* Escribe "7"
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
         return {
             'response': response,
