@@ -147,6 +147,42 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
         
+        # Seleccionando consultorio (NUEVO PASO)
+        elif current_step == 'seleccionando_consultorio':
+            consultorios = context.get('consultorios_disponibles', [])
+            if consultorios and 0 <= button_num - 1 < len(consultorios):
+                consultorio_seleccionado = consultorios[button_num - 1]
+                context['consultorio_id'] = consultorio_seleccionado['id']
+                context['consultorio_name'] = consultorio_seleccionado['nombre']
+                context['step'] = 'seleccionando_dentista'
+                # Mostrar dentistas de este consultorio
+                return self._show_available_dentists(context, user_id, phone)
+            else:
+                return {
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)}.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Seleccionando dentista (NUEVO PASO)
+        elif current_step == 'seleccionando_dentista':
+            dentistas = context.get('dentistas_disponibles', [])
+            if dentistas and 0 <= button_num - 1 < len(dentistas):
+                dentista_seleccionado = dentistas[button_num - 1]
+                context['dentista_id'] = dentista_seleccionado['id']
+                context['dentista_name'] = dentista_seleccionado['nombre']
+                context['step'] = 'seleccionando_servicio'
+                # Mostrar servicios para este dentista/consultorio
+                return self._show_available_services(context, user_id, phone)
+            else:
+                return {
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
         # Seleccionando servicio/tratamiento para agendar
         elif current_step == 'seleccionando_servicio':
             tratamientos = context.get('tratamientos_disponibles', [])
@@ -385,118 +421,141 @@ Escribe el *número* de la opción que deseas."""
     
     def _handle_schedule_appointment(self, session_id: str, context: Dict,
                                     user_id: str, phone: str) -> Dict:
-        """Opción 1: Agendar cita - Flujo completo según requerimientos"""
+        """Opción 1: Agendar cita - Flujo completo desde selección de consultorio"""
         print(f"[MENU_SYSTEM] _handle_schedule_appointment - user_id={user_id}, phone={phone}")
         
+        context['step'] = 'seleccionando_consultorio'
+        
         try:
-            # Obtener último consultorio/dentista usado del paciente
-            from database.models import CitaRepository
-            cita_repo = CitaRepository()
-            paciente = None
+            # Get all active consultorios - user must choose
+            consultorios = self.actions_service.get_consultorios_info(limit=10)
             
-            if user_id:
-                paciente = cita_repo.obtener_paciente_por_id(user_id)
-            elif phone:
-                paciente = cita_repo.obtener_paciente_por_telefono(phone)
-            
-            ultimo_consultorio = None
-            if paciente:
-                ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
-            
-            # Si hay último consultorio, usarlo directamente y mostrar servicios
-            if ultimo_consultorio:
-                context['dentista_id'] = ultimo_consultorio.get('dentistaId')
-                context['consultorio_id'] = ultimo_consultorio.get('consultorioId')
-                context['dentista_name'] = ultimo_consultorio.get('dentistaName', 'Dentista')
-                context['consultorio_name'] = ultimo_consultorio.get('consultorioName', 'Consultorio')
-                context['step'] = 'seleccionando_servicio'
-                
-                # Obtener servicios/tratamientos disponibles
-                tratamientos = self.actions_service.get_treatments_for_dentist(
-                    context['dentista_id'],
-                    context['consultorio_id']
-                )
-                context['tratamientos_disponibles'] = tratamientos
-                
-                if not tratamientos:
-                    return {
-                        'response': 'Lo siento, no hay servicios disponibles en este momento.\n\nEscribe "menu" para volver.',
-                        'action': None,
-                        'next_step': 'menu_principal',
-                        'mode': 'menu'
-                    }
-                
-                # Formatear servicios
-                servicios_texto = '\n'.join([
-                    f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN\n   {t["duracion"]} min\n   {t.get("descripcion", "")}'
-                    for i, t in enumerate(tratamientos[:10])
-                ])
-                
+            if not consultorios:
                 return {
-                    'response': f'*Agendar Nueva Cita*\n\nDentista: {context["dentista_name"]}\nConsultorio: {context["consultorio_name"]}\n\n*Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
-                    'action': 'show_services',
-                    'next_step': 'seleccionando_servicio',
-                    'mode': 'menu'
-                }
-            else:
-                # No hay último consultorio, mostrar opción de usar consultorio por defecto
-                # Por ahora, buscar un consultorio activo
-                consultorios = self.actions_service.get_consultorios_info(limit=1)
-                if consultorios:
-                    consultorio = consultorios[0]
-                    # Buscar dentista del consultorio
-                    dentistas_ref = self.db.collection('consultorio').document(consultorio['id']).collection('dentistas')
-                    dentistas_query = dentistas_ref.where('activo', '==', True).limit(1)
-                    dentistas_docs = list(dentistas_query.stream())
-                    
-                    if dentistas_docs:
-                        dentista_data = dentistas_docs[0].to_dict()
-                        context['dentista_id'] = dentista_data.get('dentistaId')
-                        context['consultorio_id'] = consultorio['id']
-                        context['dentista_name'] = dentista_data.get('nombreCompleto', 'Dentista')
-                        context['consultorio_name'] = consultorio.get('nombre', 'Consultorio')
-                        context['step'] = 'seleccionando_servicio'
-                        
-                        # Obtener servicios
-                        tratamientos = self.actions_service.get_treatments_for_dentist(
-                            context['dentista_id'],
-                            context['consultorio_id']
-                        )
-                        context['tratamientos_disponibles'] = tratamientos
-                        
-                        if not tratamientos:
-                            return {
-                                'response': 'Lo siento, no hay servicios disponibles.\n\nEscribe "menu" para volver.',
-                                'action': None,
-                                'next_step': 'menu_principal',
-                                'mode': 'menu'
-                            }
-                        
-                        servicios_texto = '\n'.join([
-                            f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN\n   {t["duracion"]} min\n   {t.get("descripcion", "")}'
-                            for i, t in enumerate(tratamientos[:10])
-                        ])
-                        
-                        return {
-                            'response': f'*Agendar Nueva Cita*\n\nDentista: {context["dentista_name"]}\nConsultorio: {context["consultorio_name"]}\n\n*Selecciona el motivo de consulta:*\n\n{servicios_texto}\n\nEscribe el *número* del servicio que deseas.',
-                            'action': 'show_services',
-                            'next_step': 'seleccionando_servicio',
-                            'mode': 'menu'
-                        }
-                
-                return {
-                    'response': 'Lo siento, no hay consultorios disponibles en este momento.\n\nPor favor, contacta directamente con el consultorio.\n\nEscribe "menu" para volver.',
+                    'response': 'No hay consultorios disponibles en este momento.\n\nEscribe "menu" para volver.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
-                
+            
+            context['consultorios_disponibles'] = consultorios
+            
+            # Format consultorios list
+            consultorios_texto = '\n'.join([
+                f'*{i+1}.* {c["nombre"]}\n   📍 {c.get("direccion", "")}'
+                for i, c in enumerate(consultorios)
+            ])
+            
+            return {
+                'response': f'*Agendar Nueva Cita*\n\n*Paso 1/6: Selecciona un consultorio:*\n\n{consultorios_texto}\n\nEscribe el *número* del consultorio.',
+                'action': 'show_consultorios',
+                'next_step': 'seleccionando_consultorio',
+                'mode': 'menu'
+            }
         except Exception as e:
             print(f"[MENU_SYSTEM] Error en _handle_schedule_appointment: {e}")
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al iniciar el agendamiento. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': 'Error al cargar consultorios. Intenta más tarde.\n\nEscribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_available_dentists(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Shows available dentists for the selected consultorio"""
+        try:
+            consultorio_id = context.get('consultorio_id')
+            
+            if not consultorio_id:
+                return {
+                    'response': 'Error: No se seleccionó consultorio.\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            # Get dentists from this consultorio
+            dentistas_ref = self.db.collection('consultorio').document(consultorio_id).collection('dentistas')
+            dentistas_query = dentistas_ref.where('activo', '==', True).limit(10)
+            dentistas_docs = list(dentistas_query.stream())
+            
+            if not dentistas_docs:
+                return {
+                    'response': 'No hay dentistas disponibles en este consultorio.\n\nEscribe "menu" para seleccionar otro consultorio.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            dentistas = []
+            for doc in dentistas_docs:
+                data = doc.to_dict()
+                dentistas.append({
+                    'id': data.get('dentistaId', doc.id),
+                    'nombre': data.get('nombreCompleto', 'Dentista'),
+                    'especialidad': data.get('especialidad', 'General')
+                })
+            
+            context['dentistas_disponibles'] = dentistas
+            
+            dentistas_texto = '\n'.join([
+                f'*{i+1}.* {d["nombre"]}\n   🦷 {d.get("especialidad", "General")}'
+                for i, d in enumerate(dentistas)
+            ])
+            
+            return {
+                'response': f'*Paso 2/6: Selecciona un dentista:*\n\nConsultorio: {context.get("consultorio_name", "")}\n\n{dentistas_texto}\n\nEscribe el *número* del dentista.',
+                'action': 'show_dentistas',
+                'next_step': 'seleccionando_dentista',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"[MENU_SYSTEM] Error getting dentists: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'response': 'Error al cargar dentistas.\n\nEscribe "menu" para volver.',
+                'action': None,
+                'next_step': 'menu_principal',
+                'mode': 'menu'
+            }
+    
+    def _show_available_services(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Shows available services/treatments for the selected dentist/consultorio"""
+        try:
+            dentista_id = context.get('dentista_id')
+            consultorio_id = context.get('consultorio_id')
+            
+            tratamientos = self.actions_service.get_treatments_for_dentist(dentista_id, consultorio_id)
+            context['tratamientos_disponibles'] = tratamientos
+            
+            if not tratamientos:
+                return {
+                    'response': 'No hay servicios disponibles para este dentista.\n\nEscribe "menu" para volver.',
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            
+            servicios_texto = '\n'.join([
+                f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN | {t["duracion"]} min\n   {t.get("descripcion", "")}'
+                for i, t in enumerate(tratamientos[:10])
+            ])
+            
+            return {
+                'response': f'*Paso 3/6: Selecciona el servicio:*\n\nDentista: {context.get("dentista_name", "")}\nConsultorio: {context.get("consultorio_name", "")}\n\n{servicios_texto}\n\nEscribe el *número* del servicio.',
+                'action': 'show_services',
+                'next_step': 'seleccionando_servicio',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"[MENU_SYSTEM] Error getting services: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'response': 'Error al cargar servicios.\n\nEscribe "menu" para volver.',
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -780,7 +839,7 @@ Escribe *"menu"* para volver al menú principal."""
             ])
             
             return {
-                'response': f'*Selecciona una fecha disponible:*\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
+                'response': f'*Paso 4/6: Selecciona una fecha disponible:*\n\n{fechas_texto}\n\nEscribe el *número* de la fecha.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_agendar',
                 'mode': 'menu'
@@ -798,18 +857,18 @@ Escribe *"menu"* para volver al menú principal."""
     
     def _show_payment_methods(self, context: Dict) -> Dict:
         """Muestra métodos de pago disponibles"""
-        metodos_texto = """*Selecciona el método de pago:*
+        metodos_texto = """*Paso 6/6: Selecciona el método de pago:*
 
 *1.* Efectivo
    Pago al momento de la cita
 
 *2.* Transferencia Bancaria
-   Pago por transferencia (2 horas para confirmar con comprobante)
+   Pago por transferencia (2 horas para confirmar)
 
 *3.* Tarjeta (Stripe)
-   Pago con tarjeta de crédito/débito (pago inmediato)
+   Pago con tarjeta de crédito/débito
 
-Escribe el *número* del método de pago que deseas."""
+Escribe el *número* del método de pago."""
         
         return {
             'response': metodos_texto,
@@ -1063,7 +1122,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             ])
             
             return {
-                'response': f'*Selecciona un Horario*\n\nHorarios disponibles:\n\n{horarios_texto}\n\nEscribe el *número* del horario que deseas.',
+                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\nEscribe el *número* del horario.',
                 'action': 'show_times',
                 'next_step': context['step'],
                 'mode': 'menu'
