@@ -711,6 +711,7 @@ class FirebaseFunctionsService:
     def get_user_reviews(self, user_id: str = None, phone: str = None) -> List[Dict]:
         """
         Obtiene las reseñas escritas por el usuario
+        Version optimizada con mejor manejo de errores
         """
         try:
             # Obtener paciente
@@ -726,30 +727,36 @@ class FirebaseFunctionsService:
                     paciente_id = docs[0].id
             
             if not paciente_id:
+                print(f"[get_user_reviews] No se encontro paciente_id")
                 return []
             
+            print(f"[get_user_reviews] Buscando resenas para paciente_id={paciente_id}")
             reviews = []
             
-            # Buscar en dentistas
+            # Buscar en dentistas - limitar a 20 para evitar timeout
             dentistas_ref = self.db.collection('dentistas')
-            for dentista_doc in dentistas_ref.stream():
+            dentistas_docs = list(dentistas_ref.limit(20).stream())
+            
+            for dentista_doc in dentistas_docs:
                 try:
                     resenas_ref = dentista_doc.reference.collection('resenas')
-                    query = resenas_ref.where('pacienteId', '==', paciente_id).limit(5)
                     
-                    for resena_doc in query.stream():
+                    # Buscar por pacienteId
+                    query1 = resenas_ref.where('pacienteId', '==', paciente_id).limit(3)
+                    for resena_doc in query1.stream():
                         data = resena_doc.to_dict()
                         dentista_data = dentista_doc.to_dict()
                         
-                        # Formatear fecha
                         fecha_str = ''
                         if data.get('created_at'):
-                            fecha_obj = data['created_at']
-                            if hasattr(fecha_obj, 'to_datetime'):
-                                fecha_dt = fecha_obj.to_datetime()
-                            else:
-                                fecha_dt = fecha_obj
-                            fecha_str = fecha_dt.strftime('%d/%m/%Y')
+                            try:
+                                fecha_obj = data['created_at']
+                                if hasattr(fecha_obj, 'strftime'):
+                                    fecha_str = fecha_obj.strftime('%d/%m/%Y')
+                                elif hasattr(fecha_obj, 'to_datetime'):
+                                    fecha_str = fecha_obj.to_datetime().strftime('%d/%m/%Y')
+                            except:
+                                fecha_str = ''
                         
                         reviews.append({
                             'id': resena_doc.id,
@@ -759,13 +766,44 @@ class FirebaseFunctionsService:
                             'fecha': fecha_str,
                             'anonimo': data.get('anonimo', False)
                         })
-                except:
+                    
+                    # Tambien buscar por userId si es diferente
+                    query2 = resenas_ref.where('userId', '==', paciente_id).limit(3)
+                    for resena_doc in query2.stream():
+                        # Evitar duplicados
+                        if resena_doc.id not in [r['id'] for r in reviews]:
+                            data = resena_doc.to_dict()
+                            dentista_data = dentista_doc.to_dict()
+                            
+                            fecha_str = ''
+                            if data.get('created_at'):
+                                try:
+                                    fecha_obj = data['created_at']
+                                    if hasattr(fecha_obj, 'strftime'):
+                                        fecha_str = fecha_obj.strftime('%d/%m/%Y')
+                                    elif hasattr(fecha_obj, 'to_datetime'):
+                                        fecha_str = fecha_obj.to_datetime().strftime('%d/%m/%Y')
+                                except:
+                                    fecha_str = ''
+                            
+                            reviews.append({
+                                'id': resena_doc.id,
+                                'dentista': dentista_data.get('Nombre', dentista_data.get('nombre', 'Dentista')),
+                                'calificacion': data.get('calificacion', 0),
+                                'comentario': data.get('comentario', ''),
+                                'fecha': fecha_str,
+                                'anonimo': data.get('anonimo', False)
+                            })
+                            
+                except Exception as inner_e:
+                    print(f"[get_user_reviews] Error en dentista {dentista_doc.id}: {inner_e}")
                     continue
             
-            return reviews[:10]  # Máximo 10 reseñas
+            print(f"[get_user_reviews] Encontradas {len(reviews)} resenas")
+            return reviews[:10]  # Maximo 10 resenas
             
         except Exception as e:
-            print(f"Error obteniendo reseñas del usuario: {e}")
+            print(f"Error obteniendo resenas del usuario: {e}")
             import traceback
             traceback.print_exc()
             return []

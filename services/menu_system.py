@@ -1286,14 +1286,15 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             print(f"[_show_available_dates_for_reschedule] cita_reagendar={cita_reagendar}")
             print(f"[_show_available_dates_for_reschedule] dentista_id={dentista_id}, consultorio_id={consultorio_id}")
             
+            from database.models import CitaRepository
+            from datetime import datetime
+            cita_repo = CitaRepository()
+            fechas = []
+            
             # Si tenemos dentista y consultorio, obtener fechas directamente
             if dentista_id and consultorio_id:
                 context['dentista_id'] = dentista_id
                 context['consultorio_id'] = consultorio_id
-                
-                from database.models import CitaRepository
-                cita_repo = CitaRepository()
-                from datetime import datetime
                 
                 fecha_base = datetime.now()
                 fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
@@ -1303,31 +1304,66 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                     consultorio_id,
                     fecha_timestamp,
                     cantidad=5
-                )
-                context['fechas_disponibles'] = fechas or []
-            else:
-                # Fallback: usar el servicio general
-                fechas = self.firebase_service.get_available_dates(user_id=user_id, phone=phone, count=5)
-                context['fechas_disponibles'] = fechas
+                ) or []
             
-            fechas = context.get('fechas_disponibles', [])
+            # Si no hay fechas o no tenemos dentista/consultorio, buscar en el primer consultorio disponible
+            if not fechas:
+                print(f"[_show_available_dates_for_reschedule] Buscando fechas alternativas...")
+                try:
+                    # Buscar el primer consultorio con disponibilidad
+                    consultorios = list(self.db.collection('consultorios').limit(3).stream())
+                    
+                    for cons_doc in consultorios:
+                        cons_data = cons_doc.to_dict()
+                        cons_id = cons_doc.id
+                        
+                        # Buscar dentistas de este consultorio
+                        dentistas = list(self.db.collection('dentistas').where('consultorioId', '==', cons_id).limit(2).stream())
+                        
+                        for dent_doc in dentistas:
+                            dent_id = dent_doc.id
+                            
+                            fecha_base = datetime.now()
+                            fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                            
+                            fechas_temp = cita_repo.obtener_fechas_disponibles(
+                                dent_id,
+                                cons_id,
+                                fecha_timestamp,
+                                cantidad=5
+                            ) or []
+                            
+                            if fechas_temp:
+                                fechas = fechas_temp
+                                context['dentista_id'] = dent_id
+                                context['consultorio_id'] = cons_id
+                                print(f"[_show_available_dates_for_reschedule] Encontradas {len(fechas)} fechas en consultorio {cons_id}, dentista {dent_id}")
+                                break
+                        
+                        if fechas:
+                            break
+                            
+                except Exception as inner_e:
+                    print(f"[_show_available_dates_for_reschedule] Error en fallback: {inner_e}")
+            
+            context['fechas_disponibles'] = fechas
             
             if not fechas:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles para reagendar con este dentista.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': 'Lo siento, no hay fechas disponibles para reagendar en este momento.\\n\\nEscribe \"menu\" para volver al menu principal.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             
             # Formatear fechas
-            fechas_texto = '\n'.join([
-                f'*{i+1}.* {fecha.strftime("%d/%m/%Y") if hasattr(fecha, "strftime") else str(fecha)}' 
+            fechas_texto = '\\n'.join([
+                f'*{i+1}.* {fecha.strftime(\"%d/%m/%Y\") if hasattr(fecha, \"strftime\") else str(fecha)}' 
                 for i, fecha in enumerate(fechas)
             ])
             
             return {
-                'response': f'*Selecciona Nueva Fecha*\n\nFechas disponibles:\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
+                'response': f'*Selecciona Nueva Fecha*\\n\\nFechas disponibles:\\n\\n{fechas_texto}\\n\\nEscribe el *numero* de la fecha que deseas.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_reagendar',
                 'mode': 'menu'
@@ -1337,7 +1373,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': 'Error al obtener fechas disponibles. Por favor intenta mas tarde.\\n\\nEscribe \"menu\" para volver.',
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
