@@ -681,8 +681,7 @@ Escribe el *número* de la opción que deseas."""
             }
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opción 5: Historial médico - J.RF7 Enhanced"""
-        web_url = 'https://www.densora.com'
+        """Opcion 5: Historial medico - J.RF7 Enhanced"""
         
         # Get medical history status if possible
         status_text = ""
@@ -703,35 +702,31 @@ Escribe el *número* de la opción que deseas."""
                     # Check if has historial_medico subcollection
                     historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
                     if historial_docs:
-                        status_text = "✅ *Estado:* Historial registrado\n\n"
+                        status_text = "*Estado:* Historial registrado\n\n"
                     else:
-                        status_text = "⚠️ *Estado:* Historial pendiente de completar\n\n"
+                        status_text = "*Estado:* Historial pendiente de completar\n\n"
         except Exception as e:
             print(f"Error checking medical history status: {e}")
             status_text = ""
         
-        response = f"""*📋 Historial Médico*
+        response = f"""*Historial Medico*
 
-{status_text}Tu historial médico es importante para recibir la mejor atención dental.
-
-*Acciones disponibles:*
-🔗 Ver/Completar historial:
-{web_url}/historialMedico
+{status_text}Tu historial medico es importante para recibir la mejor atencion dental.
 
 *Secciones del historial:*
-• Información médica general
-• Historial dental
-• Documentos (radiografías, etc.)
-• Alergias y medicamentos
+- Informacion medica general
+- Historial dental
+- Documentos (radiografias, etc.)
+- Alergias y medicamentos
 
-*¿Por qué completarlo?*
-✓ El dentista conoce tu salud
-✓ Consultas más rápidas y seguras
-✓ Atención personalizada
+*Por que completarlo?*
+- El dentista conoce tu salud
+- Consultas mas rapidas y seguras
+- Atencion personalizada
 
-*Tip:* Puedes elegir qué compartir con cada dentista desde tu perfil.
+Puedes completar y actualizar tu historial desde tu perfil en la app.
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
         return {
             'response': response,
@@ -741,8 +736,7 @@ Escribe *"menu"* para volver al menú principal."""
         }
     
     def _handle_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opción 6: Reseñas y calificaciones - J.RF9 Enhanced"""
-        web_url = 'https://www.densora.com'
+        """Opcion 6: Resenas y calificaciones - J.RF9 Enhanced"""
         
         # Check for pending reviews
         pending_reviews_text = ""
@@ -759,28 +753,25 @@ Escribe *"menu"* para volver al menú principal."""
                 if citas_completadas:
                     pending_count = len(citas_completadas)
                     if pending_count > 0:
-                        pending_reviews_text = f"⭐ *Tienes {pending_count} cita(s) pendiente(s) de calificar*\n\n"
+                        pending_reviews_text = f"*Tienes {pending_count} cita(s) pendiente(s) de calificar*\n\n"
         except Exception as e:
             print(f"Error checking pending reviews: {e}")
         
-        response = f"""*⭐ Reseñas y Calificaciones*
+        response = f"""*Resenas y Calificaciones*
 
 {pending_reviews_text}Tus opiniones ayudan a otros pacientes y mejoran el servicio.
 
-*Dejar una reseña:*
-🔗 {web_url}/mis-resenas
-
-*¿Cómo funciona?*
-• Después de cada cita, te enviaremos un enlace
-• Califica de 1 a 5 estrellas (dientes 🦷)
-• Escribe un comentario opcional (máx. 500 caracteres)
-• Puedes ser anónimo si lo prefieres
+*Como funciona?*
+- Despues de cada cita, te enviaremos un enlace
+- Califica de 1 a 5 estrellas
+- Escribe un comentario opcional (max. 500 caracteres)
+- Puedes ser anonimo si lo prefieres
 
 *Importante:*
-• Puedes editar tu reseña dentro de las primeras 24h
-• El dentista puede responder a tu reseña
+- Puedes editar tu resena dentro de las primeras 24h
+- El dentista puede responder a tu resena
 
-Escribe *"menu"* para volver al menú principal."""
+Escribe *"menu"* para volver al menu principal."""
 
         return {
             'response': response,
@@ -1262,15 +1253,14 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
 *Consultorio:* {context.get('consultorio_name', 'Consultorio')}
 *Servicio:* {tratamiento.get('nombre', 'Consulta')}
 *Precio:* ${tratamiento.get('precio', 0):,.0f} MXN
-*Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
-*Historial Médico:* {historial_texto}
+*Metodo de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
+*Historial Medico:* {historial_texto}
 
-Recibirás un recordatorio 24h antes de tu cita.
+Recibiras un recordatorio 24h antes de tu cita.
 
-Para completar o actualizar tu historial médico, visita:
-http://localhost:4321/historialMedico
+Puedes completar o actualizar tu historial medico desde tu perfil en la app.
 
-Escribe "menu" para volver al menú principal."""
+Escribe "menu" para volver al menu principal."""
                 
                 return {
                     'response': mensaje,
