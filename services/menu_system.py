@@ -246,7 +246,6 @@ Escribe el *número* de la opción que deseas."""
         elif current_step == 'seleccionando_metodo_pago':
             metodos_pago = [
                 {'id': 'efectivo', 'nombre': 'Efectivo', 'descripcion': 'Pago al momento de la cita'},
-                {'id': 'transferencia', 'nombre': 'Transferencia Bancaria', 'descripcion': 'Pago por transferencia (2 horas para confirmar)'},
                 {'id': 'stripe', 'nombre': 'Tarjeta (Stripe)', 'descripcion': 'Pago con tarjeta de crédito/débito'}
             ]
             if 0 <= button_num - 1 < len(metodos_pago):
@@ -872,10 +871,7 @@ Escribe *"menu"* para volver al menú principal."""
 *1.* Efectivo
    Pago al momento de la cita
 
-*2.* Transferencia Bancaria
-   Pago por transferencia (2 horas para confirmar)
-
-*3.* Tarjeta (Stripe)
+*2.* Tarjeta (Stripe)
    Pago con tarjeta de crédito/débito
 
 Escribe el *número* del método de pago."""
@@ -997,7 +993,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
     def _grant_medical_history_access(self, paciente_id: str, dentista_id: str, nivel: int):
         """Otorga acceso al historial médico según el nivel seleccionado (RF7, RNF2)"""
         try:
-            from google.cloud.firestore import Timestamp
+            from datetime import datetime
             
             # Verificar si ya existe un acceso
             accesos_ref = self.db.collection('historial_medico_accesos')
@@ -1013,10 +1009,10 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 'dentistaId': dentista_id,
                 'nivel': nivel,
                 'activo': True,
-                'otorgadoEn': Timestamp.now(),
+                'otorgadoEn': datetime.now(),  # datetime directly
                 'otorgadoPor': 'paciente',
                 'motivo': 'Otorgado durante agendamiento de cita',
-                'updatedAt': Timestamp.now()
+                'updatedAt': datetime.now()
             }
             
             if docs:

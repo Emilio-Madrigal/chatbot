@@ -259,12 +259,9 @@ class FirebaseFunctionsService:
             inicio_dia = fecha.replace(hour=0, minute=0, second=0, microsecond=0)
             fin_dia = fecha.replace(hour=23, minute=59, second=59, microsecond=999)
             
-            from google.cloud.firestore import Timestamp
-            inicio_timestamp = Timestamp.from_datetime(inicio_dia)
-            fin_timestamp = Timestamp.from_datetime(fin_dia)
-            
+            # Firebase Admin SDK accepts datetime objects directly
             citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
-            query = citas_ref.where('fechaHora', '>=', inicio_timestamp).where('fechaHora', '<=', fin_timestamp)
+            query = citas_ref.where('fechaHora', '>=', inicio_dia).where('fechaHora', '<=', fin_dia)
             citas_docs = list(query.stream())
             
             citas_ocupadas = []
@@ -323,8 +320,6 @@ class FirebaseFunctionsService:
         Accede directamente a Firestore como lo hace la web
         """
         try:
-            from google.cloud.firestore import Timestamp
-            
             # Preparar fechaHora
             fecha_str = appointment_data.get('fecha')
             hora_str = appointment_data.get('hora')
@@ -394,7 +389,7 @@ class FirebaseFunctionsService:
                 'dentistaName': dentista_name,
                 'consultorioId': consultorio_id,
                 'consultorioName': consultorio_name,
-                'fechaHora': Timestamp.from_datetime(fecha_hora),
+                'fechaHora': fecha_hora,  # datetime object - Firebase accepts it directly
                 'appointmentDate': fecha_str,
                 'appointmentTime': hora_str,
                 'Duracion': 60,
@@ -405,8 +400,8 @@ class FirebaseFunctionsService:
                 'status': 'programada',
                 'paymentMethod': 'cash',
                 'paymentStatus': 'pending',
-                'createdAt': Timestamp.from_datetime(datetime.now()),
-                'updatedAt': Timestamp.from_datetime(datetime.now())
+                'createdAt': datetime.now(),  # datetime directly
+                'updatedAt': datetime.now()
             }
             
             # Crear en subcolección (misma estructura que la web)
@@ -444,8 +439,6 @@ class FirebaseFunctionsService:
         Reagenda una cita usando la misma estructura que la web
         """
         try:
-            from google.cloud.firestore import Timestamp
-            
             # Obtener cita
             cita_ref = self.db.collection('pacientes').document(user_id).collection('citas').document(cita_id)
             cita_doc = cita_ref.get()
@@ -463,12 +456,12 @@ class FirebaseFunctionsService:
             hora_parts = nueva_hora.split(':')
             nueva_fecha_hora = nueva_fecha.replace(hour=int(hora_parts[0]), minute=int(hora_parts[1]))
             
-            # Actualizar cita
+            # Actualizar cita - Firebase Admin SDK accepts datetime directly
             cita_ref.update({
-                'fechaHora': Timestamp.from_datetime(nueva_fecha_hora),
+                'fechaHora': nueva_fecha_hora,
                 'appointmentDate': nueva_fecha.strftime('%Y-%m-%d'),
                 'appointmentTime': nueva_hora,
-                'updatedAt': Timestamp.from_datetime(datetime.now())
+                'updatedAt': datetime.now()
             })
             
             # También actualizar en colección principal si existe
@@ -478,10 +471,10 @@ class FirebaseFunctionsService:
                 docs = list(query.stream())
                 if docs:
                     docs[0].reference.update({
-                        'fechaHora': Timestamp.from_datetime(nueva_fecha_hora),
+                        'fechaHora': nueva_fecha_hora,
                         'appointmentDate': nueva_fecha.strftime('%Y-%m-%d'),
                         'appointmentTime': nueva_hora,
-                        'updatedAt': Timestamp.from_datetime(datetime.now())
+                        'updatedAt': datetime.now()
                     })
             except Exception as e:
                 print(f"Error actualizando cita en colección principal (continuando): {e}")
@@ -499,8 +492,6 @@ class FirebaseFunctionsService:
         Cancela una cita usando la misma estructura que la web
         """
         try:
-            from google.cloud.firestore import Timestamp
-            
             # Obtener cita
             cita_ref = self.db.collection('pacientes').document(user_id).collection('citas').document(cita_id)
             cita_doc = cita_ref.get()
@@ -517,16 +508,16 @@ class FirebaseFunctionsService:
             if cita_data.get('estado') == 'completada':
                 return {'success': False, 'error': 'No se puede cancelar una cita completada'}
             
-            # Actualizar estado a cancelada
+            # Actualizar estado a cancelada - Firebase Admin SDK accepts datetime directly
             cita_ref.update({
                 'estado': 'cancelada',
                 'status': 'cancelada',
                 'cancelacion': {
                     'motivo': 'Cancelado por el paciente',
                     'canceladoPor': 'paciente',
-                    'fecha': Timestamp.from_datetime(datetime.now())
+                    'fecha': datetime.now()
                 },
-                'updatedAt': Timestamp.from_datetime(datetime.now())
+                'updatedAt': datetime.now()
             })
             
             # También actualizar en colección principal si existe
@@ -541,9 +532,9 @@ class FirebaseFunctionsService:
                         'cancelacion': {
                             'motivo': 'Cancelado por el paciente',
                             'canceladoPor': 'paciente',
-                            'fecha': Timestamp.from_datetime(datetime.now())
+                            'fecha': datetime.now()
                         },
-                        'updatedAt': Timestamp.from_datetime(datetime.now())
+                        'updatedAt': datetime.now()
                     })
             except Exception as e:
                 print(f"Error actualizando cita en colección principal (continuando): {e}")
