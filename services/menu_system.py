@@ -322,6 +322,7 @@ Escribe el *número* de la opción que deseas."""
             if citas and 0 <= button_num - 1 < len(citas):
                 cita_seleccionada = citas[button_num - 1]
                 context['cita_id_reagendar'] = cita_seleccionada['id']
+                context['cita_reagendar'] = cita_seleccionada  # Guardar toda la info de la cita
                 context['step'] = 'seleccionando_fecha_reagendar'
                 return self._show_available_dates_for_reschedule(context, user_id, phone)
             else:
@@ -1283,15 +1284,45 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             }
     
     def _show_available_dates_for_reschedule(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Muestra fechas disponibles para reagendar - Usa la misma estructura que la web"""
+        """Muestra fechas disponibles para reagendar - Usa dentista/consultorio de la cita original"""
         try:
-            # Usar el servicio que accede a la misma estructura que la web
-            fechas = self.firebase_service.get_available_dates(user_id=user_id, phone=phone, count=5)
-            context['fechas_disponibles'] = fechas
+            # Obtener info de la cita que se quiere reagendar
+            cita_reagendar = context.get('cita_reagendar', {})
+            dentista_id = cita_reagendar.get('dentistaId')
+            consultorio_id = cita_reagendar.get('consultorioId')
+            
+            print(f"[_show_available_dates_for_reschedule] cita_reagendar={cita_reagendar}")
+            print(f"[_show_available_dates_for_reschedule] dentista_id={dentista_id}, consultorio_id={consultorio_id}")
+            
+            # Si tenemos dentista y consultorio, obtener fechas directamente
+            if dentista_id and consultorio_id:
+                context['dentista_id'] = dentista_id
+                context['consultorio_id'] = consultorio_id
+                
+                from database.models import CitaRepository
+                cita_repo = CitaRepository()
+                from datetime import datetime
+                
+                fecha_base = datetime.now()
+                fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
+                
+                fechas = cita_repo.obtener_fechas_disponibles(
+                    dentista_id,
+                    consultorio_id,
+                    fecha_timestamp,
+                    cantidad=5
+                )
+                context['fechas_disponibles'] = fechas or []
+            else:
+                # Fallback: usar el servicio general
+                fechas = self.firebase_service.get_available_dates(user_id=user_id, phone=phone, count=5)
+                context['fechas_disponibles'] = fechas
+            
+            fechas = context.get('fechas_disponibles', [])
             
             if not fechas:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles para reagendar.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': 'Lo siento, no hay fechas disponibles para reagendar con este dentista.\n\nEscribe "menu" para volver al menú principal.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1310,7 +1341,9 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo fechas: {e}")
+            print(f"Error obteniendo fechas para reagendar: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
                 'action': None,
