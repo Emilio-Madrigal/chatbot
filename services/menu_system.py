@@ -1795,9 +1795,11 @@ Escribe "menu" para volver al menu principal."""
     def _show_medical_info(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra información médica general del paciente"""
         try:
+            print(f"[_show_medical_info] user_id={user_id}, phone={phone}")
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
             
             if not result.get('success'):
+                print(f"[_show_medical_info] Error: {result.get('error')}")
                 return {
                     'response': 'No se pudo obtener tu información médica.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                     'action': None,
@@ -1807,12 +1809,18 @@ Escribe "menu" para volver al menu principal."""
             
             data = result.get('data', {})
             nombre = data.get('nombre', 'No registrado')
-            edad = data.get('edad', 'No registrada')
+            edad = data.get('edad', 'No especificada')
+            telefono = data.get('telefono', 'No registrado')
+            email = data.get('email', 'No registrado')
+            completitud = data.get('completitud', 0)
             
             response = f"""*Tu Informacion Medica*
 
 *Nombre:* {nombre}
 *Edad:* {edad}
+*Teléfono:* {telefono}
+*Email:* {email}
+*Completitud:* {completitud}%
 
 Para actualizar o completar tu historial medico, visita tu perfil en la app o web de Densora.
 
@@ -1827,18 +1835,12 @@ Para actualizar o completar tu historial medico, visita tu perfil en la app o we
             }
         except Exception as e:
             print(f"Error mostrando info médica: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                 'action': None,
                 'next_step': 'submenu_info_medica',
-                'mode': 'menu'
-            }
-        except Exception as e:
-            print(f"Error mostrando info médica: {e}")
-            return {
-                'response': 'Error al obtener información. Escribe "menu" para volver.',
-                'action': None,
-                'next_step': 'menu_principal',
                 'mode': 'menu'
             }
     
@@ -2003,9 +2005,9 @@ Total: {len(reviews)} resena(s)
             
             if not pending:
                 return {
-                    'response': '*Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podras dejar tu resena aqui.\n\nEscribe *"menu"* para volver.',
+                    'response': '*Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podras dejar tu resena aqui.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
                     'action': None,
-                    'next_step': 'menu_principal',
+                    'next_step': 'submenu_mis_resenas',
                     'mode': 'menu'
                 }
             

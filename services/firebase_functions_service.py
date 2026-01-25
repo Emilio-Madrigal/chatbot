@@ -593,42 +593,70 @@ class FirebaseFunctionsService:
                     paciente_id = docs[0].id
             
             if not paciente_id:
+                print(f"[get_medical_history] No se encontró paciente_id")
                 return {'success': False, 'error': 'Paciente no encontrado'}
+            
+            print(f"[get_medical_history] Buscando paciente con id={paciente_id}")
             
             # Obtener documento del paciente
             paciente_ref = self.db.collection('pacientes').document(paciente_id)
             paciente_doc = paciente_ref.get()
             
             if not paciente_doc.exists:
+                print(f"[get_medical_history] Paciente no existe en BD")
                 return {'success': False, 'error': 'Paciente no encontrado'}
             
             paciente_data = paciente_doc.to_dict()
+            print(f"[get_medical_history] Datos del paciente: {list(paciente_data.keys())}")
             
             # Verificar si tiene historial_medico en subcolección
             historial_completado = False
+            historial_extra = {}
             try:
                 historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
-                historial_completado = len(historial_docs) > 0
+                if historial_docs:
+                    historial_completado = True
+                    historial_extra = historial_docs[0].to_dict()
             except:
                 pass
             
+            # Construir nombre completo de diferentes formas posibles
+            nombre = (
+                paciente_data.get('nombreCompleto') or 
+                f"{paciente_data.get('nombres', paciente_data.get('nombre', ''))} {paciente_data.get('apellidos', paciente_data.get('apellido', ''))}".strip() or
+                'No registrado'
+            )
+            
             # Calcular porcentaje de completitud
-            campos_totales = ['nombre', 'apellidos', 'edad', 'telefono', 'email', 'alergias', 
+            campos_totales = ['nombre', 'apellidos', 'telefono', 'email', 'alergias', 
                              'medicamentos', 'enfermedadesCronicas', 'antecedentesMedicos']
             campos_completados = sum(1 for c in campos_totales if paciente_data.get(c))
             completitud = int((campos_completados / len(campos_totales)) * 100)
             
+            # Manejar alergias que pueden ser lista o string
+            alergias = paciente_data.get('alergias', [])
+            if isinstance(alergias, str):
+                alergias = [alergias] if alergias else []
+            
+            medicamentos = paciente_data.get('medicamentos', [])
+            if isinstance(medicamentos, str):
+                medicamentos = [medicamentos] if medicamentos else []
+            
             return {
                 'success': True,
                 'data': {
-                    'nombre': paciente_data.get('nombreCompleto') or f"{paciente_data.get('nombre', '')} {paciente_data.get('apellidos', '')}".strip(),
-                    'edad': paciente_data.get('edad', 'No especificada'),
-                    'alergias': paciente_data.get('alergias', []),
-                    'medicamentos': paciente_data.get('medicamentos', []),
+                    'nombre': nombre,
+                    'edad': paciente_data.get('edad', paciente_data.get('fechaNacimiento', 'No especificada')),
+                    'telefono': paciente_data.get('telefono', 'No registrado'),
+                    'email': paciente_data.get('email', 'No registrado'),
+                    'alergias': alergias,
+                    'medicamentos': medicamentos,
                     'enfermedadesCronicas': paciente_data.get('enfermedadesCronicas', []),
+                    'antecedentesMedicos': paciente_data.get('antecedentesMedicos', ''),
                     'contactoEmergencia': paciente_data.get('contactoEmergencia', {}),
                     'historialCompletado': historial_completado,
-                    'completitud': completitud
+                    'completitud': completitud,
+                    'historialExtra': historial_extra
                 }
             }
             
@@ -656,16 +684,29 @@ class FirebaseFunctionsService:
                     paciente_id = docs[0].id
             
             if not paciente_id:
+                print(f"[get_pending_reviews] No se encontró paciente_id")
                 return []
             
-            # Obtener citas completadas
+            print(f"[get_pending_reviews] Buscando citas para paciente_id={paciente_id}")
+            
+            # Obtener citas - buscar TODAS y filtrar en Python para manejar variantes
             citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
-            query = citas_ref.where('estado', '==', 'completado').order_by('fechaHora', direction='DESCENDING').limit(10)
+            # Obtener todas las citas ordenadas por fecha (no filtrar por estado en query)
+            query = citas_ref.order_by('fechaHora', direction='DESCENDING').limit(20)
             
             citas_completadas = []
+            estados_completados = ['completado', 'completada', 'completed', 'finalizada', 'finalizado']
+            
             for doc in query.stream():
                 data = doc.to_dict()
                 cita_id = doc.id
+                estado = data.get('estado', data.get('status', '')).lower().strip()
+                
+                print(f"[get_pending_reviews] Cita {cita_id} - estado: '{estado}'")
+                
+                # Verificar si el estado es alguna variante de completado
+                if estado not in estados_completados:
+                    continue
                 
                 # Verificar si ya tiene reseña
                 tiene_resena = False
@@ -700,6 +741,7 @@ class FirebaseFunctionsService:
                         'tratamiento': data.get('tratamientoNombre', 'Consulta')
                     })
             
+            print(f"[get_pending_reviews] Citas completadas sin reseña: {len(citas_completadas)}")
             return citas_completadas
             
         except Exception as e:
