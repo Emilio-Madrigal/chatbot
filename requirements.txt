@@ -30,3 +30,6 @@ openai>=1.12.0
 
 # Para procesamiento de lenguaje natural
 nltk==3.8.1
+
+# Para encriptación AES-256-GCM (historial médico)
+cryptography>=41.0.0

@@ -8,6 +8,10 @@ from database.database import FirebaseConfig
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 import re
+try:
+    from utils.encryption import decrypt_medical_history
+except ImportError:
+    pass
 
 class ActionsService:
     """
@@ -776,8 +780,11 @@ class ActionsService:
             print(f"Error en registro rápido: {e}")
             return None
 
-    def get_medical_history(self, user_id: str = None, phone: str = None) -> List[Dict]:
-        """Obtiene el historial médico del paciente (versión lectura para chat)"""
+    def get_medical_history(self, user_id: str = None, phone: str = None) -> Dict[str, Any]:
+        """
+        Obtiene el historial médico completo (desencriptado).
+        Retorna un dict con los datos procesados para el chatbot.
+        """
         try:
             paciente = None
             if user_id:
@@ -786,28 +793,41 @@ class ActionsService:
                 paciente = self.paciente_repo.buscar_por_telefono(phone)
             
             if not paciente:
-                return []
+                return {}
             
-            # Obtener citas pasadas como proxy de historial (MVP)
-            # En un sistema real buscaríamos en una colección 'historial_medico'
-            # pero podemos usar las citas completadas
-            citas = self.cita_repo.obtener_citas_paciente(paciente.uid)
-            historial = []
+            # 1. Obtener historial médico activo desde Firestore
+            historial_ref = self.db.collection('pacientes')\
+                                   .document(paciente.uid)\
+                                   .collection('historialMedico')\
+                                   .where('isActive', '==', True)\
+                                   .limit(1)
             
-            for cita in citas:
-                if cita.estado == 'completada':
-                    historial.append({
-                        'fecha': cita.fecha if isinstance(cita.fecha, str) else cita.fecha.strftime('%Y-%m-%d'),
-                        'tratamiento': cita.motivo or 'Consulta General',
-                        'dentista': cita.dentistaName or 'No especificado',
-                        'notas': cita.notas or 'Sin notas adicionales'
-                    })
+            docs = list(historial_ref.stream())
             
-            return sorted(historial, key=lambda x: x['fecha'], reverse=True)
+            if not docs:
+                return {}
+            
+            historial_data = docs[0].to_dict()
+            
+            # 2. Desencriptar si es necesario
+            try:
+                from utils.encryption import decrypt_medical_history
+                # Solo desencriptar si está marcado como encriptado
+                if historial_data.get('_encrypted'):
+                    historial_data = decrypt_medical_history(historial_data, paciente.uid)
+            except ImportError:
+                print("Encryption module not available")
+            except Exception as e:
+                print(f"Error decrypting history: {e}")
+                
+            # 3. Retornar datos completos
+            return historial_data
             
         except Exception as e:
-            print(f"Error obteniendo historial: {e}")
-            return []
+            print(f"Error getting medical history: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
 
     def get_dentist_reviews(self, dentista_name: str = None) -> List[Dict]:
         """Obtiene reseñas de dentistas"""
