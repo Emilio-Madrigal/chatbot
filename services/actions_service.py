@@ -33,7 +33,9 @@ class ActionsService:
                     'uid': paciente.uid,
                     'nombre': paciente.nombreCompleto or f"{paciente.nombre or ''} {paciente.apellidos or ''}".strip(),
                     'telefono': paciente.telefono,
-                    'email': paciente.email
+                    'email': paciente.email,
+                    'preferredLanguage': getattr(paciente, 'preferredLanguage', None),
+                    'idioma': getattr(paciente, 'idioma', None)
                 }
             return None
         except Exception as e:
