@@ -6,7 +6,7 @@ Integra con Firestore para realizar todas las acciones del sistema
 from database.models import CitaRepository, PacienteRepository
 from database.database import FirebaseConfig
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import re
 try:
     from utils.encryption import decrypt_medical_history
