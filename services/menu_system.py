@@ -159,7 +159,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dentists(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)}.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)}.' if consultorios else 'No hay consultorios disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -177,7 +177,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_services(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}.' if dentistas else 'No hay dentistas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -194,7 +194,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dates_for_appointment(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(tratamientos)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(tratamientos)}.' if tratamientos else 'No hay tratamientos disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -215,7 +215,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_times(context, user_id, phone, fecha_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.' if fechas else 'No hay fechas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -236,7 +236,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_payment_methods(context)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.' if horarios else 'No hay horarios disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -327,7 +327,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dates_for_reschedule(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.' if citas else 'No hay citas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -348,7 +348,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_times(context, user_id, phone, fecha_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.' if fechas else 'No hay fechas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -366,10 +366,11 @@ Escribe el *número* de la opción que deseas."""
                     hora_seleccionada = str(slot_seleccionado)
                 context['hora_seleccionada'] = hora_seleccionada
                 context['step'] = 'confirmando_reagendamiento'
-                return self._confirm_reschedule(session_id, context, user_id, phone)
+                # Mostrar resumen de reagendamiento para confirmar
+                return self._show_reschedule_summary(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.' if horarios else 'No hay horarios disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -385,7 +386,27 @@ Escribe el *número* de la opción que deseas."""
                 return self._confirm_cancellation(session_id, context, user_id, phone, cita_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.',
+                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.' if citas else 'No hay citas disponibles.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Confirmando reagendamiento - Handler para confirmar/cancelar reagendamiento
+        elif current_step == 'confirmando_reagendamiento':
+            if button_num == 1:  # Confirmar
+                return self._execute_reschedule(session_id, context, user_id, phone)
+            elif button_num == 2:  # Cancelar
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Reagendamiento cancelado. Tu cita se mantiene en la fecha original.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': 'Por favor selecciona:\n*1.* Sí, confirmar reagendamiento\n*2.* No, cancelar',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -488,7 +509,7 @@ Escribe el *número* de la opción que deseas."""
                 }
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(citas)} o 0 para volver.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(citas)} o 0 para volver.' if citas else 'No hay citas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -535,7 +556,7 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
         
-        # Menú de Ayuda (Opción 7) - Simplificado
+        # Menú de Ayuda (Opción 7) - Completo con todas las opciones
         elif current_step == 'menu_ayuda':
             if button_num == 0:
                 context['step'] = 'menu_principal'
@@ -551,9 +572,12 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 2:
                 # Cómo usar el chatbot
                 return self._show_chatbot_guide(context)
+            elif button_num == 3:
+                # Información de contacto
+                return self._show_support_contact(context)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2 o 0 para volver.',
+                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -902,15 +926,16 @@ Escribe el *número* de la opción."""
         }
     
     def _handle_help(self, context: Dict) -> Dict:
-        """Opción 7: Ayuda con submenu simplificado"""
+        """Opción 7: Ayuda y Soporte con submenu completo"""
         context['step'] = 'menu_ayuda'
         
-        response = """*Ayuda*
+        response = """*Ayuda y Soporte*
 
 ¿En qué podemos ayudarte?
 
 *1.* Preguntas frecuentes (FAQ)
 *2.* Cómo usar el chatbot
+*3.* Información de contacto
 *0.* Volver al menú principal
 
 Escribe el *número* de la opción."""
@@ -1350,20 +1375,20 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             
             if not fechas:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles para reagendar en este momento.\\n\\nEscribe \"menu\" para volver al menu principal.',
+                    'response': 'Lo siento, no hay fechas disponibles para reagendar en este momento.\n\nEscribe "menu" para volver al menú principal.',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             
             # Formatear fechas
-            fechas_texto = '\\n'.join([
-                f'*{i+1}.* {fecha.strftime(\"%d/%m/%Y\") if hasattr(fecha, \"strftime\") else str(fecha)}' 
+            fechas_texto = '\n'.join([
+                f'*{i+1}.* {fecha.strftime("%d/%m/%Y") if hasattr(fecha, "strftime") else str(fecha)}' 
                 for i, fecha in enumerate(fechas)
             ])
             
             return {
-                'response': f'*Selecciona Nueva Fecha*\\n\\nFechas disponibles:\\n\\n{fechas_texto}\\n\\nEscribe el *numero* de la fecha que deseas.',
+                'response': f'*Selecciona Nueva Fecha*\n\nFechas disponibles:\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_reagendar',
                 'mode': 'menu'
@@ -1373,7 +1398,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener fechas disponibles. Por favor intenta mas tarde.\\n\\nEscribe \"menu\" para volver.',
+                'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -1488,8 +1513,48 @@ Escribe "menu" para volver al menu principal."""
                 'mode': 'menu'
             }
     
-    def _confirm_reschedule(self, session_id: str, context: Dict, user_id: str, phone: str) -> Dict:
-        """Confirma el reagendamiento - Usa la misma estructura que la web"""
+    def _show_reschedule_summary(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra resumen del reagendamiento para confirmar (similar a _show_appointment_summary)"""
+        fecha = context.get('fecha_seleccionada')
+        hora = context.get('hora_seleccionada')
+        cita_original = context.get('cita_reagendar', {})
+        
+        # Formatear fecha
+        if hasattr(fecha, 'strftime'):
+            fecha_str = fecha.strftime('%d/%m/%Y')
+        else:
+            fecha_str = str(fecha)
+        
+        # Formatear hora
+        hora_str = hora if isinstance(hora, str) else str(hora)
+        
+        # Info de la cita original
+        fecha_original = cita_original.get('fecha', 'N/A')
+        hora_original = cita_original.get('hora', cita_original.get('horaInicio', 'N/A'))
+        dentista = cita_original.get('dentista', cita_original.get('dentistaName', 'Dentista'))
+        
+        resumen = f"""*Confirmar Reagendamiento*
+
+*Dentista:* {dentista}
+
+*Fecha original:* {fecha_original} {hora_original}
+*Nueva fecha:* {fecha_str}
+*Nueva hora:* {hora_str}
+
+¿Confirmas este reagendamiento?
+
+*1.* Sí, confirmar reagendamiento
+*2.* No, cancelar"""
+        
+        return {
+            'response': resumen,
+            'action': 'show_reschedule_summary',
+            'next_step': 'confirmando_reagendamiento',
+            'mode': 'menu'
+        }
+    
+    def _execute_reschedule(self, session_id: str, context: Dict, user_id: str, phone: str) -> Dict:
+        """Ejecuta el reagendamiento después de confirmación - Usa la misma estructura que la web"""
         cita_id = context.get('cita_id_reagendar')
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
