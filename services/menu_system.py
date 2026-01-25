@@ -9,6 +9,12 @@ from services.citas_service import CitasService
 from services.firebase_functions_service import FirebaseFunctionsService
 from database.database import FirebaseConfig
 from typing import Dict, Optional
+from services.actions_service import ActionsService
+from services.citas_service import CitasService
+from services.firebase_functions_service import FirebaseFunctionsService
+from services.language_service import language_service
+from database.database import FirebaseConfig
+from typing import Dict, Optional
 from datetime import datetime, timedelta
 
 class MenuSystem:
@@ -23,38 +29,26 @@ class MenuSystem:
         self.firebase_service = FirebaseFunctionsService()  # Servicio que usa la misma estructura que la web
         self.db = FirebaseConfig.get_db()  # Acceso directo a Firestore
     
+    
     def get_main_menu(self, language: str = 'es') -> str:
         """Menú principal"""
-        if language == 'en':
-            return """*Densora - Main Menu*
-
-What would you like to do?
-
-*1.* Schedule Appointment
-*2.* View My Appointments
-*3.* Reschedule Appointment
-*4.* Cancel Appointment
-*5.* Medical History
-*6.* Reviews & Ratings
-*7.* Help & Support
-*0.* Exit
-
-Type the *number* of the option you want."""
+        menu_title = language_service.t('main_menu_title', language)
+        prompt = language_service.t('main_menu_prompt', language)
         
-        return """*Densora - Menú Principal*
+        return f"""{menu_title}
 
-¿Qué te gustaría hacer?
+{prompt}
 
-*1.* Agendar Cita
-*2.* Ver Mis Citas
-*3.* Reagendar Cita
-*4.* Cancelar Cita
-*5.* Historial Médico
-*6.* Reseñas y Calificaciones
-*7.* Ayuda y Soporte
-*0.* Salir
+*1.* {language_service.t('menu_opt_schedule', language)}
+*2.* {language_service.t('menu_opt_view', language)}
+*3.* {language_service.t('menu_opt_reschedule', language)}
+*4.* {language_service.t('menu_opt_cancel', language)}
+*5.* {language_service.t('menu_opt_history', language)}
+*6.* {language_service.t('menu_opt_reviews', language)}
+*7.* {language_service.t('menu_opt_help', language)}
+*0.* {language_service.t('menu_opt_exit', language)}
 
-Escribe el *número* de la opción que deseas."""
+{language_service.t('type_number', language)}"""
     
     def process_message(self, session_id: str, message: str, 
                        context: Dict, user_id: str = None, 
@@ -65,13 +59,16 @@ Escribe el *número* de la opción que deseas."""
         """
         message_clean = message.strip().lower()
         current_step = context.get('step', 'menu_principal')
-        print(f"[MENU_SYSTEM] process_message - session_id={session_id}, message='{message}', current_step={current_step}, user_id={user_id}, phone={phone}")
+        # Obtener idioma del contexto
+        language = context.get('language', 'es')
+        
+        print(f"[MENU_SYSTEM] process_message - session_id={session_id}, message='{message}', current_step={current_step}, user_id={user_id}, phone={phone}, lang={language}")
         
         # Si es "menu" o "menú", volver al menú principal
         if message_clean in ['menu', 'menú', 'inicio', 'start', '0']:
             context['step'] = 'menu_principal'
             return {
-                'response': self.get_main_menu(context.get('language', 'es')),
+                'response': self.get_main_menu(language),
                 'action': 'show_menu',
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -84,7 +81,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._verify_otp_and_confirm(session_id, context, user_id, phone, message_clean)
             else:
                 return {
-                    'response': 'Por favor ingresa el código OTP de 6 dígitos que recibiste por WhatsApp.\n\nSi no lo recibiste, escribe "reenviar" para solicitar uno nuevo.',
+                    'response': language_service.t('otp_instruction', language, fallback='Por favor ingresa el código OTP de 6 dígitos.'),
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -101,7 +98,7 @@ Escribe el *número* de la opción que deseas."""
         # Si no es número ni comando reconocido, mostrar menú y pedir número
         print(f"[MENU_SYSTEM] Mensaje no reconocido, mostrando menú por defecto")
         return {
-            'response': f"Por favor, usa números para navegar.\n\n{self.get_main_menu(context.get('language', 'es'))}",
+            'response': f"{language_service.t('agent_fallback', language)}\n\n{self.get_main_menu(language)}",
             'action': None,
             'next_step': 'menu_principal',
             'mode': 'menu'
@@ -127,34 +124,40 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 4:
                 return self._handle_cancel_appointment(session_id, context, user_id, phone)
             elif button_num == 5:
+                # Historial Médico
                 return self._handle_medical_history(context, user_id, phone)
             elif button_num == 6:
+                # Reseñas
                 return self._handle_reviews(context, user_id, phone)
             elif button_num == 7:
+                # Ayuda
                 return self._handle_help(context)
             elif button_num == 0:
+                language = context.get('language', 'es')
                 return {
-                    'response': '¡Gracias por usar Densora!\n\nEscribe "menu" cuando quieras volver.',
+                    'response': language_service.t('goodbye', language),
                     'action': 'exit',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
+                language = context.get('language', 'es')
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 0 al 7.\n\n{self.get_main_menu()}',
+                    'response': f"{language_service.t('error_invalid_option', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
         
-        # Seleccionando consultorio (NUEVO PASO)
+        # Seleccionando consultorio
         elif current_step == 'seleccionando_consultorio':
+            language = context.get('language', 'es')
             consultorios = context.get('consultorios_disponibles', [])
             if button_num == 9 or button_num == 0:
                 # Volver al menú principal
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -168,14 +171,15 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dentists(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)} o *0* para cancelar.' if consultorios else 'No hay consultorios disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
                 }
         
-        # Seleccionando dentista (NUEVO PASO)
+        # Seleccionando dentista
         elif current_step == 'seleccionando_dentista':
+            language = context.get('language', 'es')
             dentistas = context.get('dentistas_disponibles', [])
             if button_num == 9:
                 # Volver a selección de consultorio
@@ -184,7 +188,7 @@ Escribe el *número* de la opción que deseas."""
                 # Cancelar y volver al menú principal
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -198,7 +202,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_services(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}, *9* para volver o *0* para cancelar.' if dentistas else 'No hay dentistas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -206,6 +210,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando servicio/tratamiento para agendar
         elif current_step == 'seleccionando_servicio':
+            language = context.get('language', 'es')
             tratamientos = context.get('tratamientos_disponibles', [])
             if button_num == 9:
                 # Volver a selección de dentista
@@ -214,7 +219,7 @@ Escribe el *número* de la opción que deseas."""
                 # Cancelar y volver al menú principal
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -227,7 +232,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dates_for_appointment(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(tratamientos)}, *9* para volver o *0* para cancelar.' if tratamientos else 'No hay tratamientos disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -235,6 +240,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando fecha para agendar
         elif current_step == 'seleccionando_fecha_agendar':
+            language = context.get('language', 'es')
             fechas = context.get('fechas_disponibles', [])
             if button_num == 9:
                 # Volver a selección de servicio
@@ -242,7 +248,7 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -259,7 +265,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_times(context, user_id, phone, fecha_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(fechas)}, *9* para volver o *0* para cancelar.' if fechas else 'No hay fechas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -267,6 +273,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando hora para agendar
         elif current_step == 'seleccionando_hora_agendar':
+            language = context.get('language', 'es')
             horarios = context.get('horarios_disponibles', [])
             if button_num == 9:
                 # Volver a selección de fecha
@@ -274,7 +281,7 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -291,7 +298,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_payment_methods(context)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(horarios)}, *9* para volver o *0* para cancelar.' if horarios else 'No hay horarios disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -299,9 +306,10 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando método de pago
         elif current_step == 'seleccionando_metodo_pago':
+            language = context.get('language', 'es')
             metodos_pago = [
-                {'id': 'efectivo', 'nombre': 'Efectivo', 'descripcion': 'Pago al momento de la cita'},
-                {'id': 'stripe', 'nombre': 'Tarjeta (Stripe)', 'descripcion': 'Pago con tarjeta de crédito/débito'}
+                {'id': 'efectivo', 'nombre': language_service.t('payment_cash', language), 'descripcion': language_service.t('payment_cash_desc', language)},
+                {'id': 'stripe', 'nombre': language_service.t('payment_card', language), 'descripcion': language_service.t('payment_card_desc', language)}
             ]
             if button_num == 9:
                 # Volver a selección de hora
@@ -310,7 +318,7 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -322,7 +330,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_medical_history_options(context)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona 1, 2, *9* para volver o *0* para cancelar.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -330,10 +338,11 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando opción de historial médico (RF7)
         elif current_step == 'seleccionando_historial_medico':
+            language = context.get('language', 'es')
             opciones_historial = [
-                {'id': 'no_compartir', 'nivel': 0, 'nombre': 'No compartir', 'descripcion': 'El dentista solo verá información básica'},
-                {'id': 'compartir_basico', 'nivel': 1, 'nombre': 'Compartir básico', 'descripcion': 'Nombre, edad y alergias'},
-                {'id': 'compartir_completo', 'nivel': 3, 'nombre': 'Compartir completo', 'descripcion': 'Todo el historial médico'}
+                {'id': 'no_compartir', 'nivel': 0, 'nombre': language_service.t('privacy_level_0', language), 'descripcion': language_service.t('privacy_level_0_desc', language)},
+                {'id': 'compartir_basico', 'nivel': 1, 'nombre': language_service.t('privacy_level_1', language), 'descripcion': language_service.t('privacy_level_1_desc', language)},
+                {'id': 'compartir_completo', 'nivel': 3, 'nombre': language_service.t('privacy_level_3', language), 'descripcion': language_service.t('privacy_level_3_desc', language)}
             ]
             if 0 <= button_num - 1 < len(opciones_historial):
                 opcion_historial = opciones_historial[button_num - 1]
@@ -344,7 +353,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_appointment_summary(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(opciones_historial)}.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -352,21 +361,20 @@ Escribe el *número* de la opción que deseas."""
         
         # Confirmando resumen
         elif current_step == 'mostrando_resumen':
+            language = context.get('language', 'es')
             if button_num == 1:  # Confirmar
-                # Para WhatsApp no necesitamos OTP - el usuario ya está verificado por su teléfono
-                # Confirmar directamente la cita
                 return self._confirm_appointment(session_id, context, user_id, phone)
             elif button_num == 2:  # Cancelar
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Por favor selecciona:\n*1.* Confirmar cita\n*2.* Cancelar',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -385,6 +393,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando cita para reagendar
         elif current_step == 'seleccionando_cita_reagendar':
+            language = context.get('language', 'es')
             citas = context.get('citas_disponibles', [])
             if citas and 0 <= button_num - 1 < len(citas):
                 cita_seleccionada = citas[button_num - 1]
@@ -394,7 +403,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dates_for_reschedule(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.' if citas else 'No hay citas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -402,6 +411,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando fecha para reagendar
         elif current_step == 'seleccionando_fecha_reagendar':
+            language = context.get('language', 'es')
             fechas = context.get('fechas_disponibles', [])
             if fechas and 0 <= button_num - 1 < len(fechas):
                 fecha_seleccionada = fechas[button_num - 1]
@@ -415,7 +425,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_times(context, user_id, phone, fecha_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.' if fechas else 'No hay fechas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -423,6 +433,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando hora para reagendar
         elif current_step == 'seleccionando_hora_reagendar':
+            language = context.get('language', 'es')
             horarios = context.get('horarios_disponibles', [])
             if horarios and 0 <= button_num - 1 < len(horarios):
                 slot_seleccionado = horarios[button_num - 1]
@@ -437,7 +448,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_reschedule_summary(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.' if horarios else 'No hay horarios disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -445,6 +456,7 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando cita para cancelar
         elif current_step == 'seleccionando_cita_cancelar':
+            language = context.get('language', 'es')
             citas = context.get('citas_disponibles', [])
             if citas and 0 <= button_num - 1 < len(citas):
                 cita_seleccionada = citas[button_num - 1]
@@ -453,7 +465,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._confirm_cancellation(session_id, context, user_id, phone, cita_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(citas)}.' if citas else 'No hay citas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -461,19 +473,20 @@ Escribe el *número* de la opción que deseas."""
         
         # Confirmando reagendamiento - Handler para confirmar/cancelar reagendamiento
         elif current_step == 'confirmando_reagendamiento':
+            language = context.get('language', 'es')
             if button_num == 1:  # Confirmar
                 return self._execute_reschedule(session_id, context, user_id, phone)
             elif button_num == 2:  # Cancelar
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Reagendamiento cancelado. Tu cita se mantiene en la fecha original.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('reschedule_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Por favor selecciona:\n*1.* Sí, confirmar reagendamiento\n*2.* No, cancelar',
+                    'response': f"{language_service.t('reschedule_confirm_title', language)}\n\n*1.* {language_service.t('btn_confirm_reschedule', language)}\n*2.* {language_service.t('cancel', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -481,19 +494,20 @@ Escribe el *número* de la opción que deseas."""
         
         # Confirmando cancelación
         elif current_step == 'confirmando_cancelacion':
+            language = context.get('language', 'es')
             if button_num == 1:  # Sí, confirmar
                 return self._execute_cancellation(session_id, context, user_id, phone)
             elif button_num == 2:  # No, cancelar
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Cancelación cancelada. Tu cita se mantiene programada.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('cancel_aborted', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Por favor selecciona:\n*1.* Sí, cancelar cita\n*2.* No, mantener cita',
+                    'response': f"{language_service.t('cancel_confirm_title', language)}\n\n*1.* {language_service.t('btn_confirm_cancel', language)}\n*2.* {language_service.t('btn_keep_appointment', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -501,10 +515,11 @@ Escribe el *número* de la opción que deseas."""
         
         # Menú de Historial Médico (Opción 5)
         elif current_step == 'menu_historial_medico':
+            language = context.get('language', 'es')
             if button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -520,7 +535,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_medical_completeness(context, user_id, phone)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -528,10 +543,11 @@ Escribe el *número* de la opción que deseas."""
         
         # Menú de Reseñas (Opción 6)
         elif current_step == 'menu_resenas':
+            language = context.get('language', 'es')
             if button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -547,7 +563,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_reviews_info(context)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -555,11 +571,12 @@ Escribe el *número* de la opción que deseas."""
         
         # Seleccionando cita para calificar
         elif current_step == 'seleccionando_cita_calificar':
+            language = context.get('language', 'es')
             citas = context.get('citas_pendientes_resena', [])
             if button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -568,15 +585,25 @@ Escribe el *número* de la opción que deseas."""
                 cita_seleccionada = citas[button_num - 1]
                 context['cita_a_calificar'] = cita_seleccionada
                 context['step'] = 'ingresando_calificacion'
+                
+                rate_title = language_service.t('rate_title', language)
+                rate_prompt = language_service.t('rate_prompt', language)
+                r1 = language_service.t('rate_1', language)
+                r2 = language_service.t('rate_2', language)
+                r3 = language_service.t('rate_3', language)
+                r4 = language_service.t('rate_4', language)
+                r5 = language_service.t('rate_5', language)
+                type_text = language_service.t('type_number', language)
+                
                 return {
-                    'response': f'*Calificar cita del {cita_seleccionada.get("fecha", "")}*\n\nDentista: {cita_seleccionada.get("dentista", "")}\n\n¿Qué calificación le das? (1-5 estrellas)\n\n*1.* ⭐ (Muy malo)\n*2.* ⭐⭐ (Malo)\n*3.* ⭐⭐⭐ (Regular)\n*4.* ⭐⭐⭐⭐ (Bueno)\n*5.* ⭐⭐⭐⭐⭐ (Excelente)\n\nEscribe el número de estrellas.',
+                    'response': f'*{rate_title}: {cita_seleccionada.get("fecha", "")}*\n\n{language_service.t("label_dentist", language)}: {cita_seleccionada.get("dentista", "")}\n\n{rate_prompt}\n\n*1.* {r1}\n*2.* {r2}\n*3.* {r3}\n*4.* {r4}\n*5.* {r5}\n\n{type_text}',
                     'action': None,
                     'next_step': 'ingresando_calificacion',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(citas)} o 0 para volver.' if citas else 'No hay citas disponibles.',
+                    'response': f"{language_service.t('error_invalid_option', language)} {language_service.t('type_number', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -584,19 +611,31 @@ Escribe el *número* de la opción que deseas."""
         
         # Ingresando calificación
         elif current_step == 'ingresando_calificacion':
+            language = context.get('language', 'es')
             if 1 <= button_num <= 5:
                 context['calificacion_seleccionada'] = button_num
                 context['step'] = 'confirmando_resena'
                 cita = context.get('cita_a_calificar', {})
+                
+                confirm_title = language_service.t('confirm_review_title', language)
+                label_dentist = language_service.t('label_dentist', language)
+                label_date = language_service.t('label_date', language)
+                label_rating = language_service.t('label_rating', language)
+                rating_stars = "⭐" * button_num
+                prompt = language_service.t('review_anon_prompt', language)
+                btn_yes = language_service.t('btn_anon_yes', language)
+                btn_no = language_service.t('btn_anon_no', language)
+                cancel = language_service.t('cancel', language)
+                
                 return {
-                    'response': f'*Confirmar Reseña*\n\nDentista: {cita.get("dentista", "")}\nFecha: {cita.get("fecha", "")}\nCalificación: {"⭐" * button_num}\n\n¿Deseas publicarla como anónimo?\n*1.* Sí, publicar anónimo\n*2.* No, publicar con mi nombre\n*0.* Cancelar',
+                    'response': f'{confirm_title}\n\n{label_dentist}: {cita.get("dentista", "")}\n{label_date}: {cita.get("fecha", "")}\n{label_rating}: {rating_stars}\n\n{prompt}\n*1.* {btn_yes}\n*2.* {btn_no}\n*0.* {cancel}',
                     'action': None,
                     'next_step': 'confirmando_resena',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Por favor selecciona una calificación del 1 al 5.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -604,10 +643,11 @@ Escribe el *número* de la opción que deseas."""
         
         # Confirmando reseña
         elif current_step == 'confirmando_resena':
+            language = context.get('language', 'es')
             if button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': 'Reseña cancelada.\n\n' + self.get_main_menu(),
+                    'response': f"{language_service.t('consultorio_cancel', language)}\n\n{self.get_main_menu(language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -617,7 +657,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._submit_review(session_id, context, user_id, phone, anonimo)
             else:
                 return {
-                    'response': 'Por favor selecciona 1, 2 o 0.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -625,10 +665,11 @@ Escribe el *número* de la opción que deseas."""
         
         # Menú de Ayuda (Opción 7) - Completo con todas las opciones
         elif current_step == 'menu_ayuda':
+            language = context.get('language', 'es')
             if button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -641,7 +682,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_chatbot_guide(context)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2 o 0 para volver.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -649,20 +690,21 @@ Escribe el *número* de la opción que deseas."""
         
         # Submenús de Ayuda - Permiten volver al menú de ayuda con opción 9
         elif current_step in ['submenu_faq', 'submenu_guia']:
+            language = context.get('language', 'es')
             if button_num == 9:
                 # Volver al menú de ayuda
                 return self._handle_help(context)
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Opción inválida. Escribe *9* para volver a Ayuda o *0* para el menú principal.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -670,20 +712,21 @@ Escribe el *número* de la opción que deseas."""
         
         # Submenús de Historial Médico - Permiten volver al menú de historial con opción 9
         elif current_step in ['submenu_info_medica', 'submenu_alergias', 'submenu_completitud']:
+            language = context.get('language', 'es')
             if button_num == 9:
                 # Volver al menú de historial médico
                 return self._handle_medical_history(context, user_id, phone)
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Opción inválida. Escribe *9* para volver a Historial Médico o *0* para el menú principal.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -691,20 +734,21 @@ Escribe el *número* de la opción que deseas."""
         
         # Submenús de Reseñas - Permiten volver al menú de reseñas con opción 9
         elif current_step in ['submenu_mis_resenas', 'submenu_info_resenas']:
+            language = context.get('language', 'es')
             if button_num == 9:
                 # Volver al menú de reseñas
                 return self._handle_reviews(context, user_id, phone)
             elif button_num == 0:
                 context['step'] = 'menu_principal'
                 return {
-                    'response': self.get_main_menu(),
+                    'response': self.get_main_menu(language),
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': 'Opción inválida. Escribe *9* para volver a Reseñas o *0* para el menú principal.',
+                    'response': f"{language_service.t('error_invalid_option', language)}",
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -712,8 +756,9 @@ Escribe el *número* de la opción que deseas."""
         
         # Si no coincide con ningún paso, volver al menú
         context['step'] = 'menu_principal'
+        language = context.get('language', 'es')
         return {
-            'response': f'Opción no válida en este contexto.\n\n{self.get_main_menu()}',
+            'response': f"{language_service.t('agent_fallback', language)}\n\n{self.get_main_menu(language)}",
             'action': None,
             'next_step': 'menu_principal',
             'mode': 'menu'
@@ -724,6 +769,7 @@ Escribe el *número* de la opción que deseas."""
         """Opción 1: Agendar cita - Flujo completo desde selección de consultorio"""
         print(f"[MENU_SYSTEM] _handle_schedule_appointment - user_id={user_id}, phone={phone}")
         
+        language = context.get('language', 'es')
         context['step'] = 'seleccionando_consultorio'
         
         try:
@@ -732,7 +778,7 @@ Escribe el *número* de la opción que deseas."""
             
             if not consultorios:
                 return {
-                    'response': 'No hay consultorios disponibles en este momento.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('no_consultorios', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -755,8 +801,13 @@ Escribe el *número* de la opción que deseas."""
                     direccion_str = str(direccion) if direccion else ''
                 consultorios_texto += f'*{i+1}.* {c["nombre"]}\n   {direccion_str}\n'
             
+            step_text = language_service.t('step_consultorio', language)
+            cancel_text = language_service.t('cancel', language)
+            type_text = language_service.t('type_number', language)
+            title = language_service.t('schedule_title', language)
+            
             return {
-                'response': f'*Agendar Nueva Cita*\n\n*Paso 1/6: Selecciona un consultorio:*\n\n{consultorios_texto}\n*0.* Cancelar\n\nEscribe el *número* del consultorio.',
+                'response': f'{title}\n\n{step_text}\n\n{consultorios_texto}\n*0.* {cancel_text}\n\n{type_text}',
                 'action': 'show_consultorios',
                 'next_step': 'seleccionando_consultorio',
                 'mode': 'menu'
@@ -766,7 +817,7 @@ Escribe el *número* de la opción que deseas."""
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al cargar consultorios. Intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -774,12 +825,13 @@ Escribe el *número* de la opción que deseas."""
     
     def _show_available_dentists(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Shows available dentists for the selected consultorio"""
+        language = context.get('language', 'es')
         try:
             consultorio_id = context.get('consultorio_id')
             
             if not consultorio_id:
                 return {
-                    'response': 'Error: No se seleccionó consultorio.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -792,7 +844,7 @@ Escribe el *número* de la opción que deseas."""
             
             if not dentistas_docs:
                 return {
-                    'response': 'No hay dentistas disponibles en este consultorio.\n\nEscribe "menu" para seleccionar otro consultorio.',
+                    'response': f"{language_service.t('no_dentists', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -810,12 +862,18 @@ Escribe el *número* de la opción que deseas."""
             context['dentistas_disponibles'] = dentistas
             
             dentistas_texto = '\n'.join([
-                f'*{i+1}.* {d["nombre"]}\n   Especialidad: {d.get("especialidad", "General")}'
+                f'*{i+1}.* {d["nombre"]}\n   {d.get("especialidad", "General")}'
                 for i, d in enumerate(dentistas)
             ])
             
+            step_text = language_service.t('step_dentist', language)
+            consultorio_text = language_service.t('dentist_consultorio', language, consultorio=context.get("consultorio_name", ""))
+            back_text = language_service.t('back', language)
+            cancel_text = language_service.t('cancel', language)
+            type_text = language_service.t('type_number', language)
+            
             return {
-                'response': f'*Paso 2/6: Selecciona un dentista:*\n\nConsultorio: {context.get("consultorio_name", "")}\n\n{dentistas_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* del dentista.',
+                'response': f'{step_text}\n\n{consultorio_text}\n\n{dentistas_texto}\n\n*9.* {back_text}\n*0.* {cancel_text}\n\n{type_text}',
                 'action': 'show_dentistas',
                 'next_step': 'seleccionando_dentista',
                 'mode': 'menu'
@@ -825,7 +883,7 @@ Escribe el *número* de la opción que deseas."""
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al cargar dentistas.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -833,6 +891,7 @@ Escribe el *número* de la opción que deseas."""
     
     def _show_available_services(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Shows available services/treatments for the selected dentist/consultorio"""
+        language = context.get('language', 'es')
         try:
             dentista_id = context.get('dentista_id')
             consultorio_id = context.get('consultorio_id')
@@ -842,19 +901,26 @@ Escribe el *número* de la opción que deseas."""
             
             if not tratamientos:
                 return {
-                    'response': 'No hay servicios disponibles para este dentista.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('no_services', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             
+            min_text = language_service.t('label_min', language)
             servicios_texto = '\n'.join([
-                f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN | {t["duracion"]} min\n   {t.get("descripcion", "")}'
+                f'*{i+1}.* {t["nombre"]}\n   ${t["precio"]:,.0f} MXN | {t["duracion"]} {min_text} \n   {t.get("descripcion", "")}'
                 for i, t in enumerate(tratamientos[:10])
             ])
             
+            step_text = language_service.t('step_service', language)
+            header_text = f"{language_service.t('label_dentist', language)}: {context.get('dentista_name', '')}\n{language_service.t('label_consultorio', language)}: {context.get('consultorio_name', '')}"
+            back_text = language_service.t('back', language)
+            cancel_text = language_service.t('cancel', language)
+            type_text = language_service.t('type_number', language)
+            
             return {
-                'response': f'*Paso 3/6: Selecciona el servicio:*\n\nDentista: {context.get("dentista_name", "")}\nConsultorio: {context.get("consultorio_name", "")}\n\n{servicios_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* del servicio.',
+                'response': f'{step_text}\n\n{header_text}\n\n{servicios_texto}\n\n*9.* {back_text}\n*0.* {cancel_text}\n\n{type_text}',
                 'action': 'show_services',
                 'next_step': 'seleccionando_servicio',
                 'mode': 'menu'
@@ -864,7 +930,7 @@ Escribe el *número* de la opción que deseas."""
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al cargar servicios.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -872,13 +938,14 @@ Escribe el *número* de la opción que deseas."""
     
     def _handle_view_appointments(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Opción 2: Ver citas - Usa la misma estructura que la web"""
+        language = context.get('language', 'es')
         try:
             # Usar el servicio que accede a la misma estructura que la web
             citas = self.firebase_service.get_user_appointments(user_id=user_id, phone=phone, status='confirmado')
             
             if not citas:
                 return {
-                    'response': 'No tienes citas programadas en este momento.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f"{language_service.t('no_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -890,7 +957,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'*Tus Próximas Citas:*\n\n{citas_texto}\n\nEscribe "menu" para volver al menú principal.',
+                'response': f'*{language_service.t("your_appointments", language)}:*\n\n{citas_texto}\n\n{language_service.t("type_menu", language)}',
                 'action': 'show_appointments',
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -898,7 +965,7 @@ Escribe el *número* de la opción que deseas."""
         except Exception as e:
             print(f"Error obteniendo citas: {e}")
             return {
-                'response': 'Error al obtener tus citas. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -907,6 +974,7 @@ Escribe el *número* de la opción que deseas."""
     def _handle_reschedule_appointment(self, session_id: str, context: Dict,
                                       user_id: str, phone: str) -> Dict:
         """Opción 3: Reagendar cita - Usa la misma estructura que la web"""
+        language = context.get('language', 'es')
         context['step'] = 'seleccionando_cita_reagendar'
         
         try:
@@ -916,7 +984,7 @@ Escribe el *número* de la opción que deseas."""
             
             if not citas:
                 return {
-                    'response': 'No tienes citas programadas para reagendar.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f"{language_service.t('no_appointments_reschedule', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -928,7 +996,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'*Reagendar Cita*\n\nSelecciona la cita que deseas reagendar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
+                'response': f'*{language_service.t("reschedule_title", language)}*\n\n{language_service.t("reschedule_prompt", language)}\n\n{citas_texto}\n\n{language_service.t("type_number", language)}',
                 'action': 'show_appointments_to_reschedule',
                 'next_step': 'seleccionando_cita_reagendar',
                 'mode': 'menu'
@@ -936,7 +1004,7 @@ Escribe el *número* de la opción que deseas."""
         except Exception as e:
             print(f"Error obteniendo citas para reagendar: {e}")
             return {
-                'response': 'Error al obtener tus citas. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -945,6 +1013,7 @@ Escribe el *número* de la opción que deseas."""
     def _handle_cancel_appointment(self, session_id: str, context: Dict,
                                   user_id: str, phone: str) -> Dict:
         """Opción 4: Cancelar cita - Usa la misma estructura que la web"""
+        language = context.get('language', 'es')
         context['step'] = 'seleccionando_cita_cancelar'
         
         try:
@@ -954,7 +1023,7 @@ Escribe el *número* de la opción que deseas."""
             
             if not citas:
                 return {
-                    'response': 'No tienes citas programadas para cancelar.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f"{language_service.t('no_appointments_cancel', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -966,7 +1035,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'*Cancelar Cita*\n\nSelecciona la cita que deseas cancelar:\n\n{citas_texto}\n\nEscribe el *número* de la cita.',
+                'response': f'*{language_service.t("cancel_title", language)}*\n\n{language_service.t("cancel_prompt", language)}\n\n{citas_texto}\n\n{language_service.t("type_number", language)}',
                 'action': 'show_appointments_to_cancel',
                 'next_step': 'seleccionando_cita_cancelar',
                 'mode': 'menu'
@@ -974,7 +1043,7 @@ Escribe el *número* de la opción que deseas."""
         except Exception as e:
             print(f"Error obteniendo citas para cancelar: {e}")
             return {
-                'response': 'Error al obtener tus citas. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -982,6 +1051,7 @@ Escribe el *número* de la opción que deseas."""
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Opcion 5: Historial medico - J.RF7 Enhanced con submenu"""
+        language = context.get('language', 'es')
         context['step'] = 'menu_historial_medico'
         
         # Obtener datos del historial médico
@@ -991,24 +1061,34 @@ Escribe el *número* de la opción que deseas."""
         if historial_result.get('success'):
             data = historial_result.get('data', {})
             completitud = data.get('completitud', 0)
+            status_label = language_service.t('status', language)
+            
             if completitud >= 80:
-                status_text = f"*Estado:* Completado ({completitud}%)\n"
+                status_text = f"*{status_label}:* {language_service.t('status_completed', language)} ({completitud}%)\n"
             elif completitud >= 40:
-                status_text = f"*Estado:* Parcialmente completado ({completitud}%)\n"
+                status_text = f"*{status_label}:* {language_service.t('status_partial', language)} ({completitud}%)\n"
             else:
-                status_text = f"*Estado:* Pendiente de completar ({completitud}%)\n"
+                status_text = f"*{status_label}:* {language_service.t('status_pending', language)} ({completitud}%)\n"
         
-        response = f"""*Historial Medico*
+        mh_title = language_service.t('medical_history_title', language)
+        what_to_do = language_service.t('what_to_do', language)
+        opt1 = language_service.t('mh_opt_info', language)
+        opt2 = language_service.t('mh_opt_allergies', language)
+        opt3 = language_service.t('mh_opt_completeness', language)
+        opt0 = language_service.t('menu_opt_exit', language) # or back to menu
+        type_num = language_service.t('type_number', language)
+        
+        response = f"""*{mh_title}*
 
 {status_text}
-¿Qué deseas consultar?
+{what_to_do}
 
-*1.* Ver mi información médica
-*2.* Ver alergias y medicamentos
-*3.* Ver porcentaje de completitud
-*0.* Volver al menú principal
+*1.* {opt1}
+*2.* {opt2}
+*3.* {opt3}
+*0.* {opt0}
 
-Escribe el *número* de la opción."""
+{type_num}"""
 
         return {
             'response': response,
@@ -1019,6 +1099,7 @@ Escribe el *número* de la opción."""
     
     def _handle_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Opcion 6: Resenas y calificaciones - J.RF9 Enhanced con submenu"""
+        language = context.get('language', 'es')
         context['step'] = 'menu_resenas'
         
         # Obtener reseñas pendientes
@@ -1032,18 +1113,26 @@ Escribe el *número* de la opción."""
         
         pending_text = ""
         if pending_count > 0:
-            pending_text = f"\n*Tienes {pending_count} cita(s) pendiente(s) de calificar*\n"
+            pending_text = f"\n*{language_service.t('pending_reviews_msg', language, count=pending_count)}*\n"
         
-        response = f"""*Resenas y Calificaciones*
+        title = language_service.t('reviews_title', language)
+        what_to_do = language_service.t('what_to_do', language)
+        opt1 = language_service.t('reviews_opt_my_reviews', language)
+        opt2 = language_service.t('reviews_opt_rate', language)
+        opt3 = language_service.t('reviews_opt_info', language)
+        opt0 = language_service.t('menu_opt_exit', language)
+        type_num = language_service.t('type_number', language)
+        
+        response = f"""*{title}*
 {pending_text}
-¿Qué deseas hacer?
+{what_to_do}
 
-*1.* Ver mis reseñas escritas
-*2.* Calificar una cita pendiente
-*3.* ¿Cómo funcionan las reseñas?
-*0.* Volver al menú principal
+*1.* {opt1}
+*2.* {opt2}
+*3.* {opt3}
+*0.* {opt0}
 
-Escribe el *número* de la opción."""
+{type_num}"""
 
         return {
             'response': response,
@@ -1054,17 +1143,25 @@ Escribe el *número* de la opción."""
     
     def _handle_help(self, context: Dict) -> Dict:
         """Opción 7: Ayuda y Soporte con submenu completo"""
+        language = context.get('language', 'es')
         context['step'] = 'menu_ayuda'
         
-        response = """*Ayuda y Soporte*
+        title = language_service.t('help_title', language)
+        prompt = language_service.t('help_prompt', language)
+        opt1 = language_service.t('help_opt_faq', language)
+        opt2 = language_service.t('help_opt_guide', language)
+        opt0 = language_service.t('menu_opt_exit', language)
+        type_num = language_service.t('type_number', language)
+        
+        response = f"""*{title}*
 
-¿En qué podemos ayudarte?
+{prompt}
 
-*1.* Preguntas frecuentes (FAQ)
-*2.* Cómo usar el chatbot
-*0.* Volver al menú principal
+*1.* {opt1}
+*2.* {opt2}
+*0.* {opt0}
 
-Escribe el *número* de la opción."""
+{type_num}"""
 
         return {
             'response': response,
@@ -1075,6 +1172,7 @@ Escribe el *número* de la opción."""
     
     def _show_available_dates_for_appointment(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra fechas disponibles para agendar usando dentista_id y consultorio_id del contexto"""
+        language = context.get('language', 'es')
         try:
             dentista_id = context.get('dentista_id')
             consultorio_id = context.get('consultorio_id')
@@ -1083,7 +1181,7 @@ Escribe el *número* de la opción."""
             
             if not dentista_id or not consultorio_id:
                 return {
-                    'response': 'Error: No se encontró información del consultorio.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1110,7 +1208,7 @@ Escribe el *número* de la opción."""
             
             if not fechas or len(fechas) == 0:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles en este momento.\n\nPor favor, contacta directamente con el consultorio o intenta más tarde.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('no_dates', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1122,8 +1220,13 @@ Escribe el *número* de la opción."""
                 for i, fecha in enumerate(fechas)
             ])
             
+            step_text = language_service.t('step_date', language)
+            back_text = language_service.t('back', language)
+            cancel_text = language_service.t('cancel', language)
+            type_text = language_service.t('type_number', language)
+            
             return {
-                'response': f'*Paso 4/6: Selecciona una fecha disponible:*\n\n{fechas_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* de la fecha.',
+                'response': f'{step_text}\n\n{fechas_texto}\n\n*9.* {back_text}\n*0.* {cancel_text}\n\n{type_text}',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_agendar',
                 'mode': 'menu'
@@ -1133,7 +1236,7 @@ Escribe el *número* de la opción."""
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -1141,18 +1244,29 @@ Escribe el *número* de la opción."""
     
     def _show_payment_methods(self, context: Dict) -> Dict:
         """Muestra métodos de pago disponibles"""
-        metodos_texto = """*Paso 6/6: Selecciona el método de pago:*
+        language = context.get('language', 'es')
+        
+        step_text = language_service.t('step_payment', language)
+        cash_text = language_service.t('payment_cash', language)
+        cash_desc = language_service.t('payment_cash_desc', language)
+        card_text = language_service.t('payment_card', language)
+        card_desc = language_service.t('payment_card_desc', language)
+        back_text = language_service.t('back', language)
+        cancel_text = language_service.t('cancel', language)
+        type_text = language_service.t('type_number', language)
+        
+        metodos_texto = f"""{step_text}
 
-*1.* Efectivo
-   Pago al momento de la cita
+*1.* {cash_text}
+   {cash_desc}
 
-*2.* Tarjeta (Stripe)
-   Pago con tarjeta de crédito/débito
+*2.* {card_text}
+   {card_desc}
 
-*9.* Volver al paso anterior
-*0.* Cancelar
+*9.* {back_text}
+*0.* {cancel_text}
 
-Escribe el *número* del método de pago."""
+{type_text}"""
         
         return {
             'response': metodos_texto,
@@ -1163,22 +1277,39 @@ Escribe el *número* del método de pago."""
     
     def _show_medical_history_options(self, context: Dict) -> Dict:
         """Muestra opciones para compartir historial médico (RF7)"""
-        opciones_texto = """*Compartir Historial Médico*
+        language = context.get('language', 'es')
+        
+        title = language_service.t('step_medical_privacy', language)
+        prompt = language_service.t('medical_privacy_prompt', language)
+        
+        l0 = language_service.t('privacy_level_0', language)
+        l0_d = language_service.t('privacy_level_0_desc', language)
+        
+        l1 = language_service.t('privacy_level_1', language)
+        l1_d = language_service.t('privacy_level_1_desc', language)
+        
+        l3 = language_service.t('privacy_level_3', language)
+        l3_d = language_service.t('privacy_level_3_desc', language)
+        
+        note = language_service.t('privacy_note', language)
+        type_text = language_service.t('type_number', language)
+        
+        opciones_texto = f"""{title}
 
-¿Deseas compartir tu historial médico con el dentista?
+{prompt}
 
-*1.* No compartir
-   El dentista solo verá información básica
+*1.* {l0}
+   {l0_d}
 
-*2.* Compartir básico (Nivel 1)
-   Nombre, edad y alergias
+*2.* {l1}
+   {l1_d}
 
-*3.* Compartir completo (Nivel 3)
-   Todo tu historial médico incluyendo documentos
+*3.* {l3}
+   {l3_d}
 
-*Nota:* Puedes cambiar esta configuración después desde tu perfil.
+{note}
 
-Escribe el *número* de la opción que prefieres."""
+{type_text}"""
         
         return {
             'response': opciones_texto,
@@ -1189,6 +1320,8 @@ Escribe el *número* de la opción que prefieres."""
     
     def _show_appointment_summary(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra resumen completo de la cita antes de confirmar (RF6)"""
+        language = context.get('language', 'es')
+        
         tratamiento = context.get('tratamiento_seleccionado', {})
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
@@ -1211,29 +1344,35 @@ Escribe el *número* de la opción que prefieres."""
         duracion = tratamiento.get('duracion', 60)
         
         # Formatear opción de historial médico
-        historial_texto = historial_medico.get('nombre', 'No compartir')
+        historial_texto = historial_medico.get('nombre', '')
+        if not historial_texto:
+            # Fallbacks locales si no hay nombre en el objeto (ej. si viene de una versión anterior)
+            lvl = historial_medico.get('nivel', 0)
+            if lvl == 0: historial_texto = language_service.t('privacy_level_0', language)
+            elif lvl == 1: historial_texto = language_service.t('privacy_level_1', language)
+            else: historial_texto = language_service.t('privacy_level_3', language)
+            
         if historial_medico.get('nivel', 0) > 0:
             historial_texto += f" (Nivel {historial_medico.get('nivel', 0)})"
         
-        resumen = f"""*Resumen de tu Cita*
+        resumen = f"""{language_service.t('summary_title', language)}
 
-*Dentista:* {dentista_name}
-*Consultorio:* {consultorio_name}
-*Fecha:* {fecha_str}
-*Hora:* {hora_str}
-*Servicio:* {tratamiento.get('nombre', 'Consulta')}
-*Duración:* {duracion} minutos
-*Precio:* ${precio:,.0f} MXN
-*Método de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
-*Historial Médico:* {historial_texto}
+*{language_service.t('label_dentist', language)}:* {dentista_name}
+*{language_service.t('label_consultorio', language)}:* {consultorio_name}
+*{language_service.t('label_date', language)}:* {fecha_str}
+*{language_service.t('label_time', language)}:* {hora_str}
+*{language_service.t('label_service', language)}:* {tratamiento.get('nombre', 'Consulta')}
+*{language_service.t('label_duration', language)}:* {duracion} {language_service.t('label_min', language)}
+*{language_service.t('label_price', language)}:* ${precio:,.0f} MXN
+*{language_service.t('label_payment', language)}:* {metodo_pago.get('nombre', 'Efectivo')}
+*{language_service.t('label_history_access', language)}:* {historial_texto}
 
-*Política de Cancelación:*
-Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin penalización.
+{language_service.t('cancellation_policy', language)}
 
-¿Confirmas esta cita?
+{language_service.t('confirm_prompt', language)}
 
-*1.* Sí, confirmar cita
-*2.* Cancelar"""
+*1.* {language_service.t('btn_confirm', language)}
+*2.* {language_service.t('btn_cancel', language)}"""
         
         return {
             'response': resumen,
@@ -1352,6 +1491,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
     
     def _show_available_times(self, context: Dict, user_id: str, phone: str, fecha) -> Dict:
         """Muestra horarios disponibles para una fecha - Usa la misma lógica que la web"""
+        language = context.get('language', 'es')
         try:
             # Convertir fecha a datetime si es necesario
             if isinstance(fecha, str):
@@ -1369,7 +1509,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             
             if not dentista_id or not consultorio_id:
                 return {
-                    'response': 'Error: No se encontró información del consultorio.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1397,7 +1537,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             # Convertir slots a formato de texto para mostrar
             if not horarios_slots or len(horarios_slots) == 0:
                 return {
-                    'response': 'No hay horarios disponibles para esta fecha.\n\nEscribe "menu" para seleccionar otra fecha.',
+                    'response': f"{language_service.t('no_times', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1412,8 +1552,13 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                 for i, slot in enumerate(horarios_slots)
             ])
             
+            step_text = language_service.t('step_time', language)
+            back_text = language_service.t('back', language)
+            cancel_text = language_service.t('cancel', language)
+            type_text = language_service.t('type_number', language)
+            
             return {
-                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *numero* del horario.',
+                'response': f'{step_text}\n\n{horarios_texto}\n\n*9.* {back_text}\n*0.* {cancel_text}\n\n{type_text}',
                 'action': 'show_times',
                 'next_step': context['step'],
                 'mode': 'menu'
@@ -1423,7 +1568,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener horarios. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -1535,6 +1680,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
     
     def _confirm_appointment(self, session_id: str, context: Dict, user_id: str, phone: str) -> Dict:
         """Confirma el agendamiento con todos los datos (RF6, RF10)"""
+        language = context.get('language', 'es')
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
         tratamiento = context.get('tratamiento_seleccionado', {})
@@ -1545,7 +1691,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
         try:
             if not user_id:
                 return {
-                    'response': 'Error: No se encontró tu cuenta. Por favor regístrate primero.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1596,26 +1742,26 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
                         # No fallar la creación de la cita si esto falla
                 
                 # Mensaje de confirmación completo (RF6, RF9)
-                historial_texto = historial_medico.get('nombre', 'No compartido')
+                historial_texto = historial_medico.get('nombre', language_service.t('privacy_level_0', language))
                 if nivel_acceso > 0:
                     historial_texto += f" (Nivel {nivel_acceso})"
                 
-                mensaje = f"""*Cita Agendada Exitosamente*
+                mensaje = f"""{language_service.t('appointment_confirmed_title', language)}
 
-*Fecha:* {fecha_str}
-*Hora:* {hora}
-*Dentista:* {context.get('dentista_name', 'Dentista')}
-*Consultorio:* {context.get('consultorio_name', 'Consultorio')}
-*Servicio:* {tratamiento.get('nombre', 'Consulta')}
-*Precio:* ${tratamiento.get('precio', 0):,.0f} MXN
-*Metodo de Pago:* {metodo_pago.get('nombre', 'Efectivo')}
-*Historial Medico:* {historial_texto}
+*{language_service.t('label_date', language)}:* {fecha_str}
+*{language_service.t('label_time', language)}:* {hora}
+*{language_service.t('label_dentist', language)}:* {context.get('dentista_name', 'Dentista')}
+*{language_service.t('label_consultorio', language)}:* {context.get('consultorio_name', 'Consultorio')}
+*{language_service.t('label_service', language)}:* {tratamiento.get('nombre', 'Consulta')}
+*{language_service.t('label_price', language)}:* ${tratamiento.get('precio', 0):,.0f} MXN
+*{language_service.t('label_payment', language)}:* {metodo_pago.get('nombre', 'Efectivo')}
+*{language_service.t('label_history_access', language)}:* {historial_texto}
 
-Recibiras un recordatorio 24h antes de tu cita.
+{language_service.t('reminder_note', language)}
 
-Puedes completar o actualizar tu historial medico desde tu perfil en la app.
+{language_service.t('history_update_note', language)}
 
-Escribe "menu" para volver al menu principal."""
+{language_service.t('type_menu', language)}"""
                 
                 return {
                     'response': mensaje,
@@ -1626,7 +1772,7 @@ Escribe "menu" para volver al menu principal."""
             else:
                 error_msg = result.get('error', 'Error desconocido')
                 return {
-                    'response': f'Error al agendar la cita: {error_msg}\n\nEscribe "menu" para volver.',
+                    'response': f'Error: {error_msg}\n\n{language_service.t("type_menu", language)}',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1644,6 +1790,7 @@ Escribe "menu" para volver al menu principal."""
     
     def _show_reschedule_summary(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra resumen del reagendamiento para confirmar (similar a _show_appointment_summary)"""
+        language = context.get('language', 'es')
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
         cita_original = context.get('cita_reagendar', {})
@@ -1662,18 +1809,18 @@ Escribe "menu" para volver al menu principal."""
         hora_original = cita_original.get('hora', cita_original.get('horaInicio', 'N/A'))
         dentista = cita_original.get('dentista', cita_original.get('dentistaName', 'Dentista'))
         
-        resumen = f"""*Confirmar Reagendamiento*
+        resumen = f"""*{language_service.t('reschedule_confirm_title', language)}*
 
-*Dentista:* {dentista}
+*{language_service.t('label_dentist', language)}:* {dentista}
 
-*Fecha original:* {fecha_original} {hora_original}
-*Nueva fecha:* {fecha_str}
-*Nueva hora:* {hora_str}
+*{language_service.t('label_original_date', language)}:* {fecha_original} {hora_original}
+*{language_service.t('label_new_date', language)}:* {fecha_str}
+*{language_service.t('label_new_time', language)}:* {hora_str}
 
-¿Confirmas este reagendamiento?
+{language_service.t('reschedule_confirm_prompt', language)}
 
-*1.* Sí, confirmar reagendamiento
-*2.* No, cancelar"""
+*1.* {language_service.t('btn_confirm_reschedule', language)}
+*2.* {language_service.t('cancel', language)}"""
         
         return {
             'response': resumen,
@@ -1684,6 +1831,7 @@ Escribe "menu" para volver al menu principal."""
     
     def _execute_reschedule(self, session_id: str, context: Dict, user_id: str, phone: str) -> Dict:
         """Ejecuta el reagendamiento después de confirmación - Usa la misma estructura que la web"""
+        language = context.get('language', 'es')
         cita_id = context.get('cita_id_reagendar')
         fecha = context.get('fecha_seleccionada')
         hora = context.get('hora_seleccionada')
@@ -1691,7 +1839,7 @@ Escribe "menu" para volver al menu principal."""
         try:
             if not user_id:
                 return {
-                    'response': 'Error: No se encontró tu cuenta.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1715,7 +1863,7 @@ Escribe "menu" para volver al menu principal."""
                 context['step'] = 'menu_principal'
                 fecha_str = fecha_dt.strftime('%d/%m/%Y') if hasattr(fecha_dt, 'strftime') else str(fecha_dt)
                 return {
-                    'response': f'*Cita Reagendada Exitosamente*\n\nNueva Fecha: {fecha_str}\nNueva Hora: {hora}\n\nRecibirás un recordatorio 24h antes.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f'*{language_service.t("reschedule_success", language)}*\n\n{language_service.t("label_new_date", language)}: {fecha_str}\n{language_service.t("label_new_time", language)}: {hora}\n\n{language_service.t("reminder_note", language)}\n\n{language_service.t("type_menu", language)}',
                     'action': 'appointment_rescheduled',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1723,7 +1871,7 @@ Escribe "menu" para volver al menu principal."""
             else:
                 error_msg = result.get('error', 'Error desconocido')
                 return {
-                    'response': f'Error al reagendar la cita: {error_msg}\n\nEscribe "menu" para volver.',
+                    'response': f'Error: {error_msg}\n\n{language_service.t("type_menu", language)}',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1731,7 +1879,7 @@ Escribe "menu" para volver al menu principal."""
         except Exception as e:
             print(f"Error confirmando reagendamiento: {e}")
             return {
-                'response': 'Error al confirmar el reagendamiento. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -1740,8 +1888,9 @@ Escribe "menu" para volver al menu principal."""
     def _confirm_cancellation(self, session_id: str, context: Dict, user_id: str, 
                             phone: str, cita: Dict) -> Dict:
         """Muestra confirmación de cancelación"""
+        language = context.get('language', 'es')
         return {
-            'response': f'*Confirmar Cancelación*\n\n¿Estás seguro de que deseas cancelar esta cita?\n\nFecha: {cita.get("fecha", "N/A")}\nHora: {cita.get("hora", "N/A")}\nDentista: {cita.get("dentista", "Dr. García")}\n\n*1.* Sí, cancelar cita\n*2.* No, mantener cita',
+            'response': f'*{language_service.t("cancel_confirm_title", language)}*\n\n{language_service.t("cancel_confirm_prompt", language)}\n\n{language_service.t("label_date", language)}: {cita.get("fecha", "N/A")}\n{language_service.t("label_time", language)}: {cita.get("hora", "N/A")}\n{language_service.t("label_dentist", language)}: {cita.get("dentista", "")}\n\n*1.* {language_service.t("btn_confirm_cancel", language)}\n*2.* {language_service.t("btn_keep_appointment", language)}',
             'action': None,
             'next_step': 'confirmando_cancelacion',
             'mode': 'menu'
@@ -1749,12 +1898,13 @@ Escribe "menu" para volver al menu principal."""
     
     def _execute_cancellation(self, session_id: str, context: Dict, user_id: str, phone: str) -> Dict:
         """Ejecuta la cancelación - Usa la misma estructura que la web"""
+        language = context.get('language', 'es')
         cita_id = context.get('cita_id_cancelar')
         
         try:
             if not user_id:
                 return {
-                    'response': 'Error: No se encontró tu cuenta.\n\nEscribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1766,7 +1916,7 @@ Escribe "menu" para volver al menu principal."""
             if result.get('success'):
                 context['step'] = 'menu_principal'
                 return {
-                    'response': '*Cita Cancelada Exitosamente*\n\nTu cita ha sido cancelada. Recibirás una confirmación por WhatsApp.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f'*{language_service.t("cancel_success_title", language)}*\n\n{language_service.t("cancel_success_msg", language)}\n\n{language_service.t("type_menu", language)}',
                     'action': 'appointment_cancelled',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1774,7 +1924,7 @@ Escribe "menu" para volver al menu principal."""
             else:
                 error_msg = result.get('error', 'Error desconocido')
                 return {
-                    'response': f'Error al cancelar la cita: {error_msg}\n\nEscribe "menu" para volver.',
+                    'response': f'Error: {error_msg}\n\n{language_service.t("type_menu", language)}',
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1782,7 +1932,7 @@ Escribe "menu" para volver al menu principal."""
         except Exception as e:
             print(f"Error ejecutando cancelación: {e}")
             return {
-                'response': 'Error al cancelar la cita. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -1794,14 +1944,18 @@ Escribe "menu" para volver al menu principal."""
     
     def _show_medical_info(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra información médica general del paciente"""
+        language = context.get('language', 'es')
         try:
             print(f"[_show_medical_info] user_id={user_id}, phone={phone}")
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
             
+            back_mh = language_service.t('back_to_mh', language)
+            back_main = language_service.t('menu_opt_exit', language)
+            
             if not result.get('success'):
                 print(f"[_show_medical_info] Error: {result.get('error')}")
                 return {
-                    'response': 'No se pudo obtener tu información médica.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
                     'action': None,
                     'next_step': 'submenu_info_medica',
                     'mode': 'menu'
@@ -1811,21 +1965,19 @@ Escribe "menu" para volver al menu principal."""
             nombre = data.get('nombre', 'No registrado')
             edad = data.get('edad', 'No especificada')
             telefono = data.get('telefono', 'No registrado')
-            email = data.get('email', 'No registrado')
             completitud = data.get('completitud', 0)
             
-            response = f"""*Tu Informacion Medica*
+            response = f"""*{language_service.t('my_medical_info', language)}*
 
-*Nombre:* {nombre}
-*Edad:* {edad}
-*Teléfono:* {telefono}
-*Email:* {email}
-*Completitud:* {completitud}%
+*{language_service.t('label_name', language)}:* {nombre}
+*{language_service.t('label_age', language)}:* {edad}
+*{language_service.t('label_phone', language)}:* {telefono}
+*{language_service.t('label_completeness', language)}:* {completitud}%
 
-Para actualizar o completar tu historial medico, visita tu perfil en la app o web de Densora.
+{language_service.t('info_update_note', language)}
 
-*9.* Volver a Historial Médico
-*0.* Volver al menú principal"""
+*9.* {back_mh}
+*0.* {back_main}"""
 
             return {
                 'response': response,
@@ -1838,7 +1990,7 @@ Para actualizar o completar tu historial medico, visita tu perfil en la app o we
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
                 'action': None,
                 'next_step': 'submenu_info_medica',
                 'mode': 'menu'
@@ -1846,12 +1998,16 @@ Para actualizar o completar tu historial medico, visita tu perfil en la app o we
     
     def _show_allergies_medications(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra alergias y medicamentos del paciente"""
+        language = context.get('language', 'es')
         try:
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
             
+            back_mh = language_service.t('back_to_mh', language)
+            back_main = language_service.t('menu_opt_exit', language)
+            
             if not result.get('success'):
                 return {
-                    'response': 'No se pudo obtener tu información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
                     'action': None,
                     'next_step': 'submenu_alergias',
                     'mode': 'menu'
@@ -1861,21 +2017,21 @@ Para actualizar o completar tu historial medico, visita tu perfil en la app o we
             alergias = data.get('alergias', [])
             medicamentos = data.get('medicamentos', [])
             
-            alergias_texto = ', '.join(alergias) if alergias else 'Ninguna registrada'
-            medicamentos_texto = ', '.join(medicamentos) if medicamentos else 'Ninguno registrado'
+            alergias_texto = ', '.join(alergias) if alergias else language_service.t('none_recorded', language)
+            medicamentos_texto = ', '.join(medicamentos) if medicamentos else language_service.t('none_recorded', language)
             
-            response = f"""*Alergias y Medicamentos*
+            response = f"""*{language_service.t('allergies_meds_title', language)}*
 
-*Alergias:*
+*{language_service.t('label_allergies', language)}:*
 {alergias_texto}
 
-*Medicamentos actuales:*
+*{language_service.t('label_meds', language)}:*
 {medicamentos_texto}
 
-Es importante mantener esta informacion actualizada para una atencion segura.
+{language_service.t('update_info_note', language)}
 
-*9.* Volver a Historial Médico
-*0.* Volver al menú principal"""
+*9.* {back_mh}
+*0.* {back_main}"""
 
             return {
                 'response': response,
@@ -1886,7 +2042,7 @@ Es importante mantener esta informacion actualizada para una atencion segura.
         except Exception as e:
             print(f"Error mostrando alergias: {e}")
             return {
-                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
                 'action': None,
                 'next_step': 'submenu_alergias',
                 'mode': 'menu'
@@ -1894,12 +2050,16 @@ Es importante mantener esta informacion actualizada para una atencion segura.
     
     def _show_medical_completeness(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra porcentaje de completitud del historial médico"""
+        language = context.get('language', 'es')
         try:
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
             
+            back_mh = language_service.t('back_to_mh', language)
+            back_main = language_service.t('menu_opt_exit', language)
+            
             if not result.get('success'):
                 return {
-                    'response': 'No se pudo obtener tu información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
                     'action': None,
                     'next_step': 'submenu_completitud',
                     'mode': 'menu'
@@ -1914,27 +2074,27 @@ Es importante mantener esta informacion actualizada para una atencion segura.
             barra = '█' * filled + '░' * empty
             
             if completitud >= 80:
-                estado = "Excelente"
-                mensaje = "Tu historial esta muy completo. Gracias!"
+                estado = language_service.t('status_excellent', language)
+                mensaje = language_service.t('completeness_msg_high', language)
             elif completitud >= 40:
-                estado = "Parcial"
-                mensaje = "Te recomendamos completar los campos faltantes."
+                estado = language_service.t('status_partial', language)
+                mensaje = language_service.t('completeness_msg_med', language)
             else:
-                estado = "Incompleto"
-                mensaje = "Por favor, completa tu historial para mejor atencion."
+                estado = language_service.t('status_incomplete', language)
+                mensaje = language_service.t('completeness_msg_low', language)
             
-            response = f"""*Completitud del Historial*
+            response = f"""*{language_service.t('completeness_title', language)}*
 
 {barra} *{completitud}%*
 
-*Estado:* {estado}
+*{language_service.t('status', language)}:* {estado}
 
 {mensaje}
 
-Puedes completar tu historial desde tu perfil en la app.
+{language_service.t('completeness_note', language)}
 
-*9.* Volver a Historial Médico
-*0.* Volver al menú principal"""
+*9.* {back_mh}
+*0.* {back_main}"""
 
             return {
                 'response': response,
@@ -1945,7 +2105,7 @@ Puedes completar tu historial desde tu perfil en la app.
         except Exception as e:
             print(f"Error mostrando completitud: {e}")
             return {
-                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
                 'action': None,
                 'next_step': 'submenu_completitud',
                 'mode': 'menu'
@@ -1957,12 +2117,16 @@ Puedes completar tu historial desde tu perfil en la app.
     
     def _show_user_reviews(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra las reseñas escritas por el usuario"""
+        language = context.get('language', 'es')
         try:
             reviews = self.firebase_service.get_user_reviews(user_id=user_id, phone=phone)
             
+            back_rev = language_service.t('back_to_reviews', language)
+            back_main = language_service.t('menu_opt_exit', language)
+            
             if not reviews:
                 return {
-                    'response': '*Mis Resenas*\n\nNo has escrito ninguna resena todavia.\n\nDespues de cada cita, podras calificar tu experiencia.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
+                    'response': f"*{language_service.t('reviews_opt_my_reviews', language)}*\n\n{language_service.t('no_reviews_yet', language)}\n\n*9.* {back_rev}\n*0.* {back_main}",
                     'action': None,
                     'next_step': 'submenu_mis_resenas',
                     'mode': 'menu'
@@ -1973,14 +2137,14 @@ Puedes completar tu historial desde tu perfil en la app.
                 for r in reviews[:5]
             ])
             
-            response = f"""*Mis Resenas*
+            response = f"""*My Reviews*
 
 {reviews_texto}
 
-Total: {len(reviews)} resena(s)
+Total: {len(reviews)}
 
-*9.* Volver a Reseñas
-*0.* Volver al menú principal"""
+*9.* {back_rev}
+*0.* {back_main}"""
 
             return {
                 'response': response,
@@ -1991,7 +2155,7 @@ Total: {len(reviews)} resena(s)
         except Exception as e:
             print(f"Error mostrando reseñas: {e}")
             return {
-                'response': 'Error al obtener reseñas.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
+                'response': f"{language_service.t('error_generic', language)}\n\n*9.* {language_service.t('back_to_reviews', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
                 'action': None,
                 'next_step': 'submenu_mis_resenas',
                 'mode': 'menu'
@@ -1999,13 +2163,17 @@ Total: {len(reviews)} resena(s)
     
     def _show_pending_reviews_to_rate(self, context: Dict, user_id: str, phone: str) -> Dict:
         """Muestra citas pendientes de calificar"""
+        language = context.get('language', 'es')
         try:
             pending = self.firebase_service.get_pending_reviews(user_id=user_id, phone=phone)
             context['citas_pendientes_resena'] = pending
             
+            back_rev = language_service.t('back_to_reviews', language)
+            back_main = language_service.t('menu_opt_exit', language)
+            
             if not pending:
                 return {
-                    'response': '*Calificar Cita*\n\nNo tienes citas pendientes de calificar.\n\nCuando completes una cita, podras dejar tu resena aqui.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
+                    'response': f"*{language_service.t('reviews_opt_rate', language)}*\n\n{language_service.t('no_pending_reviews', language)}\n\n*9.* {back_rev}\n*0.* {back_main}",
                     'action': None,
                     'next_step': 'submenu_mis_resenas',
                     'mode': 'menu'
@@ -2018,15 +2186,15 @@ Total: {len(reviews)} resena(s)
                 for i, c in enumerate(pending[:5])
             ])
             
-            response = f"""*Calificar Cita*
+            response = f"""*{language_service.t('reviews_opt_rate', language)}*
 
-Selecciona la cita que deseas calificar:
+{language_service.t('select_review_prompt', language)}
 
 {citas_texto}
 
-*0.* Volver
+*0.* {language_service.t('back', language)}
 
-Escribe el *numero* de la cita."""
+{language_service.t('type_number', language)}"""
 
             return {
                 'response': response,
@@ -2037,7 +2205,7 @@ Escribe el *numero* de la cita."""
         except Exception as e:
             print(f"Error mostrando citas pendientes: {e}")
             return {
-                'response': 'Error al obtener citas. Escribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -2045,19 +2213,17 @@ Escribe el *numero* de la cita."""
     
     def _show_reviews_info(self, context: Dict) -> Dict:
         """Muestra información sobre cómo funcionan las reseñas"""
-        response = """*Como funcionan las resenas?*
+        language = context.get('language', 'es')
+        
+        back_rev = language_service.t('back_to_reviews', language)
+        back_main = language_service.t('menu_opt_exit', language)
+        
+        response = f"""*{language_service.t('reviews_info_title', language)}*
 
-- Despues de cada cita completada, puedes calificar
-- Califica de 1 a 5 estrellas
-- Puedes escribir un comentario opcional (max. 500 caracteres)
-- Puedes publicar como anonimo si prefieres
-- Puedes editar tu resena dentro de las primeras 24 horas
-- El dentista puede responder a tu resena
+{language_service.t('reviews_info_content', language)}
 
-Tus opiniones ayudan a otros pacientes y mejoran el servicio.
-
-*9.* Volver a Reseñas
-*0.* Volver al menú principal"""
+*9.* {back_rev}
+*0.* {back_main}"""
 
         return {
             'response': response,
@@ -2068,13 +2234,14 @@ Tus opiniones ayudan a otros pacientes y mejoran el servicio.
     
     def _submit_review(self, session_id: str, context: Dict, user_id: str, phone: str, anonimo: bool) -> Dict:
         """Envía la reseña a la base de datos"""
+        language = context.get('language', 'es')
         try:
             cita = context.get('cita_a_calificar', {})
             calificacion = context.get('calificacion_seleccionada', 0)
             
             if not cita or not calificacion:
                 return {
-                    'response': 'Error: datos incompletos. Escribe "menu" para volver.',
+                    'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -2091,15 +2258,16 @@ Tus opiniones ayudan a otros pacientes y mejoran el servicio.
             
             if result.get('success'):
                 context['step'] = 'menu_principal'
+                msg = language_service.t('review_thanks_anon', language) if anonimo else language_service.t('review_thanks', language)
                 return {
-                    'response': f'*Gracias por tu resena!*\n\nTu calificacion de {calificacion}/5 ha sido registrada{" de forma anonima" if anonimo else ""}.\n\n{self.get_main_menu()}',
+                    'response': f'*{msg}*\n\n{language_service.t("review_rating_saved", language, rating=calificacion)}\n\n{self.get_main_menu(language)}',
                     'action': 'review_submitted',
                     'next_step': 'menu_principal',
                     'mode': 'menu'
                 }
             else:
                 return {
-                    'response': f'Error al enviar reseña: {result.get("error", "Error desconocido")}\n\nEscribe "menu" para volver.',
+                    'response': f"Error: {result.get('error', 'Error desconocido')}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -2107,7 +2275,7 @@ Tus opiniones ayudan a otros pacientes y mejoran el servicio.
         except Exception as e:
             print(f"Error enviando reseña: {e}")
             return {
-                'response': 'Error al enviar reseña. Escribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
@@ -2119,25 +2287,29 @@ Tus opiniones ayudan a otros pacientes y mejoran el servicio.
     
     def _show_faq(self, context: Dict) -> Dict:
         """Muestra preguntas frecuentes"""
-        response = """*Preguntas Frecuentes*
+        language = context.get('language', 'es')
+        back_help = language_service.t('back_to_help', language)
+        back_main = language_service.t('menu_opt_exit', language)
+        
+        response = f"""*{language_service.t('faq_title', language)}*
 
-*Como agendo una cita?*
-Escribe "1" en el menu principal y sigue los pasos.
+*{language_service.t('faq_q1', language)}*
+{language_service.t('faq_a1', language)}
 
-*Puedo cancelar mi cita?*
-Si, puedes cancelar hasta 24h antes sin penalizacion.
+*{language_service.t('faq_q2', language)}*
+{language_service.t('faq_a2', language)}
 
-*Como pago mi cita?*
-Aceptamos efectivo, tarjeta y transferencia.
+*{language_service.t('faq_q3', language)}*
+{language_service.t('faq_a3', language)}
 
-*Puedo reagendar?*
-Si, selecciona "3" en el menu principal.
+*{language_service.t('faq_q4', language)}*
+{language_service.t('faq_a4', language)}
 
-*Mis datos estan seguros?*
-Si, cumplimos con estandares de privacidad medica.
+*{language_service.t('faq_q5', language)}*
+{language_service.t('faq_a5', language)}
 
-*9.* Volver a Ayuda y Soporte
-*0.* Volver al menu principal"""
+*9.* {back_help}
+*0.* {back_main}"""
 
         return {
             'response': response,
@@ -2148,22 +2320,22 @@ Si, cumplimos con estandares de privacidad medica.
     
     def _show_chatbot_guide(self, context: Dict) -> Dict:
         """Muestra guía de uso del chatbot"""
-        response = """*Como usar el Chatbot*
+        language = context.get('language', 'es')
+        back_help = language_service.t('back_to_help', language)
+        back_main = language_service.t('menu_opt_exit', language)
+        
+        response = f"""*{language_service.t('guide_title', language)}*
 
-*Navegar:* Usa numeros para seleccionar opciones
+{language_service.t('guide_intro', language)}
 
-*Volver atras:* Escribe "9" para volver al menu anterior
+{language_service.t('guide_nav', language)}
 
-*Agendar cita:* Escribe "1"
-*Ver mis citas:* Escribe "2"
-*Reagendar:* Escribe "3"
-*Cancelar:* Escribe "4"
-*Historial medico:* Escribe "5"
-*Resenas:* Escribe "6"
-*Ayuda:* Escribe "7"
+{language_service.t('guide_back', language)}
 
-*9.* Volver a Ayuda y Soporte
-*0.* Volver al menu principal"""
+{language_service.t('guide_options', language)}
+
+*9.* {back_help}
+*0.* {back_main}"""
 
         return {
             'response': response,
@@ -2174,18 +2346,22 @@ Si, cumplimos con estandares de privacidad medica.
     
     def _show_support_contact(self, context: Dict) -> Dict:
         """Muestra información de contacto de soporte"""
-        response = """*📞 Contactar Soporte*
+        language = context.get('language', 'es')
+        back_help = language_service.t('back_to_help', language)
+        back_main = language_service.t('menu_opt_exit', language)
+        
+        response = f"""*{language_service.t('support_contact_title', language)}*
 
-*Email:* soporte@densora.com
+{language_service.t('support_email', language)}: soporte@densora.com
 
-*WhatsApp:* +52 55 1234 5678
+{language_service.t('support_whatsapp', language)}: +52 55 1234 5678
 
-*Tiempo de respuesta:* 24-48 horas
+{language_service.t('support_time', language)}
 
-Para urgencias médicas, contacta directamente a tu consultorio o servicios de emergencia.
+{language_service.t('support_emergency', language)}
 
-*9.* Volver a Ayuda y Soporte
-*0.* Volver al menú principal"""
+*9.* {back_help}
+*0.* {back_main}"""
 
         return {
             'response': response,
@@ -2196,18 +2372,13 @@ Para urgencias médicas, contacta directamente a tu consultorio o servicios de e
     
     def _show_support_hours(self, context: Dict) -> Dict:
         """Muestra horarios de atención"""
-        response = """*🕐 Horarios de Atención*
+        language = context.get('language', 'es')
+        
+        response = f"""*{language_service.t('support_hours_title', language)}*
 
-*Chatbot:* Disponible 24/7
+{language_service.t('support_hours_content', language)}
 
-*Soporte humano:*
-Lunes a Viernes: 9:00 AM - 6:00 PM
-Sábados: 9:00 AM - 2:00 PM
-Domingos: Cerrado
-
-*Nota:* Los horarios de los consultorios pueden variar.
-
-Escribe *"menu"* para volver al menú principal."""
+{language_service.t('type_menu', language)}"""
 
         return {
             'response': response,

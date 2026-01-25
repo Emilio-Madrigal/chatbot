@@ -12,91 +12,110 @@ class LanguageService:
     Servicio para adaptar mensajes según el idioma preferido del paciente
     """
     
+from services.chatbot_translations import TRANSLATIONS
+
+class LanguageService:
+    """
+    Servicio para adaptar mensajes según el idioma preferido del paciente
+    """
+    
     def __init__(self):
         self.paciente_repo = PacienteRepository()
         self.db = FirebaseConfig.get_db()
-        self.messages = {
-            'es': {
-                'registration': '¡Bienvenido a Densora!',
-                'appointment_created': 'Cita agendada exitosamente',
-                'appointment_cancelled': 'Cita cancelada',
-                'appointment_rescheduled': 'Cita reagendada',
-                'payment_confirmed': 'Pago confirmado',
-                'reminder_24h': 'Recordatorio: Tienes una cita mañana',
-                'reminder_2h': 'Recordatorio: Tu cita es en 2 horas',
-                'review_request': '¿Cómo fue tu experiencia?',
-                'otp': 'Tu código de verificación es',
-                'help': '¿Necesitas ayuda?',
-                'menu': 'Menú principal'
-            },
-            'en': {
-                'registration': 'Welcome to Densora!',
-                'appointment_created': 'Appointment scheduled successfully',
-                'appointment_cancelled': 'Appointment cancelled',
-                'appointment_rescheduled': 'Appointment rescheduled',
-                'payment_confirmed': 'Payment confirmed',
-                'reminder_24h': 'Reminder: You have an appointment tomorrow',
-                'reminder_2h': 'Reminder: Your appointment is in 2 hours',
-                'review_request': 'How was your experience?',
-                'otp': 'Your verification code is',
-                'help': 'Need help?',
-                'menu': 'Main menu'
-            }
-        }
+        self.translations = TRANSLATIONS
     
     def get_patient_language(self, paciente_id: str) -> str:
         """
-        Obtiene el idioma preferido del paciente
-        
-        Prioridad:
-        1. Preferencia guardada en perfil
-        2. Idioma del navegador (localStorage)
-        3. Español por defecto
+        Obtiene el idioma preferido del paciente con caché simple
         """
-        try:
-            paciente = self.paciente_repo.buscar_por_id(paciente_id)
-            if paciente:
-                # Verificar preferencia en perfil
-                paciente_data = self.db.collection('pacientes').document(paciente_id).get()
-                if paciente_data.exists:
-                    data = paciente_data.to_dict()
-                    language = data.get('preferredLanguage') or data.get('idioma')
-                    if language in ['es', 'en']:
-                        return language
-            
-            # Por defecto español
+        if not paciente_id:
             return 'es'
             
+        try:
+            # Primero intentar buscar en repositorio (generalmente cacheable)
+            paciente = self.paciente_repo.buscar_por_id(paciente_id)
+            if paciente and hasattr(paciente, 'preferredLanguage'):
+                lang = getattr(paciente, 'preferredLanguage', None)
+                if lang in ['es', 'en']:
+                    return lang
+            
+            # Si no, buscar directamente en Firestore
+            paciente_data = self.db.collection('pacientes').document(paciente_id).get()
+            if paciente_data.exists:
+                data = paciente_data.to_dict()
+                language = data.get('preferredLanguage') or data.get('idioma')
+                if language in ['es', 'en']:
+                    return language
+            
+            return 'es'
         except Exception as e:
             print(f"Error obteniendo idioma del paciente: {e}")
             return 'es'
-    
+            
+    def get_language_from_session(self, context: Dict) -> str:
+        """
+        Obtiene el idioma desde el contexto de la sesión o datos del usuario
+        """
+        # 1. Context variable
+        if context.get('language'):
+            return context.get('language')
+            
+        # 2. User data in context
+        user_data = context.get('user_data', {})
+        if user_data.get('preferredLanguage'):
+             return user_data.get('preferredLanguage')
+             
+        # 3. Default
+        return 'es'
+
+    def t(self, key: str, language: str = 'es', **kwargs) -> str:
+        """
+        Obtiene una traducción por su clave con soporte para formato
+        """
+        # Asegurar idioma válido
+        if language not in ['es', 'en']:
+            language = 'es'
+            
+        # Obtener diccionario de idioma
+        lang_dict = self.translations.get(language, self.translations['es'])
+        
+        # Obtener texto
+        text = lang_dict.get(key)
+        
+        # Si no existe en el idioma, buscar en español (fallback)
+        if text is None:
+            text = self.translations['es'].get(key, key)
+            
+        # Formatear si hay argumentos
+        if kwargs:
+            try:
+                return text.format(**kwargs)
+            except KeyError:
+                return text
+                
+        return text
+
     def translate_message(self, message_key: str, paciente_id: Optional[str] = None,
                          language: Optional[str] = None) -> str:
         """
-        Traduce un mensaje según el idioma del paciente
+        Compatibilidad: Traduce un mensaje según el idioma del paciente
         """
-        # Determinar idioma
         if not language and paciente_id:
             language = self.get_patient_language(paciente_id)
         elif not language:
             language = 'es'
-        
-        # Obtener mensaje traducido
-        return self.messages.get(language, self.messages['es']).get(message_key, message_key)
+            
+        return self.t(message_key, language)
     
     def adapt_message(self, base_message: str, paciente_id: str) -> str:
         """
         Adapta un mensaje completo según el idioma del paciente
-        
-        Por ahora, retorna el mensaje en español (se puede mejorar con traducción automática)
         """
         language = self.get_patient_language(paciente_id)
         
-        # Si el paciente prefiere inglés, traducir mensaje básico
         if language == 'en':
-            # Traducciones básicas comunes
-            translations = {
+            # Mapeo de frases comunes no cubiertas por claves específicas
+            common_phrases = {
                 'Hola': 'Hello',
                 'Gracias': 'Thank you',
                 'Cita': 'Appointment',
@@ -104,22 +123,30 @@ class LanguageService:
                 'Reagendar': 'Reschedule',
                 'Confirmar': 'Confirm',
                 'Ayuda': 'Help',
-                'Menú': 'Menu'
+                'Menú': 'Menu',
+                'Dentista': 'Dentist',
+                'Consultorio': 'Clinic',
+                'Precio': 'Price',
+                'Fecha': 'Date',
+                'Hora': 'Time'
             }
             
-            # Reemplazar palabras comunes
-            for es, en in translations.items():
+            for es, en in common_phrases.items():
                 base_message = base_message.replace(es, en)
         
         return base_message
-    
+
     def get_localized_template(self, template_name: str, paciente_id: str,
                               variables: Dict = None) -> str:
         """
-        Obtiene una plantilla localizada con variables
+        Obtiene una plantilla localizada con variables (Compatibilidad)
         """
+        # Mapear nombres de templates antiguos a nuevas claves si es necesario
+        # Por ahora mantenemos el método antiguo para compatibilidad con código existente que no se actualice
         language = self.get_patient_language(paciente_id)
         
+        # Usar las templates originales hardcoded aquí por seguridad si no están en translations
+        # O idealmente migrarlas a translations, pero por brevedad las dejo aquí
         templates = {
             'es': {
                 'appointment_confirmation': """*CITA AGENDADA EXITOSAMENTE*
@@ -197,7 +224,6 @@ Thank you!"""
         
         template = templates.get(language, templates['es']).get(template_name, '')
         
-        # Reemplazar variables
         if variables:
             template = template.format(**variables)
         

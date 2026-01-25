@@ -7,6 +7,7 @@ from services.menu_system import MenuSystem
 from services.ml_service import MLService
 from services.actions_service import ActionsService
 from services.payment_service import PaymentService
+from services.language_service import language_service
 from typing import Dict, Optional
 from datetime import datetime
 
@@ -129,8 +130,9 @@ class ConversationManager:
                     'registro_iniciado': True,
                     'last_intent_pending': self.ml_service.classify_intent(message, context)['intent'] # Guardar intención original
                 })
+                language = context.get('language', 'es')
                 return {
-                    'response': "¡Hola! 👋 Veo que es la primera vez que nos escribes.\n\nPara poder atenderte mejor, ¿podrías decirme tu nombre completo?",
+                    'response': language_service.t('welcome_new_user', language),
                     'action': 'ask_name',
                     'next_step': 'registro_nombre'
                 }
@@ -138,9 +140,10 @@ class ConversationManager:
         # 1.6 Flujo de Registro Activo
         if context.get('step') == 'registro_nombre':
             nombre = message.strip()
+            language = context.get('language', 'es')
             if len(nombre) < 3:
                  return {
-                    'response': "Por favor ingresa un nombre válido (al menos 3 letras).",
+                    'response': language_service.t('error_name_short', language),
                     'action': None,
                     'next_step': 'registro_nombre'
                 }
@@ -157,17 +160,12 @@ class ConversationManager:
                     
                     # Recuperar intención original si existía
                     intent_original = context.get('last_intent_pending')
-                    response_text = f"¡Gracias {nombre}! Ya te he registrado.\n\n"
+                    response_text = language_service.t('register_success', language, name=nombre)
                     
                     self.update_conversation_context(session_id, {
                         'step': 'inicial', # Salir del flujo de registro
                         'registro_iniciado': False
                     })
-                    
-                    # Si tenía una intención clara (ej: "quiero agendar"), intentar procesarla ahora o volver al flujo normal
-                    # Para simplificar, volvemos a procesar el mensaje original si podemos, o pedimos confirmar.
-                    # Dado que message ahora es el nombre, mejor preguntamos en qué ayudar.
-                    response_text += "¿En qué puedo ayudarte hoy?"
                     
                     return {
                         'response': response_text,
@@ -178,7 +176,7 @@ class ConversationManager:
                     print(f"Error procesando nuevo usuario: {e}")
             
             return {
-                'response': "Hubo un pequeño error registrando tus datos, pero no te preocupes. ¿En qué puedo ayudarte?",
+                'response': language_service.t('register_error', language),
                 'action': None,
                 'next_step': 'inicial'
             }
@@ -318,23 +316,10 @@ class ConversationManager:
         
         if matched_type == 'help':
             greeting = f"Hola {user_name}, " if user_name else "Hola, "
-            response = f"""{greeting}¡Soy Densorita, tu asistente virtual! 🦷
+            if language == 'en':
+                greeting = f"Hello {user_name}, " if user_name else "Hello, "
 
-*Puedo ayudarte con:*
-1️⃣ *Agendar* una cita
-2️⃣ *Ver* tus próximas citas
-3️⃣ *Reagendar* una cita existente
-4️⃣ *Cancelar* una cita
-5️⃣ *Historial médico*
-6️⃣ *Reseñas* y calificaciones
-7️⃣ *Ayuda* y soporte
-
-*También puedes escribir palabras como:*
-• "cita" - para ver opciones de agendamiento
-• "historial" - para acceder a tu expediente
-• "contacto" - para información de contacto
-
-Escribe el *número* de la opción o describe lo que necesitas."""
+            response = language_service.t('keyword_help_response', language, name=user_name or '')
             return {
                 'response': response,
                 'action': 'keyword_help',
@@ -400,22 +385,7 @@ Escribe *"menu"* para volver al menú principal."""
             }
         
         elif matched_type == 'contact':
-            response = """*📞 Información de Contacto*
-
-*Densora - Plataforma Dental*
-
-📧 Email: soporte@densora.com
-🌐 Web: www.densora.com
-📱 WhatsApp: Este chat
-
-*Horario de atención:*
-Lun-Vie: 9:00 AM - 6:00 PM
-Sábado: 9:00 AM - 2:00 PM
-
-*¿Necesitas ayuda específica?*
-Escribe tu pregunta y te orientaré.
-
-Escribe *"menu"* para volver al menú principal."""
+            response = language_service.t('keyword_contact_response', language)
             return {
                 'response': response,
                 'action': 'keyword_contact',
@@ -637,8 +607,9 @@ Escribe *"menu"* para volver al menú principal."""
             return response_data
         
         # Para otras intenciones, sugerir usar números
+        language = context.get('language', 'es')
         return {
-            'response': 'En modo menú, por favor usa números para navegar:\n\n1. Agendar una cita\n2. Ver tus citas\n3. Reagendar una cita\n4. Cancelar una cita\n5. Información\n\nO escribe "modo agente" para conversación natural.',
+            'response': f"{language_service.t('agent_fallback', language)}\n\n{self.menu_system.get_main_menu(language)}",
             'action': None,
             'next_step': current_step
         }
@@ -675,8 +646,9 @@ Escribe *"menu"* para volver al menú principal."""
         # Robustez: Si la confianza es muy baja, ofrecer menú o ayuda
         elif confidence < 0.4:
             print(f"Confianza baja ({confidence}) para intent '{intent}'. Ofreciendo menú.")
+            language = context.get('language', 'es')
             return {
-                'response': "No estoy seguro de haber entendido bien. ¿Te gustaría ver el menú de opciones?",
+                'response': f"{language_service.t('ai_confidence_low', language)}\n\n{self.menu_system.get_main_menu(language)}",
                 'action': 'offer_menu',
                 'next_step': 'menu_principal',
                 'mode': 'menu' # Sugerir volver a menú
@@ -731,8 +703,9 @@ Escribe *"menu"* para volver al menú principal."""
                 self.update_conversation_context(session_id, {'step': 'menu_principal'})
                 return self._handle_help(context, {})
             else:
+                language = context.get('language', 'es')
                 return {
-                    'response': 'Opción inválida. Por favor selecciona un número del 1 al 5.',
+                    'response': language_service.t('error_invalid_option', language),
                     'action': None,
                     'next_step': current_step
                 }
