@@ -150,7 +150,16 @@ Escribe el *número* de la opción que deseas."""
         # Seleccionando consultorio (NUEVO PASO)
         elif current_step == 'seleccionando_consultorio':
             consultorios = context.get('consultorios_disponibles', [])
-            if consultorios and 0 <= button_num - 1 < len(consultorios):
+            if button_num == 9 or button_num == 0:
+                # Volver al menú principal
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif consultorios and 0 <= button_num - 1 < len(consultorios):
                 consultorio_seleccionado = consultorios[button_num - 1]
                 context['consultorio_id'] = consultorio_seleccionado['id']
                 context['consultorio_name'] = consultorio_seleccionado['nombre']
@@ -159,7 +168,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dentists(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)}.' if consultorios else 'No hay consultorios disponibles.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(consultorios)} o *0* para cancelar.' if consultorios else 'No hay consultorios disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -168,7 +177,19 @@ Escribe el *número* de la opción que deseas."""
         # Seleccionando dentista (NUEVO PASO)
         elif current_step == 'seleccionando_dentista':
             dentistas = context.get('dentistas_disponibles', [])
-            if dentistas and 0 <= button_num - 1 < len(dentistas):
+            if button_num == 9:
+                # Volver a selección de consultorio
+                return self._handle_schedule_appointment(session_id, context, user_id, phone)
+            elif button_num == 0:
+                # Cancelar y volver al menú principal
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif dentistas and 0 <= button_num - 1 < len(dentistas):
                 dentista_seleccionado = dentistas[button_num - 1]
                 context['dentista_id'] = dentista_seleccionado['id']
                 context['dentista_name'] = dentista_seleccionado['nombre']
@@ -177,7 +198,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_services(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}.' if dentistas else 'No hay dentistas disponibles.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(dentistas)}, *9* para volver o *0* para cancelar.' if dentistas else 'No hay dentistas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -186,7 +207,19 @@ Escribe el *número* de la opción que deseas."""
         # Seleccionando servicio/tratamiento para agendar
         elif current_step == 'seleccionando_servicio':
             tratamientos = context.get('tratamientos_disponibles', [])
-            if tratamientos and 0 <= button_num - 1 < len(tratamientos):
+            if button_num == 9:
+                # Volver a selección de dentista
+                return self._show_available_dentists(context, user_id, phone)
+            elif button_num == 0:
+                # Cancelar y volver al menú principal
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif tratamientos and 0 <= button_num - 1 < len(tratamientos):
                 tratamiento_seleccionado = tratamientos[button_num - 1]
                 context['tratamiento_seleccionado'] = tratamiento_seleccionado
                 context['step'] = 'seleccionando_fecha_agendar'
@@ -194,7 +227,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_dates_for_appointment(context, user_id, phone)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(tratamientos)}.' if tratamientos else 'No hay tratamientos disponibles.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(tratamientos)}, *9* para volver o *0* para cancelar.' if tratamientos else 'No hay tratamientos disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -203,7 +236,18 @@ Escribe el *número* de la opción que deseas."""
         # Seleccionando fecha para agendar
         elif current_step == 'seleccionando_fecha_agendar':
             fechas = context.get('fechas_disponibles', [])
-            if fechas and 0 <= button_num - 1 < len(fechas):
+            if button_num == 9:
+                # Volver a selección de servicio
+                return self._show_available_services(context, user_id, phone)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif fechas and 0 <= button_num - 1 < len(fechas):
                 fecha_seleccionada = fechas[button_num - 1]
                 # Guardar como string para consistencia
                 if hasattr(fecha_seleccionada, 'strftime'):
@@ -215,7 +259,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_available_times(context, user_id, phone, fecha_seleccionada)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(fechas)}.' if fechas else 'No hay fechas disponibles.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(fechas)}, *9* para volver o *0* para cancelar.' if fechas else 'No hay fechas disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -224,7 +268,18 @@ Escribe el *número* de la opción que deseas."""
         # Seleccionando hora para agendar
         elif current_step == 'seleccionando_hora_agendar':
             horarios = context.get('horarios_disponibles', [])
-            if horarios and 0 <= button_num - 1 < len(horarios):
+            if button_num == 9:
+                # Volver a selección de fecha
+                return self._show_available_dates_for_appointment(context, user_id, phone)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif horarios and 0 <= button_num - 1 < len(horarios):
                 slot_seleccionado = horarios[button_num - 1]
                 # Extraer horaInicio del slot (puede ser dict o string)
                 if isinstance(slot_seleccionado, dict):
@@ -236,7 +291,7 @@ Escribe el *número* de la opción que deseas."""
                 return self._show_payment_methods(context)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(horarios)}.' if horarios else 'No hay horarios disponibles.',
+                    'response': f'Opción inválida. Selecciona un número del 1 al {len(horarios)}, *9* para volver o *0* para cancelar.' if horarios else 'No hay horarios disponibles.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -248,14 +303,26 @@ Escribe el *número* de la opción que deseas."""
                 {'id': 'efectivo', 'nombre': 'Efectivo', 'descripcion': 'Pago al momento de la cita'},
                 {'id': 'stripe', 'nombre': 'Tarjeta (Stripe)', 'descripcion': 'Pago con tarjeta de crédito/débito'}
             ]
-            if 0 <= button_num - 1 < len(metodos_pago):
+            if button_num == 9:
+                # Volver a selección de hora
+                fecha = context.get('fecha_seleccionada')
+                return self._show_available_times(context, user_id, phone, fecha)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': 'Agendamiento cancelado.\n\n' + self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            elif 0 <= button_num - 1 < len(metodos_pago):
                 metodo_pago = metodos_pago[button_num - 1]
                 context['metodo_pago'] = metodo_pago
                 context['step'] = 'seleccionando_historial_medico'
                 return self._show_medical_history_options(context)
             else:
                 return {
-                    'response': f'Opción inválida. Por favor selecciona un número del 1 al {len(metodos_pago)}.',
+                    'response': f'Opción inválida. Selecciona 1, 2, *9* para volver o *0* para cancelar.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
@@ -583,6 +650,69 @@ Escribe el *número* de la opción que deseas."""
                     'mode': 'menu'
                 }
         
+        # Submenús de Ayuda - Permiten volver al menú de ayuda con opción 9
+        elif current_step in ['submenu_faq', 'submenu_guia', 'submenu_contacto']:
+            if button_num == 9:
+                # Volver al menú de ayuda
+                return self._handle_help(context)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': 'Opción inválida. Escribe *9* para volver a Ayuda o *0* para el menú principal.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Submenús de Historial Médico - Permiten volver al menú de historial con opción 9
+        elif current_step in ['submenu_info_medica', 'submenu_alergias', 'submenu_completitud']:
+            if button_num == 9:
+                # Volver al menú de historial médico
+                return self._handle_medical_history(context, user_id, phone)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': 'Opción inválida. Escribe *9* para volver a Historial Médico o *0* para el menú principal.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
+        # Submenús de Reseñas - Permiten volver al menú de reseñas con opción 9
+        elif current_step in ['submenu_mis_resenas', 'submenu_info_resenas']:
+            if button_num == 9:
+                # Volver al menú de reseñas
+                return self._handle_reviews(context, user_id, phone)
+            elif button_num == 0:
+                context['step'] = 'menu_principal'
+                return {
+                    'response': self.get_main_menu(),
+                    'action': None,
+                    'next_step': 'menu_principal',
+                    'mode': 'menu'
+                }
+            else:
+                return {
+                    'response': 'Opción inválida. Escribe *9* para volver a Reseñas o *0* para el menú principal.',
+                    'action': None,
+                    'next_step': current_step,
+                    'mode': 'menu'
+                }
+        
         # Si no coincide con ningún paso, volver al menú
         context['step'] = 'menu_principal'
         return {
@@ -629,7 +759,7 @@ Escribe el *número* de la opción que deseas."""
                 consultorios_texto += f'*{i+1}.* {c["nombre"]}\n   {direccion_str}\n'
             
             return {
-                'response': f'*Agendar Nueva Cita*\n\n*Paso 1/6: Selecciona un consultorio:*\n\n{consultorios_texto}\n\nEscribe el *número* del consultorio.',
+                'response': f'*Agendar Nueva Cita*\n\n*Paso 1/6: Selecciona un consultorio:*\n\n{consultorios_texto}\n*0.* Cancelar\n\nEscribe el *número* del consultorio.',
                 'action': 'show_consultorios',
                 'next_step': 'seleccionando_consultorio',
                 'mode': 'menu'
@@ -688,7 +818,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'*Paso 2/6: Selecciona un dentista:*\n\nConsultorio: {context.get("consultorio_name", "")}\n\n{dentistas_texto}\n\nEscribe el *número* del dentista.',
+                'response': f'*Paso 2/6: Selecciona un dentista:*\n\nConsultorio: {context.get("consultorio_name", "")}\n\n{dentistas_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* del dentista.',
                 'action': 'show_dentistas',
                 'next_step': 'seleccionando_dentista',
                 'mode': 'menu'
@@ -727,7 +857,7 @@ Escribe el *número* de la opción que deseas."""
             ])
             
             return {
-                'response': f'*Paso 3/6: Selecciona el servicio:*\n\nDentista: {context.get("dentista_name", "")}\nConsultorio: {context.get("consultorio_name", "")}\n\n{servicios_texto}\n\nEscribe el *número* del servicio.',
+                'response': f'*Paso 3/6: Selecciona el servicio:*\n\nDentista: {context.get("dentista_name", "")}\nConsultorio: {context.get("consultorio_name", "")}\n\n{servicios_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* del servicio.',
                 'action': 'show_services',
                 'next_step': 'seleccionando_servicio',
                 'mode': 'menu'
@@ -997,7 +1127,7 @@ Escribe el *número* de la opción."""
             ])
             
             return {
-                'response': f'*Paso 4/6: Selecciona una fecha disponible:*\n\n{fechas_texto}\n\nEscribe el *número* de la fecha.',
+                'response': f'*Paso 4/6: Selecciona una fecha disponible:*\n\n{fechas_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *número* de la fecha.',
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_agendar',
                 'mode': 'menu'
@@ -1022,6 +1152,9 @@ Escribe el *número* de la opción."""
 
 *2.* Tarjeta (Stripe)
    Pago con tarjeta de crédito/débito
+
+*9.* Volver al paso anterior
+*0.* Cancelar
 
 Escribe el *número* del método de pago."""
         
@@ -1284,7 +1417,7 @@ Puedes cancelar o reagendar tu cita con al menos 24 horas de anticipación sin p
             ])
             
             return {
-                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\nEscribe el *numero* del horario.',
+                'response': f'*Paso 5/6: Selecciona un horario:*\n\n{horarios_texto}\n\n*9.* Volver al paso anterior\n*0.* Cancelar\n\nEscribe el *numero* del horario.',
                 'action': 'show_times',
                 'next_step': context['step'],
                 'mode': 'menu'
@@ -1670,9 +1803,9 @@ Escribe "menu" para volver al menu principal."""
             
             if not result.get('success'):
                 return {
-                    'response': 'No se pudo obtener tu información médica.\n\nEscribe "menu" para volver.',
+                    'response': 'No se pudo obtener tu información médica.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                     'action': None,
-                    'next_step': 'menu_principal',
+                    'next_step': 'submenu_info_medica',
                     'mode': 'menu'
                 }
             
@@ -1687,12 +1820,21 @@ Escribe "menu" para volver al menu principal."""
 
 Para actualizar o completar tu historial medico, visita tu perfil en la app o web de Densora.
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Historial Médico
+*0.* Volver al menú principal"""
 
             return {
                 'response': response,
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_info_medica',
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando info médica: {e}")
+            return {
+                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
+                'action': None,
+                'next_step': 'submenu_info_medica',
                 'mode': 'menu'
             }
         except Exception as e:
@@ -1711,9 +1853,9 @@ Escribe *"menu"* para volver al menu principal."""
             
             if not result.get('success'):
                 return {
-                    'response': 'No se pudo obtener tu información.\n\nEscribe "menu" para volver.',
+                    'response': 'No se pudo obtener tu información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                     'action': None,
-                    'next_step': 'menu_principal',
+                    'next_step': 'submenu_alergias',
                     'mode': 'menu'
                 }
             
@@ -1734,20 +1876,21 @@ Escribe *"menu"* para volver al menu principal."""
 
 Es importante mantener esta informacion actualizada para una atencion segura.
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Historial Médico
+*0.* Volver al menú principal"""
 
             return {
                 'response': response,
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_alergias',
                 'mode': 'menu'
             }
         except Exception as e:
             print(f"Error mostrando alergias: {e}")
             return {
-                'response': 'Error al obtener información. Escribe "menu" para volver.',
+                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_alergias',
                 'mode': 'menu'
             }
     
@@ -1758,9 +1901,9 @@ Escribe *"menu"* para volver al menu principal."""
             
             if not result.get('success'):
                 return {
-                    'response': 'No se pudo obtener tu información.\n\nEscribe "menu" para volver.',
+                    'response': 'No se pudo obtener tu información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                     'action': None,
-                    'next_step': 'menu_principal',
+                    'next_step': 'submenu_completitud',
                     'mode': 'menu'
                 }
             
@@ -1792,20 +1935,21 @@ Escribe *"menu"* para volver al menu principal."""
 
 Puedes completar tu historial desde tu perfil en la app.
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Historial Médico
+*0.* Volver al menú principal"""
 
             return {
                 'response': response,
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_completitud',
                 'mode': 'menu'
             }
         except Exception as e:
             print(f"Error mostrando completitud: {e}")
             return {
-                'response': 'Error al obtener información. Escribe "menu" para volver.',
+                'response': 'Error al obtener información.\n\n*9.* Volver a Historial Médico\n*0.* Volver al menú principal',
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_completitud',
                 'mode': 'menu'
             }
 
@@ -1820,9 +1964,9 @@ Escribe *"menu"* para volver al menu principal."""
             
             if not reviews:
                 return {
-                    'response': '*Mis Resenas*\n\nNo has escrito ninguna resena todavia.\n\nDespues de cada cita, podras calificar tu experiencia.\n\nEscribe *"menu"* para volver.',
+                    'response': '*Mis Resenas*\n\nNo has escrito ninguna resena todavia.\n\nDespues de cada cita, podras calificar tu experiencia.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
                     'action': None,
-                    'next_step': 'menu_principal',
+                    'next_step': 'submenu_mis_resenas',
                     'mode': 'menu'
                 }
             
@@ -1837,20 +1981,21 @@ Escribe *"menu"* para volver al menu principal."""
 
 Total: {len(reviews)} resena(s)
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Reseñas
+*0.* Volver al menú principal"""
 
             return {
                 'response': response,
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_mis_resenas',
                 'mode': 'menu'
             }
         except Exception as e:
             print(f"Error mostrando reseñas: {e}")
             return {
-                'response': 'Error al obtener reseñas. Escribe "menu" para volver.',
+                'response': 'Error al obtener reseñas.\n\n*9.* Volver a Reseñas\n*0.* Volver al menú principal',
                 'action': None,
-                'next_step': 'menu_principal',
+                'next_step': 'submenu_mis_resenas',
                 'mode': 'menu'
             }
     
@@ -1913,12 +2058,13 @@ Escribe el *numero* de la cita."""
 
 Tus opiniones ayudan a otros pacientes y mejoran el servicio.
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Reseñas
+*0.* Volver al menú principal"""
 
         return {
             'response': response,
             'action': None,
-            'next_step': 'menu_principal',
+            'next_step': 'submenu_info_resenas',
             'mode': 'menu'
         }
     
@@ -1992,12 +2138,13 @@ Si, selecciona "3" en el menu principal.
 *Mis datos estan seguros?*
 Si, cumplimos con estandares de privacidad medica.
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Ayuda y Soporte
+*0.* Volver al menu principal"""
 
         return {
             'response': response,
             'action': None,
-            'next_step': 'menu_principal',
+            'next_step': 'submenu_faq',
             'mode': 'menu'
         }
     
@@ -2007,7 +2154,7 @@ Escribe *"menu"* para volver al menu principal."""
 
 *Navegar:* Usa numeros para seleccionar opciones
 
-*Volver atras:* Escribe "menu" en cualquier momento
+*Volver atras:* Escribe "9" para volver al menu anterior
 
 *Agendar cita:* Escribe "1"
 *Ver mis citas:* Escribe "2"
@@ -2017,12 +2164,13 @@ Escribe *"menu"* para volver al menu principal."""
 *Resenas:* Escribe "6"
 *Ayuda:* Escribe "7"
 
-Escribe *"menu"* para volver al menu principal."""
+*9.* Volver a Ayuda y Soporte
+*0.* Volver al menu principal"""
 
         return {
             'response': response,
             'action': None,
-            'next_step': 'menu_principal',
+            'next_step': 'submenu_guia',
             'mode': 'menu'
         }
     
@@ -2038,12 +2186,13 @@ Escribe *"menu"* para volver al menu principal."""
 
 Para urgencias médicas, contacta directamente a tu consultorio o servicios de emergencia.
 
-Escribe *"menu"* para volver al menú principal."""
+*9.* Volver a Ayuda y Soporte
+*0.* Volver al menú principal"""
 
         return {
             'response': response,
             'action': None,
-            'next_step': 'menu_principal',
+            'next_step': 'submenu_contacto',
             'mode': 'menu'
         }
     
