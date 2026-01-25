@@ -96,10 +96,6 @@ class FirebaseFunctionsService:
                     if fecha_dt.date() < ahora.date():
                         continue
                 
-                citas.append({
-                    'id': doc.id,
-                    'fecha': fecha_str,
-                    'hora': hora_str,
                 # Fix: Fetch proper dentist name if missing or generic
                 dentista_name = data.get('dentistaName', data.get('dentista', 'Dentista'))
                 dentista_id = data.get('dentistaId')
