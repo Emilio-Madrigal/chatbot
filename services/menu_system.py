@@ -525,12 +525,15 @@ class MenuSystem:
                     'mode': 'menu'
                 }
             elif button_num == 1:
-                # Ver información médica
-                return self._show_medical_info(context, user_id, phone)
+                # Datos Personales
+                return self._show_personal_data(context, user_id, phone)
             elif button_num == 2:
-                # Ver alergias y medicamentos
-                return self._show_allergies_medications(context, user_id, phone)
+                # Información Médica (Alergias, etc)
+                return self._show_medical_details(context, user_id, phone)
             elif button_num == 3:
+                # Historia Dental
+                return self._show_dental_history(context, user_id, phone)
+            elif button_num == 4:
                 # Ver completitud
                 return self._show_medical_completeness(context, user_id, phone)
             else:
@@ -1050,7 +1053,7 @@ class MenuSystem:
             }
     
     def _handle_medical_history(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Opcion 5: Historial medico - J.RF7 Enhanced con submenu"""
+        """Opcion 5: Historial medico - Enhanced con pestañas (Tabs)"""
         language = context.get('language', 'es')
         context['step'] = 'menu_historial_medico'
         
@@ -1060,7 +1063,14 @@ class MenuSystem:
         status_text = ""
         if historial_result.get('success'):
             data = historial_result.get('data', {})
-            completitud = data.get('completitud', 0)
+            # Robust get for completeness
+            completitud = self._get_field_robust(data, ['completeness', 'completitud'], 0)
+            
+            try:
+                completitud = int(float(completitud))
+            except:
+                completitud = 0
+            
             status_label = language_service.t('status', language)
             
             if completitud >= 80:
@@ -1072,10 +1082,14 @@ class MenuSystem:
         
         mh_title = language_service.t('medical_history_title', language)
         what_to_do = language_service.t('what_to_do', language)
-        opt1 = language_service.t('mh_opt_info', language)
-        opt2 = language_service.t('mh_opt_allergies', language)
-        opt3 = language_service.t('mh_opt_completeness', language)
-        opt0 = language_service.t('menu_opt_exit', language) # or back to menu
+        
+        # Textos para opciones (simulando pestañas)
+        opt_personal = language_service.t('tab_personal', language)
+        opt_medical = language_service.t('tab_medical', language)
+        opt_dental = language_service.t('tab_dental', language)
+        opt_completeness = language_service.t('mh_opt_completeness', language)
+        opt0 = language_service.t('menu_opt_exit', language)
+        
         type_num = language_service.t('type_number', language)
         
         response = f"""*{mh_title}*
@@ -1083,9 +1097,10 @@ class MenuSystem:
 {status_text}
 {what_to_do}
 
-*1.* {opt1}
-*2.* {opt2}
-*3.* {opt3}
+*1.* {opt_personal}
+*2.* {opt_medical}
+*3.* {opt_dental}
+*4.* {opt_completeness}
 *0.* {opt0}
 
 {type_num}"""
@@ -1942,42 +1957,49 @@ class MenuSystem:
     # HELPER METHODS FOR MEDICAL HISTORY SUBMENU (Option 5)
     # ============================================================
     
-    def _show_medical_info(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Muestra información médica general del paciente"""
+    def _get_field_robust(self, data: Dict, keys: list, default=None):
+        """Helper to try multiple keys"""
+        for k in keys:
+            if k in data and data[k]:
+                return data[k]
+        return default
+
+    def _show_personal_data(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra datos personales (Tab 1)"""
         language = context.get('language', 'es')
         try:
-            print(f"[_show_medical_info] user_id={user_id}, phone={phone}")
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
             
             back_mh = language_service.t('back_to_mh', language)
-            back_main = language_service.t('menu_opt_exit', language)
             
             if not result.get('success'):
-                print(f"[_show_medical_info] Error: {result.get('error')}")
-                return {
-                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
-                    'action': None,
-                    'next_step': 'submenu_info_medica',
-                    'mode': 'menu'
-                }
+                return self._error_response(language, back_mh)
             
             data = result.get('data', {})
-            nombre = data.get('nombre', 'No registrado')
-            edad = data.get('edad', 'No especificada')
-            telefono = data.get('telefono', 'No registrado')
-            completitud = data.get('completitud', 0)
             
-            response = f"""*{language_service.t('my_medical_info', language)}*
+            # Extract fields robustly
+            nombre = self._get_field_robust(data, ['nombreCompleto', 'nombre', 'Nombre'], 'No registrado')
+            edad = self._get_field_robust(data, ['edad', 'Edad'], 'No especificada')
+            telefono = self._get_field_robust(data, ['telefono', 'Telefono', 'celular'], 'No registrado')
+            genero = self._get_field_robust(data, ['genero', 'sexo', 'Genero'], 'No especificado')
+            direccion = self._get_field_robust(data, ['direccion', 'domicilio', 'Direccion'], 'No registrada')
+            if isinstance(direccion, dict): # If it's an object, format it
+                direccion = f"{direccion.get('calle','')} {direccion.get('numero','')} {direccion.get('colonia','')}"
+            
+            title = language_service.t('tab_personal', language, fallback="Datos Personales")
+            
+            response = f"""*{title}*
 
 *{language_service.t('label_name', language)}:* {nombre}
 *{language_service.t('label_age', language)}:* {edad}
 *{language_service.t('label_phone', language)}:* {telefono}
-*{language_service.t('label_completeness', language)}:* {completitud}%
+*Género:* {genero}
+*Dirección:* {direccion}
 
 {language_service.t('info_update_note', language)}
 
 *9.* {back_mh}
-*0.* {back_main}"""
+*0.* {language_service.t('menu_opt_exit', language)}"""
 
             return {
                 'response': response,
@@ -1986,52 +2008,52 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando info médica: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
-                'action': None,
-                'next_step': 'submenu_info_medica',
-                'mode': 'menu'
-            }
-    
-    def _show_allergies_medications(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Muestra alergias y medicamentos del paciente"""
+            print(f"Error mostrando datos personales: {e}")
+            return self._error_response(language, "Volver")
+
+    def _show_medical_details(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra información médica detallada: Alergias, Enfermedades, Medicamentos (Tab 2)"""
         language = context.get('language', 'es')
         try:
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
-            
             back_mh = language_service.t('back_to_mh', language)
-            back_main = language_service.t('menu_opt_exit', language)
             
             if not result.get('success'):
-                return {
-                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
-                    'action': None,
-                    'next_step': 'submenu_alergias',
-                    'mode': 'menu'
-                }
+                return self._error_response(language, back_mh)
             
             data = result.get('data', {})
-            alergias = data.get('alergias', [])
-            medicamentos = data.get('medicamentos', [])
             
-            alergias_texto = ', '.join(alergias) if alergias else language_service.t('none_recorded', language)
-            medicamentos_texto = ', '.join(medicamentos) if medicamentos else language_service.t('none_recorded', language)
+            # Robust extraction
+            alergias = self._get_field_robust(data, ['alergias', 'allergies', 'Alergias'], [])
+            enfermedades = self._get_field_robust(data, ['enfermedadesCronicas', 'chronicDiseases', 'Enfermedades'], [])
+            medicamentos = self._get_field_robust(data, ['medicamentos', 'medications', 'Medicamentos', 'medicacionActual'], [])
             
-            response = f"""*{language_service.t('allergies_meds_title', language)}*
+            # Format lists
+            def format_list(l):
+                if isinstance(l, list): return ', '.join(l) if l else 'Ninguna registrada'
+                return str(l) if l else 'Ninguna registrada'
+                
+            alergias_txt = format_list(alergias)
+            enfermedades_txt = format_list(enfermedades)
+            medicamentos_txt = format_list(medicamentos)
+            
+            title = language_service.t('tab_medical', language, fallback="Información Médica")
+            
+            response = f"""*{title}*
 
-*{language_service.t('label_allergies', language)}:*
-{alergias_texto}
+*Alergias:*
+{alergias_txt}
 
-*{language_service.t('label_meds', language)}:*
-{medicamentos_texto}
+*Enfermedades Crónicas:*
+{enfermedades_txt}
+
+*Medicamentos:*
+{medicamentos_txt}
 
 {language_service.t('update_info_note', language)}
 
 *9.* {back_mh}
-*0.* {back_main}"""
+*0.* {language_service.t('menu_opt_exit', language)}"""
 
             return {
                 'response': response,
@@ -2040,33 +2062,67 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando alergias: {e}")
-            return {
-                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
-                'action': None,
-                'next_step': 'submenu_alergias',
-                'mode': 'menu'
-            }
-    
-    def _show_medical_completeness(self, context: Dict, user_id: str, phone: str) -> Dict:
-        """Muestra porcentaje de completitud del historial médico"""
+            print(f"Error mostrando detalles médicos: {e}")
+            return self._error_response(language, "Volver")
+
+    def _show_dental_history(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra historia dental (Tab 3)"""
         language = context.get('language', 'es')
         try:
             result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
-            
             back_mh = language_service.t('back_to_mh', language)
-            back_main = language_service.t('menu_opt_exit', language)
             
             if not result.get('success'):
-                return {
-                    'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_mh}\n*0.* {back_main}",
-                    'action': None,
-                    'next_step': 'submenu_completitud',
-                    'mode': 'menu'
-                }
+                return self._error_response(language, back_mh)
             
             data = result.get('data', {})
-            completitud = data.get('completitud', 0)
+            
+            # Extract dental fields
+            motivo = self._get_field_robust(data, ['motivoConsulta', 'reasonForVisit'], 'No especificado')
+            ultima_visita = self._get_field_robust(data, ['ultimaVisitaDentista', 'lastDentalVisit'], 'No especificada')
+            dolor = self._get_field_robust(data, ['dolorBoca', 'dentalPain'], 'No')
+            sangrado = self._get_field_robust(data, ['sangradoEncias', 'gumBleeding'], 'No')
+            
+            title = language_service.t('tab_dental', language, fallback="Historia Dental")
+            
+            response = f"""*{title}*
+
+*Motivo Principal:* {motivo}
+*Última Visita:* {ultima_visita}
+*¿Dolor frecuente?* {dolor}
+*¿Sangrado de encías?* {sangrado}
+
+*9.* {back_mh}
+*0.* {language_service.t('menu_opt_exit', language)}"""
+
+            return {
+                'response': response,
+                'action': None,
+                'next_step': 'submenu_info_medica', # Reutilizamos paso
+                'mode': 'menu'
+            }
+        except Exception as e:
+            print(f"Error mostrando historia dental: {e}")
+            return self._error_response(language, "Volver")
+
+    def _show_medical_completeness(self, context: Dict, user_id: str, phone: str) -> Dict:
+        """Muestra porcentaje de completitud (Tab 4)"""
+        language = context.get('language', 'es')
+        try:
+            result = self.firebase_service.get_medical_history(user_id=user_id, phone=phone)
+            back_mh = language_service.t('back_to_mh', language)
+            
+            if not result.get('success'):
+                return self._error_response(language, back_mh)
+            
+            data = result.get('data', {})
+            # Robust extraction of completeness
+            completitud = self._get_field_robust(data, ['completeness', 'completitud'], 0)
+            
+            try:
+                completitud = int(float(completitud))
+            except:
+                completitud = 0
             
             # Barra de progreso visual
             filled = int(completitud / 10)
@@ -2094,7 +2150,7 @@ class MenuSystem:
 {language_service.t('completeness_note', language)}
 
 *9.* {back_mh}
-*0.* {back_main}"""
+*0.* {language_service.t('menu_opt_exit', language)}"""
 
             return {
                 'response': response,
@@ -2104,12 +2160,15 @@ class MenuSystem:
             }
         except Exception as e:
             print(f"Error mostrando completitud: {e}")
-            return {
-                'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {language_service.t('back_to_mh', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
-                'action': None,
-                'next_step': 'submenu_completitud',
-                'mode': 'menu'
-            }
+            return self._error_response(language, "Volver")
+
+    def _error_response(self, language, back_text):
+        return {
+            'response': f"{language_service.t('error_fetch_info', language)}\n\n*9.* {back_text}\n*0.* {language_service.t('menu_opt_exit', language)}",
+            'action': None,
+            'next_step': 'menu_historial_medico',
+            'mode': 'menu'
+        }
 
     # ============================================================
     # HELPER METHODS FOR REVIEWS SUBMENU (Option 6)

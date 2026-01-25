@@ -613,7 +613,7 @@ class FirebaseFunctionsService:
             historial_completado = False
             historial_extra = {}
             try:
-                historial_docs = list(paciente_ref.collection('historial_medico').limit(1).stream())
+                historial_docs = list(paciente_ref.collection('historialMedico').limit(1).stream())
                 if historial_docs:
                     historial_completado = True
                     historial_extra = historial_docs[0].to_dict()
@@ -633,12 +633,27 @@ class FirebaseFunctionsService:
             campos_completados = sum(1 for c in campos_totales if paciente_data.get(c))
             completitud = int((campos_completados / len(campos_totales)) * 100)
             
-            # Manejar alergias que pueden ser lista o string
-            alergias = paciente_data.get('alergias', [])
+            # Manejar alergias - Priorizar historialMedico, luego paciente_data
+            alergias = []
+            if historial_extra and 'alergias' in historial_extra:
+                alergias = historial_extra['alergias']
+            elif paciente_data.get('alergias'):
+                alergias = paciente_data.get('alergias')
+            
             if isinstance(alergias, str):
                 alergias = [alergias] if alergias else []
             
-            medicamentos = paciente_data.get('medicamentos', [])
+            # Manejar medicamentos - Priorizar historialMedico (medicacionActual), luego paciente_data
+            medicamentos = []
+            if historial_extra:
+                if 'medicacionActual' in historial_extra:
+                    medicamentos = historial_extra['medicacionActual']
+                elif 'medicamentos' in historial_extra:
+                    medicamentos = historial_extra['medicamentos']
+            
+            if not medicamentos and paciente_data.get('medicamentos'):
+                medicamentos = paciente_data.get('medicamentos')
+                
             if isinstance(medicamentos, str):
                 medicamentos = [medicamentos] if medicamentos else []
             
