@@ -610,41 +610,60 @@ class FirebaseFunctionsService:
             paciente_data = paciente_doc.to_dict()
             print(f"[get_medical_history] Datos del paciente: {list(paciente_data.keys())}")
             
-            # 1. PRIMARIO: Obtener historial médico desde subcollection historialMedico/current
-            #    (Esta es la estructura que usa la web para guardar los datos)
+            # 1. PRIMARIO: Obtener historial médico desde subcollection historialMedico
+            #    La web guarda con addDoc() y IDs automáticos, marcando isActive=True
             historial_data = {}
             historial_completado = False
             try:
-                # Primero intentar obtener el documento 'current' (estructura principal de la web)
-                historial_current_ref = paciente_ref.collection('historialMedico').document('current')
-                historial_current_doc = historial_current_ref.get()
+                # PRIMERO: buscar documento activo (así lo guarda la web con addDoc)
+                historial_query = paciente_ref.collection('historialMedico').where('isActive', '==', True).limit(1)
+                historial_docs = list(historial_query.stream())
                 
-                if historial_current_doc.exists:
-                    historial_data = historial_current_doc.to_dict()
+                if historial_docs:
+                    historial_data = historial_docs[0].to_dict()
                     historial_completado = True
-                    print(f"[get_medical_history] Historial encontrado en historialMedico/current: {list(historial_data.keys())}")
+                    print(f"[get_medical_history] Historial ACTIVO encontrado (ID={historial_docs[0].id})")
+                    print(f"[get_medical_history] Campos: {list(historial_data.keys())}")
+                    print(f"[get_medical_history] _encrypted={historial_data.get('_encrypted')}")
                 else:
-                    # Fallback: buscar cualquier documento activo en la subcolección
-                    historial_query = paciente_ref.collection('historialMedico').where('isActive', '==', True).limit(1)
-                    historial_docs = list(historial_query.stream())
-                    if historial_docs:
-                        historial_data = historial_docs[0].to_dict()
+                    # Fallback: buscar documento 'current' (estructura legacy)
+                    historial_current_ref = paciente_ref.collection('historialMedico').document('current')
+                    historial_current_doc = historial_current_ref.get()
+                    
+                    if historial_current_doc.exists:
+                        historial_data = historial_current_doc.to_dict()
                         historial_completado = True
-                        print(f"[get_medical_history] Historial encontrado en subcolección (isActive): {list(historial_data.keys())}")
+                        print(f"[get_medical_history] Historial encontrado en 'current': {list(historial_data.keys())}")
+                    else:
+                        # Último intento: obtener cualquier documento de la colección
+                        any_docs = list(paciente_ref.collection('historialMedico').limit(1).stream())
+                        if any_docs:
+                            historial_data = any_docs[0].to_dict()
+                            historial_completado = True
+                            print(f"[get_medical_history] Historial encontrado (cualquier doc): {list(historial_data.keys())}")
+                        else:
+                            print(f"[get_medical_history] No se encontró ningún historial médico")
             except Exception as e:
                 print(f"[get_medical_history] Error accediendo historialMedico subcollection: {e}")
+                import traceback
+                traceback.print_exc()
             
             # 2. DESENCRIPTAR si los datos están encriptados
-            if historial_data and historial_data.get('_encrypted') or historial_data.get('encryptionEnabled'):
+            #    NOTA: Corregido bug de precedencia de operadores
+            if historial_data and (historial_data.get('_encrypted') or historial_data.get('encryptionEnabled')):
                 try:
                     from utils.encryption import decrypt_medical_history
                     print(f"[get_medical_history] Desencriptando historial médico...")
+                    print(f"[get_medical_history] Datos antes de desencriptar: alergias={type(historial_data.get('alergias'))}")
                     historial_data = decrypt_medical_history(historial_data, paciente_id)
                     print(f"[get_medical_history] Historial desencriptado exitosamente")
-                except ImportError:
-                    print("[get_medical_history] Módulo de encryption no disponible")
+                    print(f"[get_medical_history] Datos después: alergias={historial_data.get('alergias')}")
+                except ImportError as ie:
+                    print(f"[get_medical_history] Módulo de encryption no disponible: {ie}")
                 except Exception as e:
                     print(f"[get_medical_history] Error desencriptando: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # 3. Construir nombre completo de diferentes formas posibles
             nombre = (

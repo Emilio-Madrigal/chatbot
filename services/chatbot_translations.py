@@ -173,6 +173,19 @@ TRANSLATIONS = {
         'none_registered_m': 'Ninguno registrado',
         'update_warning': 'Es importante mantener esta información actualizada para una atención segura.',
         
+        # Extended labels for detailed views
+        'label_gender': 'Género',
+        'label_address': 'Dirección',
+        'label_chronic_diseases': 'Enfermedades Crónicas',
+        'label_main_reason': 'Motivo Principal',
+        'label_last_visit': 'Última Visita',
+        'label_frequent_pain': '¿Dolor frecuente?',
+        'label_gum_bleeding': '¿Sangrado de encías?',
+        'gender_not_specified': 'No especificado',
+        'address_not_registered': 'No registrada',
+        'reason_not_specified': 'No especificado',
+        'last_visit_not_specified': 'No especificada',
+        
         'completeness_title': 'Completitud del Historial',
         'status_excellent': 'Excelente',
         'status_partial': 'Parcial',
@@ -437,6 +450,19 @@ TRANSLATIONS = {
         'none_registered': 'None registered',
         'none_registered_m': 'None registered',
         'update_warning': 'It is important to keep this information updated for safe care.',
+        
+        # Extended labels for detailed views
+        'label_gender': 'Gender',
+        'label_address': 'Address',
+        'label_chronic_diseases': 'Chronic Diseases',
+        'label_main_reason': 'Main Reason',
+        'label_last_visit': 'Last Visit',
+        'label_frequent_pain': 'Frequent Pain?',
+        'label_gum_bleeding': 'Gum Bleeding?',
+        'gender_not_specified': 'Not specified',
+        'address_not_registered': 'Not registered',
+        'reason_not_specified': 'Not specified',
+        'last_visit_not_specified': 'Not specified',
         
         'completeness_title': '*History Completeness*',
         'status_excellent': 'Excellent',

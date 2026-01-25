@@ -1978,23 +1978,30 @@ class MenuSystem:
             data = result.get('data', {})
             
             # Extract fields robustly
-            nombre = self._get_field_robust(data, ['nombreCompleto', 'nombre', 'Nombre'], 'No registrado')
-            edad = self._get_field_robust(data, ['edad', 'Edad'], 'No especificada')
-            telefono = self._get_field_robust(data, ['telefono', 'Telefono', 'celular'], 'No registrado')
-            genero = self._get_field_robust(data, ['genero', 'sexo', 'Genero'], 'No especificado')
-            direccion = self._get_field_robust(data, ['direccion', 'domicilio', 'Direccion'], 'No registrada')
+            nombre = self._get_field_robust(data, ['nombreCompleto', 'nombre', 'Nombre'], language_service.t('none_registered', language))
+            edad = self._get_field_robust(data, ['edad', 'Edad'], language_service.t('last_visit_not_specified', language))
+            telefono = self._get_field_robust(data, ['telefono', 'Telefono', 'celular'], language_service.t('none_registered', language))
+            genero = self._get_field_robust(data, ['genero', 'sexo', 'Genero'], language_service.t('gender_not_specified', language))
+            direccion = self._get_field_robust(data, ['direccion', 'domicilio', 'Direccion'], language_service.t('address_not_registered', language))
             if isinstance(direccion, dict): # If it's an object, format it
-                direccion = f"{direccion.get('calle','')} {direccion.get('numero','')} {direccion.get('colonia','')}"
+                direccion = f"{direccion.get('calle','')} {direccion.get('numero','')} {direccion.get('colonia','')}".strip()
+            if not direccion:
+                direccion = language_service.t('address_not_registered', language)
             
             title = language_service.t('tab_personal', language, fallback="Datos Personales")
+            lbl_name = language_service.t('label_name', language)
+            lbl_age = language_service.t('label_age', language)
+            lbl_phone = language_service.t('label_phone', language)
+            lbl_gender = language_service.t('label_gender', language)
+            lbl_address = language_service.t('label_address', language)
             
             response = f"""*{title}*
 
-*{language_service.t('label_name', language)}:* {nombre}
-*{language_service.t('label_age', language)}:* {edad}
-*{language_service.t('label_phone', language)}:* {telefono}
-*Género:* {genero}
-*Dirección:* {direccion}
+*{lbl_name}:* {nombre}
+*{lbl_age}:* {edad}
+*{lbl_phone}:* {telefono}
+*{lbl_gender}:* {genero}
+*{lbl_address}:* {direccion}
 
 {language_service.t('info_update_note', language)}
 
@@ -2023,31 +2030,37 @@ class MenuSystem:
             
             data = result.get('data', {})
             
-            # Robust extraction
+            # Robust extraction - include medicamentosActuales (how web saves it)
             alergias = self._get_field_robust(data, ['alergias', 'allergies', 'Alergias'], [])
-            enfermedades = self._get_field_robust(data, ['enfermedadesCronicas', 'chronicDiseases', 'Enfermedades'], [])
-            medicamentos = self._get_field_robust(data, ['medicamentos', 'medications', 'Medicamentos', 'medicacionActual'], [])
+            enfermedades = self._get_field_robust(data, ['enfermedadesCronicas', 'condicionesMedicas', 'chronicDiseases', 'Enfermedades'], [])
+            medicamentos = self._get_field_robust(data, ['medicamentosActuales', 'medicamentos', 'medications', 'Medicamentos', 'medicacionActual'], [])
+            
+            # Get translation for none registered
+            none_txt = language_service.t('none_registered', language)
             
             # Format lists
             def format_list(l):
-                if isinstance(l, list): return ', '.join(l) if l else 'Ninguna registrada'
-                return str(l) if l else 'Ninguna registrada'
+                if isinstance(l, list): return ', '.join(str(item) for item in l) if l else none_txt
+                return str(l) if l else none_txt
                 
             alergias_txt = format_list(alergias)
             enfermedades_txt = format_list(enfermedades)
             medicamentos_txt = format_list(medicamentos)
             
             title = language_service.t('tab_medical', language, fallback="Información Médica")
+            lbl_allergies = language_service.t('label_allergies', language)
+            lbl_chronic = language_service.t('label_chronic_diseases', language)
+            lbl_meds = language_service.t('label_medications', language)
             
             response = f"""*{title}*
 
-*Alergias:*
+*{lbl_allergies}:*
 {alergias_txt}
 
-*Enfermedades Crónicas:*
+*{lbl_chronic}:*
 {enfermedades_txt}
 
-*Medicamentos:*
+*{lbl_meds}:*
 {medicamentos_txt}
 
 {language_service.t('update_info_note', language)}
@@ -2077,20 +2090,24 @@ class MenuSystem:
             
             data = result.get('data', {})
             
-            # Extract dental fields
-            motivo = self._get_field_robust(data, ['motivoConsulta', 'reasonForVisit'], 'No especificado')
-            ultima_visita = self._get_field_robust(data, ['ultimaVisitaDentista', 'lastDentalVisit'], 'No especificada')
+            # Extract dental fields with translations for defaults
+            motivo = self._get_field_robust(data, ['motivoConsulta', 'reasonForVisit'], language_service.t('reason_not_specified', language))
+            ultima_visita = self._get_field_robust(data, ['ultimaVisitaDentista', 'lastDentalVisit'], language_service.t('last_visit_not_specified', language))
             dolor = self._get_field_robust(data, ['dolorBoca', 'dentalPain'], 'No')
             sangrado = self._get_field_robust(data, ['sangradoEncias', 'gumBleeding'], 'No')
             
             title = language_service.t('tab_dental', language, fallback="Historia Dental")
+            lbl_reason = language_service.t('label_main_reason', language)
+            lbl_last_visit = language_service.t('label_last_visit', language)
+            lbl_pain = language_service.t('label_frequent_pain', language)
+            lbl_bleeding = language_service.t('label_gum_bleeding', language)
             
             response = f"""*{title}*
 
-*Motivo Principal:* {motivo}
-*Última Visita:* {ultima_visita}
-*¿Dolor frecuente?* {dolor}
-*¿Sangrado de encías?* {sangrado}
+*{lbl_reason}:* {motivo}
+*{lbl_last_visit}:* {ultima_visita}
+*{lbl_pain}* {dolor}
+*{lbl_bleeding}* {sangrado}
 
 *9.* {back_mh}
 *0.* {language_service.t('menu_opt_exit', language)}"""
