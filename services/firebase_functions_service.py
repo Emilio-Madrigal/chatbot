@@ -97,24 +97,29 @@ class FirebaseFunctionsService:
                         continue
                 
                 # Fix: Fetch proper dentist name if missing or generic
-                dentista_name = data.get('dentistaName', data.get('dentista', 'Dentista'))
+                raw_name = data.get('dentistaName', data.get('dentista'))
+                dentista_name = raw_name
                 dentista_id = data.get('dentistaId')
                 
-                # If name is generic/missing but we have ID, try to fetch looking up in cache or DB
-                if (not dentista_name or dentista_name in ['Dentista', 'Dr. Dentista Prueba', 'Unknown']) and dentista_id:
-                    try:
-                        # Simple lookup - in production optimize with cache
-                        dentista_doc = self.db.collection('dentistas').document(dentista_id).get()
-                        if dentista_doc.exists:
-                            d_data = dentista_doc.to_dict()
-                            # Try to construct full name
-                            nombre = d_data.get('nombre', '')
-                            apellido = d_data.get('apellido', '')
-                            titulo = d_data.get('titulo', 'Dr.')
-                            if nombre or apellido:
-                                dentista_name = f"{titulo} {nombre} {apellido}".strip()
-                    except Exception as e:
-                        print(f"[get_user_appointments] Error fetching dentist name: {e}")
+                # Check if name is generic/missing
+                is_generic = not dentista_name or dentista_name in ['Dentista', 'Dr. Dentista Prueba', 'Unknown']
+                
+                if is_generic:
+                    dentista_name = None # Default to None so UI handles translation
+                    if dentista_id:
+                        try:
+                            # Simple lookup - in production optimize with cache
+                            dentista_doc = self.db.collection('dentistas').document(dentista_id).get()
+                            if dentista_doc.exists:
+                                d_data = dentista_doc.to_dict()
+                                # Try to construct full name
+                                nombre = d_data.get('nombre', '')
+                                apellido = d_data.get('apellido', '')
+                                titulo = d_data.get('titulo', 'Dr.')
+                                if nombre or apellido:
+                                    dentista_name = f"{titulo} {nombre} {apellido}".strip()
+                        except Exception as e:
+                            print(f"[get_user_appointments] Error fetching dentist name: {e}")
 
                 citas.append({
                     'id': doc.id,

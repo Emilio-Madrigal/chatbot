@@ -955,7 +955,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista") or language_service.t("default_dentist", language)}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -994,7 +994,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista") or language_service.t("default_dentist", language)}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -1033,7 +1033,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista") or language_service.t("default_dentist", language)}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -1822,7 +1822,7 @@ class MenuSystem:
         # Info de la cita original
         fecha_original = cita_original.get('fecha', 'N/A')
         hora_original = cita_original.get('hora', cita_original.get('horaInicio', 'N/A'))
-        dentista = cita_original.get('dentista', cita_original.get('dentistaName', 'Dentista'))
+        dentista = cita_original.get('dentista') or cita_original.get('dentistaName') or language_service.t('default_dentist', language)
         
         resumen = f"""*{language_service.t('reschedule_confirm_title', language)}*
 
@@ -1905,7 +1905,7 @@ class MenuSystem:
         """Muestra confirmación de cancelación"""
         language = context.get('language', 'es')
         return {
-            'response': f'*{language_service.t("cancel_confirm_title", language)}*\n\n{language_service.t("cancel_confirm_prompt", language)}\n\n{language_service.t("label_date", language)}: {cita.get("fecha", "N/A")}\n{language_service.t("label_time", language)}: {cita.get("hora", "N/A")}\n{language_service.t("label_dentist", language)}: {cita.get("dentista", "")}\n\n*1.* {language_service.t("btn_confirm_cancel", language)}\n*2.* {language_service.t("btn_keep_appointment", language)}',
+            'response': f'*{language_service.t("cancel_confirm_title", language)}*\n\n{language_service.t("cancel_confirm_prompt", language)}\n\n{language_service.t("label_date", language)}: {cita.get("fecha", "N/A")}\n{language_service.t("label_time", language)}: {cita.get("hora", "N/A")}\n{language_service.t("label_dentist", language)}: {cita.get("dentista") or language_service.t("default_dentist", language)}\n\n*1.* {language_service.t("btn_confirm_cancel", language)}\n*2.* {language_service.t("btn_keep_appointment", language)}',
             'action': None,
             'next_step': 'confirmando_cancelacion',
             'mode': 'menu'
