@@ -81,6 +81,11 @@ class ConversationManager:
                 user_data = self.actions_service.get_user_info(user_id=user_id, phone=phone)
                 if user_data:
                     context['user_data'] = user_data
+                    # Update language from user preferences
+                    if user_data.get('preferredLanguage'):
+                        context['language'] = user_data.get('preferredLanguage')
+                    elif user_data.get('idioma'):
+                        context['language'] = user_data.get('idioma')
                 elif user_name:
                     context['user_data'] = {'nombre': user_name}
         
