@@ -577,7 +577,8 @@ class FirebaseFunctionsService:
     def get_medical_history(self, user_id: str = None, phone: str = None) -> Dict:
         """
         Obtiene el historial médico del paciente para mostrar en el chat
-        Usa la misma estructura que la web
+        Lee desde historialMedico/current subcollection (igual que la web)
+        y desencripta los datos si están encriptados
         """
         try:
             # Obtener paciente
@@ -609,69 +610,155 @@ class FirebaseFunctionsService:
             paciente_data = paciente_doc.to_dict()
             print(f"[get_medical_history] Datos del paciente: {list(paciente_data.keys())}")
             
-            # Verificar si tiene historial_medico en subcolección
+            # 1. PRIMARIO: Obtener historial médico desde subcollection historialMedico/current
+            #    (Esta es la estructura que usa la web para guardar los datos)
+            historial_data = {}
             historial_completado = False
-            historial_extra = {}
             try:
-                historial_docs = list(paciente_ref.collection('historialMedico').limit(1).stream())
-                if historial_docs:
+                # Primero intentar obtener el documento 'current' (estructura principal de la web)
+                historial_current_ref = paciente_ref.collection('historialMedico').document('current')
+                historial_current_doc = historial_current_ref.get()
+                
+                if historial_current_doc.exists:
+                    historial_data = historial_current_doc.to_dict()
                     historial_completado = True
-                    historial_extra = historial_docs[0].to_dict()
-            except:
-                pass
+                    print(f"[get_medical_history] Historial encontrado en historialMedico/current: {list(historial_data.keys())}")
+                else:
+                    # Fallback: buscar cualquier documento activo en la subcolección
+                    historial_query = paciente_ref.collection('historialMedico').where('isActive', '==', True).limit(1)
+                    historial_docs = list(historial_query.stream())
+                    if historial_docs:
+                        historial_data = historial_docs[0].to_dict()
+                        historial_completado = True
+                        print(f"[get_medical_history] Historial encontrado en subcolección (isActive): {list(historial_data.keys())}")
+            except Exception as e:
+                print(f"[get_medical_history] Error accediendo historialMedico subcollection: {e}")
             
-            # Construir nombre completo de diferentes formas posibles
+            # 2. DESENCRIPTAR si los datos están encriptados
+            if historial_data and historial_data.get('_encrypted') or historial_data.get('encryptionEnabled'):
+                try:
+                    from utils.encryption import decrypt_medical_history
+                    print(f"[get_medical_history] Desencriptando historial médico...")
+                    historial_data = decrypt_medical_history(historial_data, paciente_id)
+                    print(f"[get_medical_history] Historial desencriptado exitosamente")
+                except ImportError:
+                    print("[get_medical_history] Módulo de encryption no disponible")
+                except Exception as e:
+                    print(f"[get_medical_history] Error desencriptando: {e}")
+            
+            # 3. Construir nombre completo de diferentes formas posibles
             nombre = (
+                historial_data.get('nombre') or
+                historial_data.get('nombreCompleto') or
                 paciente_data.get('nombreCompleto') or 
                 f"{paciente_data.get('nombres', paciente_data.get('nombre', ''))} {paciente_data.get('apellidos', paciente_data.get('apellido', ''))}".strip() or
                 'No registrado'
             )
             
-            # Calcular porcentaje de completitud
-            campos_totales = ['nombre', 'apellidos', 'telefono', 'email', 'alergias', 
-                             'medicamentos', 'enfermedadesCronicas', 'antecedentesMedicos']
-            campos_completados = sum(1 for c in campos_totales if paciente_data.get(c))
-            completitud = int((campos_completados / len(campos_totales)) * 100)
+            # Combinar apellido si existe
+            apellido = historial_data.get('apellido') or paciente_data.get('apellidos', paciente_data.get('apellido', ''))
+            if apellido and not nombre.endswith(apellido):
+                nombre_completo = f"{nombre} {apellido}".strip()
+            else:
+                nombre_completo = nombre
             
-            # Manejar alergias - Priorizar historialMedico, luego paciente_data
-            alergias = []
-            if historial_extra and 'alergias' in historial_extra:
-                alergias = historial_extra['alergias']
-            elif paciente_data.get('alergias'):
-                alergias = paciente_data.get('alergias')
-            
+            # 4. Extraer datos médicos - priorizar historialMedico sobre paciente_data
+            # Alergias
+            alergias = (
+                historial_data.get('alergias') or 
+                paciente_data.get('alergias') or 
+                []
+            )
             if isinstance(alergias, str):
-                alergias = [alergias] if alergias else []
+                alergias = [alergias] if alergias.strip() else []
             
-            # Manejar medicamentos - Priorizar historialMedico (medicacionActual), luego paciente_data
-            medicamentos = []
-            if historial_extra:
-                if 'medicacionActual' in historial_extra:
-                    medicamentos = historial_extra['medicacionActual']
-                elif 'medicamentos' in historial_extra:
-                    medicamentos = historial_extra['medicamentos']
-            
-            if not medicamentos and paciente_data.get('medicamentos'):
-                medicamentos = paciente_data.get('medicamentos')
-                
+            # Medicamentos (la web usa 'medicamentosActuales')
+            medicamentos = (
+                historial_data.get('medicamentosActuales') or
+                historial_data.get('medicacionActual') or
+                historial_data.get('medicamentos') or
+                paciente_data.get('medicamentos') or
+                []
+            )
             if isinstance(medicamentos, str):
-                medicamentos = [medicamentos] if medicamentos else []
+                medicamentos = [medicamentos] if medicamentos.strip() else []
+            
+            # Enfermedades crónicas (la web usa 'condicionesMedicas' y 'enfermedadesGeneticas')
+            enfermedades = (
+                historial_data.get('condicionesMedicas') or
+                historial_data.get('enfermedadesCronicas') or
+                historial_data.get('enfermedadesGeneticas') or
+                paciente_data.get('enfermedadesCronicas') or
+                []
+            )
+            if isinstance(enfermedades, str):
+                enfermedades = [enfermedades] if enfermedades.strip() else []
+            
+            # 5. Calcular completitud usando mismos campos que la web
+            #    Campos de la web: nombre, apellido, edad, sexo, telefono, contactoEmergencia, direccion,
+            #                      alergias, medicamentosActuales, condicionesMedicas, grupoSanguineo, etc.
+            campos_evaluados = [
+                historial_data.get('nombre') or paciente_data.get('nombre') or paciente_data.get('nombres'),
+                historial_data.get('apellido') or paciente_data.get('apellidos') or paciente_data.get('apellido'),
+                historial_data.get('edad') or paciente_data.get('edad'),
+                historial_data.get('sexo') or paciente_data.get('sexo'),
+                historial_data.get('telefono') or paciente_data.get('telefono'),
+                historial_data.get('contactoEmergencia') or paciente_data.get('contactoEmergencia'),
+                historial_data.get('direccion') or paciente_data.get('direccion'),
+                alergias,
+                medicamentos,
+                enfermedades,
+                historial_data.get('grupoSanguineo') or paciente_data.get('grupoSanguineo'),
+                historial_data.get('ultimaCita') or paciente_data.get('ultimaCita'),
+                historial_data.get('observacionesClinicas'),
+                historial_data.get('diagnosticosPrevios'),
+            ]
+            
+            campos_completados = sum(1 for c in campos_evaluados if c)
+            completitud = int((campos_completados / len(campos_evaluados)) * 100)
+            
+            # Si hay valor de completeness guardado en el historial, usarlo
+            if historial_data.get('completeness'):
+                try:
+                    completitud = int(float(historial_data.get('completeness')))
+                except:
+                    pass
+            
+            # 6. Extraer más campos para historia dental
+            motivo_consulta = historial_data.get('motivoConsulta') or historial_data.get('observacionesClinicas') or ''
+            ultima_visita = historial_data.get('ultimaCita') or historial_data.get('ultimaVisitaDentista') or ''
+            dolor_boca = historial_data.get('dolorBoca') or historial_data.get('dolor') or ''
+            sangrado_encias = historial_data.get('sangradoEncias') or historial_data.get('sangrado') or ''
             
             return {
                 'success': True,
                 'data': {
-                    'nombre': nombre,
-                    'edad': paciente_data.get('edad', paciente_data.get('fechaNacimiento', 'No especificada')),
-                    'telefono': paciente_data.get('telefono', 'No registrado'),
-                    'email': paciente_data.get('email', 'No registrado'),
+                    'nombre': nombre_completo,
+                    'edad': historial_data.get('edad') or paciente_data.get('edad') or paciente_data.get('fechaNacimiento') or 'No especificada',
+                    'telefono': historial_data.get('telefono') or paciente_data.get('telefono') or 'No registrado',
+                    'email': paciente_data.get('email') or 'No registrado',
+                    'sexo': historial_data.get('sexo') or paciente_data.get('sexo') or '',
+                    'direccion': historial_data.get('direccion') or paciente_data.get('direccion') or '',
                     'alergias': alergias,
                     'medicamentos': medicamentos,
-                    'enfermedadesCronicas': paciente_data.get('enfermedadesCronicas', []),
-                    'antecedentesMedicos': paciente_data.get('antecedentesMedicos', ''),
-                    'contactoEmergencia': paciente_data.get('contactoEmergencia', {}),
+                    'medicamentosActuales': medicamentos,  # Alias para compatibilidad
+                    'enfermedadesCronicas': enfermedades,
+                    'condicionesMedicas': enfermedades,  # Alias para compatibilidad
+                    'grupoSanguineo': historial_data.get('grupoSanguineo') or paciente_data.get('grupoSanguineo') or '',
+                    'antecedentesMedicos': historial_data.get('antecedentesMedicos') or paciente_data.get('antecedentesMedicos') or '',
+                    'contactoEmergencia': historial_data.get('contactoEmergencia') or paciente_data.get('contactoEmergencia') or {},
+                    # Campos de historia dental
+                    'motivoConsulta': motivo_consulta,
+                    'ultimaVisitaDentista': ultima_visita,
+                    'dolorBoca': dolor_boca,
+                    'sangradoEncias': sangrado_encias,
+                    'observacionesClinicas': historial_data.get('observacionesClinicas') or '',
+                    'diagnosticosPrevios': historial_data.get('diagnosticosPrevios') or '',
+                    # Metadata
                     'historialCompletado': historial_completado,
-                    'completitud': completitud,
-                    'historialExtra': historial_extra
+                    'completeness': completitud,
+                    'completitud': completitud,  # Alias
+                    'historialExtra': historial_data
                 }
             }
             
