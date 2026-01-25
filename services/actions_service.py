@@ -34,7 +34,7 @@ class ActionsService:
                     'nombre': paciente.nombreCompleto or f"{paciente.nombre or ''} {paciente.apellidos or ''}".strip(),
                     'telefono': paciente.telefono,
                     'email': paciente.email,
-                    'preferredLanguage': getattr(paciente, 'preferredLanguage', None),
+                    'preferredLanguage': paciente.preferences.get('language') if hasattr(paciente, 'preferences') and isinstance(paciente.preferences, dict) else getattr(paciente, 'preferredLanguage', None),
                     'idioma': getattr(paciente, 'idioma', None)
                 }
             return None

@@ -5,13 +5,14 @@ from utils.phone_utils import normalize_phone_for_database
 
 class Paciente:
     def __init__(self, uid=None, nombre=None, apellidos=None, telefono=None, 
-                 email=None, nombreCompleto=None):
+                 email=None, nombreCompleto=None, preferences=None):
         self.uid = uid
         self.nombre = nombre
         self.apellidos = apellidos
         self.telefono = telefono
         self.email = email
         self.nombreCompleto = nombreCompleto
+        self.preferences = preferences or {}
     
     @classmethod
     def from_dict(cls, uid: str, data: dict):
@@ -21,7 +22,8 @@ class Paciente:
             apellidos=data.get('apellidos'),
             telefono=data.get('telefono'),
             email=data.get('email'),
-            nombreCompleto=data.get('nombreCompleto')
+            nombreCompleto=data.get('nombreCompleto'),
+            preferences=data.get('preferences', {})
         )
 
 
