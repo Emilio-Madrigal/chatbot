@@ -639,19 +639,16 @@ Escribe el *número* de la opción que deseas."""
             elif button_num == 2:
                 # Cómo usar el chatbot
                 return self._show_chatbot_guide(context)
-            elif button_num == 3:
-                # Información de contacto
-                return self._show_support_contact(context)
             else:
                 return {
-                    'response': 'Opción inválida. Selecciona 1, 2, 3 o 0 para volver.',
+                    'response': 'Opción inválida. Selecciona 1, 2 o 0 para volver.',
                     'action': None,
                     'next_step': current_step,
                     'mode': 'menu'
                 }
         
         # Submenús de Ayuda - Permiten volver al menú de ayuda con opción 9
-        elif current_step in ['submenu_faq', 'submenu_guia', 'submenu_contacto']:
+        elif current_step in ['submenu_faq', 'submenu_guia']:
             if button_num == 9:
                 # Volver al menú de ayuda
                 return self._handle_help(context)
@@ -1065,7 +1062,6 @@ Escribe el *número* de la opción."""
 
 *1.* Preguntas frecuentes (FAQ)
 *2.* Cómo usar el chatbot
-*3.* Información de contacto
 *0.* Volver al menú principal
 
 Escribe el *número* de la opción."""
