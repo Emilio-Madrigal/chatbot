@@ -22,6 +22,7 @@ TRANSLATIONS = {
         'welcome_new_user': '¡Hola! 👋 Veo que es la primera vez que nos escribes.\n\nPara poder atenderte mejor, ¿podrías decirme tu nombre completo?',
         'register_error': 'Hubo un pequeño error registrando tus datos, pero no te preocupes. ¿En qué puedo ayudarte?',
         'ai_confidence_low': 'No estoy seguro de haber entendido bien. ¿Te gustaría ver el menú de opciones?',
+        'default_dentist': 'Dentista',
         'your_appointments': 'Tus Próximas Citas',
         'no_appointments_reschedule': 'No tienes citas programadas para reagendar.',
         'no_appointments_cancel': 'No tienes citas programadas para cancelar.',
@@ -113,7 +114,10 @@ TRANSLATIONS = {
         'label_new_time': 'Nueva hora',
         'btn_confirm_reschedule': 'Sí, confirmar reagendamiento',
         'reschedule_success': 'Cita Reagendada Exitosamente',
+        'reschedule_success': 'Cita Reagendada Exitosamente',
         'reschedule_cancel': 'Reagendamiento cancelado. Tu cita se mantiene en la fecha original.',
+        'available_dates': 'Fechas disponibles:',
+        'select_date_prompt': 'Escribe el *número* de la fecha que deseas.',
         
         # Cancel Flow
         'cancel_title': '*Cancelar Cita*',
@@ -300,6 +304,7 @@ TRANSLATIONS = {
         'welcome_new_user': 'Hello! 👋 I see this is your first time writing to us.\n\nSo I can serve you better, could you tell me your full name?',
         'register_error': 'There was a small error registering your data, but don\'t worry. How can I help you?',
         'ai_confidence_low': 'I\'m not sure I understood correctly. Would you like to see the menu options?',
+        'default_dentist': 'Dentist',
         'your_appointments': 'Your Upcoming Appointments',
         'no_appointments_reschedule': 'You have no appointments to reschedule.',
         'no_appointments_cancel': 'You have no appointments to cancel.',
@@ -391,7 +396,10 @@ TRANSLATIONS = {
         'label_new_time': 'New time',
         'btn_confirm_reschedule': 'Yes, confirm reschedule',
         'reschedule_success': 'Appointment Rescheduled Successfully',
+        'reschedule_success': 'Appointment Rescheduled Successfully',
         'reschedule_cancel': 'Reschedule cancelled. Your appointment remains on the original date.',
+        'available_dates': 'Available dates:',
+        'select_date_prompt': 'Type the *number* of the date you want.',
         
         # Cancel Flow
         'cancel_title': '*Cancel Appointment*',

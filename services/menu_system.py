@@ -955,7 +955,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", "Dr. García")}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -994,7 +994,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", "Dr. García")}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -1033,7 +1033,7 @@ class MenuSystem:
                 }
             
             citas_texto = '\n'.join([
-                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", "Dr. García")}'
+                f'*{i+1}.* {cita.get("fecha", "N/A")} {cita.get("hora", "N/A")} - {cita.get("dentista", language_service.t("default_dentist", language))}'
                 for i, cita in enumerate(citas[:5])
             ])
             
@@ -1664,7 +1664,7 @@ class MenuSystem:
             
             if not fechas:
                 return {
-                    'response': 'Lo siento, no hay fechas disponibles para reagendar en este momento.\n\nEscribe "menu" para volver al menú principal.',
+                    'response': f"{language_service.t('no_dates', language)}\n\n{language_service.t('type_menu', language)}",
                     'action': None,
                     'next_step': 'menu_principal',
                     'mode': 'menu'
@@ -1677,7 +1677,7 @@ class MenuSystem:
             ])
             
             return {
-                'response': f'*Selecciona Nueva Fecha*\n\nFechas disponibles:\n\n{fechas_texto}\n\nEscribe el *número* de la fecha que deseas.',
+                'response': f"{language_service.t('reschedule_new_date_title', language)}\n\n{language_service.t('available_dates', language)}\n\n{fechas_texto}\n\n{language_service.t('select_date_prompt', language)}",
                 'action': 'show_dates',
                 'next_step': 'seleccionando_fecha_reagendar',
                 'mode': 'menu'
@@ -1687,7 +1687,7 @@ class MenuSystem:
             import traceback
             traceback.print_exc()
             return {
-                'response': 'Error al obtener fechas disponibles. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
+                'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
                 'next_step': 'menu_principal',
                 'mode': 'menu'
