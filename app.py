@@ -234,6 +234,223 @@ def update_notification_settings():
             'error': str(e)
         }), 500
 
+# RF11: Endpoint para solicitar autorización de acceso al historial médico
+@app.route('/api/medical-history/request-access', methods=['POST', 'OPTIONS'])
+def request_medical_history_access():
+    """RF11: Solicita autorización de acceso al historial médico"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        paciente_id = data.get('paciente_id')
+        dentista_id = data.get('dentista_id')
+        dentista_name = data.get('dentista_name', '')
+        consultorio_name = data.get('consultorio_name', '')
+        cita_id = data.get('cita_id')
+        
+        if not paciente_id or not dentista_id:
+            return jsonify({'success': False, 'error': 'paciente_id and dentista_id are required'}), 400
+        
+        from services.medical_history_auth_service import medical_history_auth_service
+        import asyncio
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            medical_history_auth_service.request_medical_history_access(
+                paciente_id=paciente_id,
+                dentista_id=dentista_id,
+                dentista_name=dentista_name,
+                consultorio_name=consultorio_name,
+                cita_id=cita_id
+            )
+        )
+        loop.close()
+        
+        return jsonify(result), 200 if result.get('success') else 400
+        
+    except Exception as e:
+        print(f"Error en request_medical_history_access: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# RF11: Endpoint para procesar respuesta de autorización
+@app.route('/api/medical-history/process-authorization', methods=['POST', 'OPTIONS'])
+def process_medical_history_authorization():
+    """RF11: Procesa la respuesta del paciente (aprobar/rechazar)"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        token = data.get('token')
+        action = data.get('action')
+        
+        if not token or not action:
+            return jsonify({'success': False, 'error': 'token and action are required'}), 400
+        
+        if action not in ['approve', 'reject']:
+            return jsonify({'success': False, 'error': 'action must be approve or reject'}), 400
+        
+        from services.medical_history_auth_service import medical_history_auth_service
+        import asyncio
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            medical_history_auth_service.process_authorization_response(token, action)
+        )
+        loop.close()
+        
+        return jsonify(result), 200 if result.get('success') else 400
+        
+    except Exception as e:
+        print(f"Error en process_medical_history_authorization: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# RNF16: Endpoint para obtener números bloqueados
+@app.route('/api/phone-validation/blocked', methods=['GET', 'OPTIONS'])
+def get_blocked_phones():
+    """RNF16: Obtiene lista de números bloqueados"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        from services.phone_validation_service import phone_validation_service
+        
+        limit = request.args.get('limit', 100, type=int)
+        blocked_phones = phone_validation_service.get_blocked_phones(limit)
+        
+        return jsonify({
+            'success': True,
+            'blocked_phones': blocked_phones,
+            'count': len(blocked_phones)
+        }), 200
+        
+    except Exception as e:
+        print(f"Error obteniendo teléfonos bloqueados: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# RNF16: Endpoint para desbloquear un número
+@app.route('/api/phone-validation/unblock', methods=['POST', 'OPTIONS'])
+def unblock_phone():
+    """RNF16: Desbloquea manualmente un número de teléfono"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        phone = data.get('phone')
+        admin_id = data.get('admin_id')
+        reason = data.get('reason', '')
+        
+        if not phone or not admin_id:
+            return jsonify({'success': False, 'error': 'phone and admin_id are required'}), 400
+        
+        from services.phone_validation_service import phone_validation_service
+        
+        success = phone_validation_service.unblock_phone(phone, admin_id, reason)
+        
+        return jsonify({
+            'success': success,
+            'message': 'Número desbloqueado exitosamente' if success else 'No se pudo desbloquear el número'
+        }), 200 if success else 400
+        
+    except Exception as e:
+        print(f"Error desbloqueando teléfono: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# RNF16: Endpoint para verificar si un número está bloqueado
+@app.route('/api/phone-validation/check', methods=['GET', 'OPTIONS'])
+def check_phone_blocked():
+    """RNF16: Verifica si un número está bloqueado"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        phone = request.args.get('phone')
+        
+        if not phone:
+            return jsonify({'success': False, 'error': 'phone is required'}), 400
+        
+        from services.phone_validation_service import phone_validation_service
+        
+        is_blocked, reason = phone_validation_service.is_phone_blocked(phone)
+        
+        return jsonify({
+            'success': True,
+            'phone': phone,
+            'is_blocked': is_blocked,
+            'reason': reason
+        }), 200
+        
+    except Exception as e:
+        print(f"Error verificando teléfono: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# RF9: Endpoint para notificar reasignación de cita
+@app.route('/api/appointments/notify-reassignment', methods=['POST', 'OPTIONS'])
+def notify_appointment_reassignment():
+    """RF9: Notifica al paciente sobre reasignación de cita"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
+        
+        cita_id = data.get('cita_id')
+        paciente_id = data.get('paciente_id')
+        old_dentista = data.get('old_dentista')
+        new_dentista = data.get('new_dentista')
+        fecha = data.get('fecha')
+        hora = data.get('hora')
+        new_dentista_id = data.get('new_dentista_id')
+        consultorio_name = data.get('consultorio_name', '')
+        new_dentista_especialidad = data.get('new_dentista_especialidad', '')
+        
+        if not all([cita_id, paciente_id, old_dentista, new_dentista, fecha, hora]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+        
+        from services.event_notifier import event_notifier
+        import asyncio
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(
+            event_notifier.notify_appointment_reassigned(
+                cita_id=cita_id,
+                paciente_id=paciente_id,
+                old_dentista=old_dentista,
+                new_dentista=new_dentista,
+                fecha=fecha,
+                hora=hora,
+                new_dentista_id=new_dentista_id,
+                consultorio_name=consultorio_name,
+                new_dentista_especialidad=new_dentista_especialidad
+            )
+        )
+        loop.close()
+        
+        return jsonify({
+            'success': result is not None,
+            'message_id': result.get('sid') if result else None
+        }), 200 if result else 400
+        
+    except Exception as e:
+        print(f"Error notificando reasignación: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/web/chat', methods=['OPTIONS'])
 def web_chat_options():
     """Manejar preflight CORS"""

@@ -1,5 +1,9 @@
 # SISTEMA CENTRALIZADO DE NOTIFICACIONES POR EVENTOS
 # J.RF1: Mensajes automatizados para todos los eventos del sistema
+# RF4: Verificación de historial médico tras agendamiento
+# RF9: Notificación de reasignación de citas
+# RF11: Solicitud de autorización de historial médico
+# RNF16: Validación y bloqueo de números inválidos
 
 from services.whatsapp_service import WhatsAppService
 from services.message_logger import message_logger
@@ -7,6 +11,7 @@ from services.token_service import token_service
 from services.retry_service import retry_service
 from services.language_service import language_service
 from services.notification_config_service import notification_config_service
+from services.phone_validation_service import phone_validation_service
 from database.models import PacienteRepository, CitaRepository
 from database.database import FirebaseConfig
 from datetime import datetime
@@ -100,6 +105,8 @@ Ahora puedes:
         """
         J.RF1: Notificación de agendamiento
         J.RF8, J.RNF7: Verificar configuración de notificaciones
+        RF4: Verificar historial médico tras agendamiento
+        RNF16: Validar número de teléfono antes de enviar
         """
         try:
             # J.RF8, J.RNF7: Verificar si se deben enviar notificaciones
@@ -113,6 +120,12 @@ Ahora puedes:
             
             paciente = self.paciente_repo.buscar_por_id(paciente_id)
             if not paciente or not paciente.telefono:
+                return None
+            
+            # RNF16: Verificar si el número está bloqueado
+            is_blocked, block_reason = phone_validation_service.is_phone_blocked(paciente.telefono)
+            if is_blocked:
+                print(f"RNF16: Número {paciente.telefono} bloqueado: {block_reason}")
                 return None
             
             # Generar enlace de cancelación con token
@@ -177,8 +190,31 @@ Te enviaremos un recordatorio 24 horas antes.
                 message_id=result.get('sid') if result else None
             )
             
-            # Programar reintento si falló
-            if not result:
+            # RNF16: Registrar resultado de entrega
+            if result:
+                phone_validation_service.record_delivery_success(paciente.telefono)
+                
+                # RF4: Verificar historial médico tras agendamiento exitoso
+                try:
+                    from services.medical_history_check_service import medical_history_check_service
+                    await medical_history_check_service.check_medical_history_after_appointment(
+                        paciente_id=paciente_id,
+                        cita_id=cita_id,
+                        dentista_id=dentista_id,
+                        dentista_name=dentista_name,
+                        fecha_cita=fecha
+                    )
+                except Exception as e:
+                    print(f"RF4: Error verificando historial médico: {e}")
+            else:
+                # RNF16: Registrar fallo de entrega
+                phone_validation_service.record_delivery_failure(
+                    paciente.telefono,
+                    'appointment_created',
+                    'Error enviando notificación de agendamiento'
+                )
+                
+                # Programar reintento
                 retry_service.schedule_retry(
                     paciente_id=paciente_id,
                     dentista_id=None,
@@ -380,20 +416,58 @@ Tu cita está asegurada. Te esperamos.
     
     async def notify_appointment_reassigned(self, cita_id: str, paciente_id: str,
                                           old_dentista: str, new_dentista: str,
-                                          fecha: str, hora: str):
+                                          fecha: str, hora: str,
+                                          new_dentista_id: Optional[str] = None,
+                                          consultorio_name: str = "",
+                                          new_dentista_especialidad: str = ""):
         """
-        J.RF15: Notificación de reasignación de citas
+        RF9: Notificación de reasignación de citas entre dentistas
+        RNF16: Validación de número de teléfono
         """
         try:
             paciente = self.paciente_repo.buscar_por_id(paciente_id)
             if not paciente or not paciente.telefono:
                 return None
             
+            # RNF16: Verificar si el número está bloqueado
+            is_blocked, block_reason = phone_validation_service.is_phone_blocked(paciente.telefono)
+            if is_blocked:
+                print(f"RNF16: Número {paciente.telefono} bloqueado: {block_reason}")
+                return None
+            
+            # Obtener idioma del paciente
+            language = language_service.get_patient_language(paciente_id)
+            
             # Formatear fecha
             fecha_obj = datetime.strptime(fecha, '%Y-%m-%d') if isinstance(fecha, str) else fecha
             fecha_formatted = fecha_obj.strftime('%d/%m/%Y') if hasattr(fecha_obj, 'strftime') else str(fecha)
             
-            mensaje = f"""🔄 *CITA REASIGNADA*
+            # RF9: Mensaje con datos del nuevo profesional
+            if language == 'en':
+                mensaje = f"""🔄 *APPOINTMENT REASSIGNED*
+
+Hello {paciente.nombre or 'Patient'},
+
+Your appointment has been reassigned to another professional:
+
+*Date:* {fecha_formatted}
+*Time:* {hora}
+
+*Previous Dentist:* {old_dentista}
+*New Dentist:* {new_dentista}"""
+                
+                if new_dentista_especialidad:
+                    mensaje += f"\n*Specialty:* {new_dentista_especialidad}"
+                if consultorio_name:
+                    mensaje += f"\n*Clinic:* {consultorio_name}"
+                
+                mensaje += """\n\nYour appointment remains scheduled for the same date and time, only the professional has changed.
+
+Do you have any questions? Reply to this message.
+
+See you soon! 😊"""
+            else:
+                mensaje = f"""🔄 *CITA REASIGNADA*
 
 Hola {paciente.nombre or 'Paciente'},
 
@@ -403,9 +477,14 @@ Tu cita ha sido reasignada a otro profesional:
 *Hora:* {hora}
 
 *Dentista Anterior:* {old_dentista}
-*Nuevo Dentista:* {new_dentista}
-
-Tu cita sigue programada para la misma fecha y hora, solo cambió el profesional que te atenderá.
+*Nuevo Dentista:* {new_dentista}"""
+                
+                if new_dentista_especialidad:
+                    mensaje += f"\n*Especialidad:* {new_dentista_especialidad}"
+                if consultorio_name:
+                    mensaje += f"\n*Consultorio:* {consultorio_name}"
+                
+                mensaje += """\n\nTu cita sigue programada para la misma fecha y hora, solo cambió el profesional que te atenderá.
 
 ¿Tienes alguna pregunta? Responde a este mensaje.
 
@@ -416,18 +495,27 @@ Tu cita sigue programada para la misma fecha y hora, solo cambió el profesional
             # Registrar en logs
             message_logger.log_message(
                 paciente_id=paciente_id,
-                dentista_id=None,
+                dentista_id=new_dentista_id,
                 event_type='appointment_reassigned',
                 message_content=mensaje,
                 delivery_status='sent' if result else 'failed',
                 message_id=result.get('sid') if result else None
             )
             
-            # Programar reintento si falló
-            if not result:
+            # RNF16: Registrar resultado de entrega
+            if result:
+                phone_validation_service.record_delivery_success(paciente.telefono)
+            else:
+                phone_validation_service.record_delivery_failure(
+                    paciente.telefono,
+                    'appointment_reassigned',
+                    'Error enviando notificación de reasignación'
+                )
+                
+                # Programar reintento
                 retry_service.schedule_retry(
                     paciente_id=paciente_id,
-                    dentista_id=None,
+                    dentista_id=new_dentista_id,
                     event_type='appointment_reassigned',
                     message_content=mensaje,
                     original_message_id=None,
@@ -437,7 +525,7 @@ Tu cita sigue programada para la misma fecha y hora, solo cambió el profesional
             return result
             
         except Exception as e:
-            print(f"Error notificando reasignación: {e}")
+            print(f"RF9: Error notificando reasignación: {e}")
             return None
 
 # Instancia global
