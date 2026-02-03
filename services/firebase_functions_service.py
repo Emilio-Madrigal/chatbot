@@ -499,15 +499,15 @@ class FirebaseFunctionsService:
             doc_ref = citas_ref.add(cita_data)
             cita_id = doc_ref[1].id
             
-            # También crear en colección principal para compatibilidad
+            # También crear en colección principal con el MISMO ID
             try:
-                citas_principal_ref = self.db.collection('citas')
+                citas_principal_ref = self.db.collection('citas').document(cita_id)
                 cita_principal_data = {
                     **cita_data,
                     'id': cita_id,
                     'pacienteCitaId': cita_id
                 }
-                citas_principal_ref.add(cita_principal_data)
+                citas_principal_ref.set(cita_principal_data)
             except Exception as e:
                 print(f"Error creando cita en colección principal (continuando): {e}")
             
@@ -554,18 +554,30 @@ class FirebaseFunctionsService:
                 'updatedAt': datetime.now()
             })
             
-            # También actualizar en colección principal si existe
+            # También actualizar en colección principal
             try:
-                citas_principal_ref = self.db.collection('citas')
-                query = citas_principal_ref.where('pacienteCitaId', '==', cita_id).limit(1)
-                docs = list(query.stream())
-                if docs:
-                    docs[0].reference.update({
+                # Primero intentar por ID directo del documento
+                cita_principal_ref = self.db.collection('citas').document(cita_id)
+                cita_principal_doc = cita_principal_ref.get()
+                
+                if cita_principal_doc.exists:
+                    cita_principal_ref.update({
                         'fechaHora': nueva_fecha_hora,
                         'appointmentDate': nueva_fecha.strftime('%Y-%m-%d'),
                         'appointmentTime': nueva_hora,
                         'updatedAt': datetime.now()
                     })
+                else:
+                    # Fallback: buscar por pacienteCitaId
+                    query = self.db.collection('citas').where('pacienteCitaId', '==', cita_id).limit(1)
+                    docs = list(query.stream())
+                    if docs:
+                        docs[0].reference.update({
+                            'fechaHora': nueva_fecha_hora,
+                            'appointmentDate': nueva_fecha.strftime('%Y-%m-%d'),
+                            'appointmentTime': nueva_hora,
+                            'updatedAt': datetime.now()
+                        })
             except Exception as e:
                 print(f"Error actualizando cita en colección principal (continuando): {e}")
             
@@ -610,13 +622,14 @@ class FirebaseFunctionsService:
                 'updatedAt': datetime.now()
             })
             
-            # También actualizar en colección principal si existe
+            # También actualizar en colección principal
             try:
-                citas_principal_ref = self.db.collection('citas')
-                query = citas_principal_ref.where('pacienteCitaId', '==', cita_id).limit(1)
-                docs = list(query.stream())
-                if docs:
-                    docs[0].reference.update({
+                # Primero intentar por ID directo del documento
+                cita_principal_ref = self.db.collection('citas').document(cita_id)
+                cita_principal_doc = cita_principal_ref.get()
+                
+                if cita_principal_doc.exists:
+                    cita_principal_ref.update({
                         'estado': 'cancelada',
                         'status': 'cancelada',
                         'cancelacion': {
@@ -626,6 +639,21 @@ class FirebaseFunctionsService:
                         },
                         'updatedAt': datetime.now()
                     })
+                else:
+                    # Fallback: buscar por pacienteCitaId
+                    query = self.db.collection('citas').where('pacienteCitaId', '==', cita_id).limit(1)
+                    docs = list(query.stream())
+                    if docs:
+                        docs[0].reference.update({
+                            'estado': 'cancelada',
+                            'status': 'cancelada',
+                            'cancelacion': {
+                                'motivo': 'Cancelado por el paciente',
+                                'canceladoPor': 'paciente',
+                                'fecha': datetime.now()
+                            },
+                            'updatedAt': datetime.now()
+                        })
             except Exception as e:
                 print(f"Error actualizando cita en colección principal (continuando): {e}")
             
