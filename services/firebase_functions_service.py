@@ -27,8 +27,10 @@ class FirebaseFunctionsService:
     def get_user_appointments(self, user_id: str = None, phone: str = None, 
                              status: str = 'confirmado') -> List[Dict]:
         """
-        Obtiene las citas del usuario usando la misma estructura que la web
-        Accede directamente a pacientes/{pacienteId}/citas
+        Obtiene las citas del usuario buscando en AMBAS ubicaciones:
+        1. Subcolección: pacientes/{pacienteId}/citas
+        2. Colección principal: citas (filtrando por pacienteId)
+        Esto asegura compatibilidad con la web que también busca en ambos lugares.
         """
         try:
             # Obtener paciente
@@ -51,62 +53,65 @@ class FirebaseFunctionsService:
             
             print(f"[get_user_appointments] Buscando citas para paciente_id={paciente_id}")
             
-            # Obtener citas desde la subcolección (misma estructura que la web)
-            citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
-            
             # Obtener fecha actual para filtrar citas futuras
             from datetime import datetime
             ahora = datetime.now()
+            mexico_tz = pytz.timezone('America/Mexico_City')
             
-            # Obtener todas las citas y filtrar en Python (más robusto que filtros compuestos)
-            all_docs = list(citas_ref.stream())
-            print(f"[get_user_appointments] Total documentos en subcolección: {len(all_docs)}")
-            
+            citas_ids = set()  # Para evitar duplicados
             citas = []
-            for doc in all_docs:
-                data = doc.to_dict()
+            
+            def process_cita_doc(doc, data):
+                """Procesa un documento de cita y lo agrega a la lista si cumple los filtros"""
+                doc_id = doc.id
+                if doc_id in citas_ids:
+                    return  # Evitar duplicados
+                
                 estado_cita = data.get('estado', data.get('status', ''))
                 
-                # Excluir citas canceladas y completadas si estamos buscando próximas
+                # Excluir citas canceladas si estamos buscando próximas
                 if status == 'confirmado' and estado_cita in ['cancelada', 'cancelled']:
-                    continue
+                    return
                 
                 # Si buscamos específicamente completadas, solo mostrar esas
                 if status == 'completado' and estado_cita not in ['completado', 'completada', 'completed']:
-                    continue
+                    return
                 
-                # Convertir fechaHora y aplicar zona horaria de México
+                # Convertir fechaHora - los timestamps de Firestore ya contienen la info correcta
                 fecha_str = ''
                 hora_str = ''
                 fecha_dt = None
-                mexico_tz = pytz.timezone('America/Mexico_City')
+                fecha_dt_local = None
+                
                 if data.get('fechaHora'):
                     fecha_obj = data['fechaHora']
+                    # Convertir a datetime con timezone
                     if hasattr(fecha_obj, 'to_datetime'):
+                        # Método de google.cloud.firestore - devuelve datetime con UTC
                         fecha_dt = fecha_obj.to_datetime()
                     elif hasattr(fecha_obj, 'timestamp'):
                         fecha_dt = datetime.fromtimestamp(fecha_obj.timestamp())
                     else:
                         fecha_dt = fecha_obj
                     
-                    # Convertir a zona horaria de México si el datetime tiene timezone
+                    # Convertir a hora local de México para mostrar
                     if fecha_dt.tzinfo is not None:
-                        fecha_dt_mexico = fecha_dt.astimezone(mexico_tz)
+                        fecha_dt_local = fecha_dt.astimezone(mexico_tz)
                     else:
-                        # Si no tiene timezone, asumir que está en UTC y convertir
+                        # Si no tiene timezone, localizar como UTC y convertir
                         fecha_dt_utc = pytz.utc.localize(fecha_dt)
-                        fecha_dt_mexico = fecha_dt_utc.astimezone(mexico_tz)
+                        fecha_dt_local = fecha_dt_utc.astimezone(mexico_tz)
                     
-                    fecha_str = fecha_dt_mexico.strftime('%d/%m/%Y')
-                    hora_str = fecha_dt_mexico.strftime('%H:%M')
+                    fecha_str = fecha_dt_local.strftime('%d/%m/%Y')
+                    hora_str = fecha_dt_local.strftime('%H:%M')
                 
                 # Para citas próximas, solo mostrar las que son futuras (o del día de hoy)
-                if status == 'confirmado' and fecha_dt:
-                    # Citas de hoy o futuras
-                    if fecha_dt.date() < ahora.date():
-                        continue
+                if status == 'confirmado' and fecha_dt_local:
+                    ahora_mexico = datetime.now(mexico_tz)
+                    if fecha_dt_local.date() < ahora_mexico.date():
+                        return
                 
-                # Fix: Fetch proper dentist name if missing or generic
+                # Obtener nombre del dentista
                 raw_name = data.get('dentistaName', data.get('dentista'))
                 dentista_name = raw_name
                 dentista_id = data.get('dentistaId')
@@ -114,25 +119,21 @@ class FirebaseFunctionsService:
                 # Check if name is generic/missing
                 is_generic = not dentista_name or dentista_name in ['Dentista', 'Dr. Dentista Prueba', 'Unknown']
                 
-                if is_generic:
-                    dentista_name = None # Default to None so UI handles translation
-                    if dentista_id:
-                        try:
-                            # Simple lookup - in production optimize with cache
-                            dentista_doc = self.db.collection('dentistas').document(dentista_id).get()
-                            if dentista_doc.exists:
-                                d_data = dentista_doc.to_dict()
-                                # Try to construct full name
-                                nombre = d_data.get('nombre', '')
-                                apellido = d_data.get('apellido', '')
-                                titulo = d_data.get('titulo', 'Dr.')
-                                if nombre or apellido:
-                                    dentista_name = f"{titulo} {nombre} {apellido}".strip()
-                        except Exception as e:
-                            print(f"[get_user_appointments] Error fetching dentist name: {e}")
+                if is_generic and dentista_id:
+                    try:
+                        dentista_doc = self.db.collection('dentistas').document(dentista_id).get()
+                        if dentista_doc.exists:
+                            d_data = dentista_doc.to_dict()
+                            nombre = d_data.get('nombre', '')
+                            apellido = d_data.get('apellido', '')
+                            if nombre or apellido:
+                                dentista_name = f"{nombre} {apellido}".strip()
+                    except Exception as e:
+                        print(f"[get_user_appointments] Error fetching dentist name: {e}")
 
+                citas_ids.add(doc_id)
                 citas.append({
-                    'id': doc.id,
+                    'id': doc_id,
                     'fecha': fecha_str,
                     'hora': hora_str,
                     'dentista': dentista_name,
@@ -145,10 +146,36 @@ class FirebaseFunctionsService:
                     'fechaHora': data.get('fechaHora')
                 })
             
+            # 1. Buscar en la subcolección del paciente
+            try:
+                citas_subcol_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
+                all_subcol_docs = list(citas_subcol_ref.stream())
+                print(f"[get_user_appointments] Docs en subcolección pacientes/{paciente_id}/citas: {len(all_subcol_docs)}")
+                
+                for doc in all_subcol_docs:
+                    process_cita_doc(doc, doc.to_dict())
+            except Exception as e:
+                print(f"[get_user_appointments] Error buscando en subcolección: {e}")
+            
+            # 2. Buscar en la colección principal 'citas' por pacienteId
+            try:
+                citas_principal_ref = self.db.collection('citas').where('pacienteId', '==', paciente_id)
+                all_principal_docs = list(citas_principal_ref.stream())
+                print(f"[get_user_appointments] Docs en colección principal citas (pacienteId={paciente_id}): {len(all_principal_docs)}")
+                
+                for doc in all_principal_docs:
+                    data = doc.to_dict()
+                    # Usar pacienteCitaId si existe para evitar duplicados con subcolección
+                    effective_id = data.get('pacienteCitaId', doc.id)
+                    if effective_id not in citas_ids:
+                        process_cita_doc(doc, data)
+            except Exception as e:
+                print(f"[get_user_appointments] Error buscando en colección principal: {e}")
+            
             # Ordenar por fecha
             citas.sort(key=lambda x: x.get('fechaHora') or datetime.max)
             
-            print(f"[get_user_appointments] Citas encontradas después de filtrar: {len(citas)}")
+            print(f"[get_user_appointments] Total citas encontradas: {len(citas)}")
             return citas
             
         except Exception as e:
@@ -156,6 +183,7 @@ class FirebaseFunctionsService:
             import traceback
             traceback.print_exc()
             return []
+
     
     def get_available_dates(self, user_id: str = None, phone: str = None, 
                            count: int = 5) -> List[datetime]:
