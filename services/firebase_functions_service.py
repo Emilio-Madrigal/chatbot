@@ -5,6 +5,7 @@ Integra el chatbot con las mismas funciones que usa la web
 
 import requests
 import os
+import pytz
 from typing import Dict, List, Optional
 from datetime import datetime
 from database.database import FirebaseConfig
@@ -74,10 +75,11 @@ class FirebaseFunctionsService:
                 if status == 'completado' and estado_cita not in ['completado', 'completada', 'completed']:
                     continue
                 
-                # Convertir fechaHora
+                # Convertir fechaHora y aplicar zona horaria de México
                 fecha_str = ''
                 hora_str = ''
                 fecha_dt = None
+                mexico_tz = pytz.timezone('America/Mexico_City')
                 if data.get('fechaHora'):
                     fecha_obj = data['fechaHora']
                     if hasattr(fecha_obj, 'to_datetime'):
@@ -87,8 +89,16 @@ class FirebaseFunctionsService:
                     else:
                         fecha_dt = fecha_obj
                     
-                    fecha_str = fecha_dt.strftime('%d/%m/%Y')
-                    hora_str = fecha_dt.strftime('%H:%M')
+                    # Convertir a zona horaria de México si el datetime tiene timezone
+                    if fecha_dt.tzinfo is not None:
+                        fecha_dt_mexico = fecha_dt.astimezone(mexico_tz)
+                    else:
+                        # Si no tiene timezone, asumir que está en UTC y convertir
+                        fecha_dt_utc = pytz.utc.localize(fecha_dt)
+                        fecha_dt_mexico = fecha_dt_utc.astimezone(mexico_tz)
+                    
+                    fecha_str = fecha_dt_mexico.strftime('%d/%m/%Y')
+                    hora_str = fecha_dt_mexico.strftime('%H:%M')
                 
                 # Para citas próximas, solo mostrar las que son futuras (o del día de hoy)
                 if status == 'confirmado' and fecha_dt:
