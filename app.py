@@ -858,6 +858,7 @@ def handle_interactive_message(from_number,interactive_data):
             list_id=interactive_data['list_reply']['id']
             handle_list_response(from_number,list_id)
     except Exception as e:
+        print(f"[WHATSAPP] Error handling interactive message: {e}")
 
 def handle_button_response(from_number,button_id):
     try:
@@ -887,16 +888,17 @@ def handle_button_response(from_number,button_id):
             # Obtener paciente por ID o teléfono, priorizando user_id
             paciente = None
             if user_id:
-
+                pass  # TODO: buscar paciente por user_id
             
             if not paciente and (phone or from_number):
                 telefono_buscar = phone or from_number
+                pass  # TODO: buscar paciente por teléfono
 
             
             fechas_disponibles = []
             
             if paciente:
-
+                # Intentar obtener fechas del último consultorio del paciente
                 try:
                     ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
                     if ultimo_consultorio:
@@ -922,7 +924,7 @@ def handle_button_response(from_number,button_id):
                             'ultimo_consultorio': ultimo_consultorio
                         }
                     else:
-
+                        # Sin consultorio previo, guardar estado básico
                         user_states[from_number] = {
                             'step': 'seleccionando_fecha',
                             'user_id': user_id,
@@ -930,7 +932,7 @@ def handle_button_response(from_number,button_id):
                             'paciente_uid': paciente.uid
                         }
                 except Exception as e:
-
+                    print(f"[WHATSAPP] Error obteniendo fechas: {e}")
                     import traceback
                     traceback.print_exc()
                     user_states[from_number] = {
@@ -939,7 +941,7 @@ def handle_button_response(from_number,button_id):
                         'phone': phone
                     }
             else:
-
+                # Sin paciente registrado
                 user_states[from_number] = {
                     'step': 'seleccionando_fecha',
                     'user_id': user_id,
@@ -1097,10 +1099,11 @@ def handle_button_response(from_number,button_id):
             }
             # No cancelar todavía, solo guardar el estado para confirmación
     except Exception as e:
+        print(f"[WHATSAPP] Error en handle_button_response_extended: {e}")
 
 def handle_list_response(from_number,list_id):
     try:
-
+        # Procesar respuestas de lista
         if '_' in list_id:
             action,cita_id=list_id.split('_',1)
             if action=='ver':
@@ -1140,6 +1143,7 @@ def handle_list_response(from_number,list_id):
                     'cita_id':cita_id
                 }
     except Exception as e:
+        print(f"[WHATSAPP] Error en handle_list_response: {e}")
 
 def handle_reagendamiento(from_number, button_id):
     try:
