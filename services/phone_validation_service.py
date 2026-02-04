@@ -82,7 +82,7 @@ class PhoneValidationService:
             return False, None
             
         except Exception as e:
-            print(f"Error verificando bloqueo de teléfono: {e}")
+
             return False, None
     
     def record_delivery_failure(self, phone: str, event_type: str, error_message: str) -> Dict:
@@ -143,7 +143,7 @@ class PhoneValidationService:
                     update_data['blockedUntil'] = now + timedelta(days=self.block_duration_days)
                     update_data['blockReason'] = f'Bloqueado automáticamente tras {consecutive_failures} fallos consecutivos de entrega'
                     
-                    print(f"RNF16: Número {phone_normalized} bloqueado tras {consecutive_failures} fallos consecutivos")
+
                 
                 doc_ref.update(update_data)
                 
@@ -177,7 +177,7 @@ class PhoneValidationService:
                 }
                 
         except Exception as e:
-            print(f"Error registrando fallo de entrega: {e}")
+
             return {'error': str(e)}
     
     def record_delivery_success(self, phone: str) -> None:
@@ -197,7 +197,7 @@ class PhoneValidationService:
                 })
                 
         except Exception as e:
-            print(f"Error registrando éxito de entrega: {e}")
+
     
     def unblock_phone(self, phone: str, admin_id: str, reason: str = "") -> bool:
         """
@@ -220,11 +220,11 @@ class PhoneValidationService:
                 'unblockReason': reason
             })
             
-            print(f"RNF16: Número {phone_normalized} desbloqueado manualmente por {admin_id}")
+
             return True
             
         except Exception as e:
-            print(f"Error desbloqueando teléfono: {e}")
+
             return False
     
     def get_blocked_phones(self, limit: int = 100) -> list:
@@ -250,7 +250,7 @@ class PhoneValidationService:
             return blocked_phones
             
         except Exception as e:
-            print(f"Error obteniendo teléfonos bloqueados: {e}")
+
             return []
     
     def _normalize_phone(self, phone: str) -> str:

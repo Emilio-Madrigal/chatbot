@@ -76,7 +76,7 @@ class MedicalHistoryCheckService:
                 paciente_id=paciente_id,
                 notification_type='reminder'
             ):
-                print(f"RF4: Notificación de historial médico deshabilitada para paciente {paciente_id}")
+
                 return {
                     'success': True,
                     'notification_sent': False,
@@ -126,7 +126,7 @@ class MedicalHistoryCheckService:
             }
             
         except Exception as e:
-            print(f"RF4: Error verificando historial médico: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -160,7 +160,7 @@ class MedicalHistoryCheckService:
             return {}
             
         except Exception as e:
-            print(f"Error obteniendo historial médico: {e}")
+
             return {}
     
     def _check_completeness(self, historial: Dict) -> Dict:
@@ -325,7 +325,7 @@ Esta información es confidencial y solo será utilizada para tu atención médi
             )
             
             if result:
-                print(f"RF4: Alerta de historial médico incompleto enviada a {paciente.telefono}")
+
             
             return {
                 'success': result is not None,
@@ -333,7 +333,7 @@ Esta información es confidencial y solo será utilizada para tu atención médi
             }
             
         except Exception as e:
-            print(f"RF4: Error enviando alerta de historial: {e}")
+
             return {
                 'success': False,
                 'error': str(e)
@@ -357,7 +357,7 @@ Esta información es confidencial y solo será utilizada para tu atención médi
                     'notificationSent': notification_sent
                 })
         except Exception as e:
-            print(f"Error registrando verificación de historial: {e}")
+
     
     async def send_history_reminder_before_appointment(self, cita_id: str, paciente_id: str,
                                                        hours_before: int = 24) -> Dict:
@@ -432,7 +432,7 @@ Complétalo ahora para agilizar tu atención:
             }
             
         except Exception as e:
-            print(f"Error enviando recordatorio de historial: {e}")
+
             return {'success': False, 'error': str(e)}
 
 

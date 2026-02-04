@@ -112,7 +112,7 @@ El Dr(a). {dentista_name} del consultorio {consultorio_name} solicita acceso a t
             }
             
         except Exception as e:
-            print(f"Error solicitando autorización de historial: {e}")
+
             return {
                 'success': False,
                 'error': str(e)
@@ -185,7 +185,7 @@ El Dr(a). {dentista_name} del consultorio {consultorio_name} solicita acceso a t
             }
             
         except Exception as e:
-            print(f"Error procesando autorización: {e}")
+
             return {
                 'success': False,
                 'error': str(e)

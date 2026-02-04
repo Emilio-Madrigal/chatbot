@@ -52,7 +52,7 @@ class NotificationConfigService:
             return default_config
             
         except Exception as e:
-            print(f"Error obteniendo configuración de notificaciones: {e}")
+
             # Retornar configuración por defecto
             return {
                 'reminders': True,
@@ -83,7 +83,7 @@ class NotificationConfigService:
             return True
             
         except Exception as e:
-            print(f"Error actualizando configuración de notificaciones: {e}")
+
             return False
     
     def get_patient_notification_settings(self, paciente_id: str) -> Dict:
@@ -122,7 +122,7 @@ class NotificationConfigService:
             return default_config
             
         except Exception as e:
-            print(f"Error obteniendo configuración de notificaciones del paciente: {e}")
+
             return {
                 'whatsapp_enabled': True,
                 'email_enabled': True,
@@ -151,7 +151,7 @@ class NotificationConfigService:
             return True
             
         except Exception as e:
-            print(f"Error actualizando configuración de notificaciones del paciente: {e}")
+
             return False
     
     def should_send_notification(self, dentista_id: Optional[str], paciente_id: Optional[str],
@@ -200,7 +200,7 @@ class NotificationConfigService:
             return True
             
         except Exception as e:
-            print(f"Error verificando configuración de notificaciones: {e}")
+
             # Por defecto, permitir notificaciones
             return True
 

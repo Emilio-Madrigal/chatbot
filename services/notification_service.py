@@ -42,15 +42,15 @@ class NotificacionesService:
             id='weekly_summaries',
             name='Resúmenes semanales pacientes'
         )
-        print("trabajos programados y configurados")
+
     def start_scheduler(self):
         if not self.scheduler.running:
             self.scheduler.start()
-            print("init del servicio")
+
     def stop_scheduler(self):
         if self.scheduler.running:
             self.scheduler.shutdown()
-            print("altooo, yo ya estuve en estos juegos ")
+
     def check_upcoming_appointments(self):
         try:
             tomorrow=datetime.now()+timedelta(days=1)
@@ -58,9 +58,9 @@ class NotificacionesService:
             citas_proximas=self.cita_repo.obtener_citas_proximas(fecha_limite)
             for cita in citas_proximas:
                 self._process_appointment_reminder(cita)
-                print(f"\Procesadas {len(citas_proximas)} citas próximas")
+
         except Exception as e:
-            print(f"error revisando citas proximas: {e}")
+
     def _process_appointment_reminder(self, cita):
         try:
             now=datetime.now()
@@ -73,7 +73,7 @@ class NotificacionesService:
             elif dias_hasta_cita==0:
                 self._check_same_day_reminder(cita)
         except Exception as e:
-            print(f"error procesando recordatorio de cita {cita.id}: {e}")
+
     def _check_same_day_reminder(self, cita):
         try:
             now=datetime.now()
@@ -84,7 +84,7 @@ class NotificacionesService:
             if 110<=minutos_hasta_cita<=130:
                 self.send_2_hour_reminder(cita)
         except Exception as e:
-            print(f"error en el recordatorio del mismo dia: {e}")
+
 
     def send_24_hour_reminder(self, cita):
         try:
@@ -105,12 +105,10 @@ class NotificacionesService:
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
             if result:
-                print(f"se envio el reminder de 24 horas {cita.id}")
-            else:
-                print(f"error enviando el reminder de 24 horas {cita.id}")
+
                 
         except Exception as e:
-            print(f"error canijo en el reminder de 24 horas: {e}")
+
     def send_2_hour_reminder(self, cita):
         try:
             mensaje = f"""*RECORDATORIO URGENTE*
@@ -126,12 +124,10 @@ class NotificacionesService:
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
             if result:
-                print(f"se envio el reminder de 2 horas {cita.id}")
-            else:
-                print(f"error enviando el reminder de 2 horas {cita.id}")
+
             
         except Exception as e:
-            print(f"error canijo en el reminder de 2 horas{e}")
+
     def send_daily_reminders(self):
         try:
             today=datetime.now().strftime('%Y-%m-%d')
@@ -145,10 +141,10 @@ class NotificacionesService:
                 usuarios_con_citas[cita.usuario_whatsapp].append(cita)
             for usuario, citas in usuarios_con_citas.items():
                 self._send_daily_summary(usuario,citas)
-            print(f"recordatorios diarios enviados a {len(usuarios_con_citas)} usuarios")
+
 
         except Exception as e:
-            print(f"error enviando recordatoriso diaros: {e}")
+
     def _send_daily_summary(self,usuario_whatsapp,citas_hoy):
         try:
             if len(citas_hoy) == 1:
@@ -172,15 +168,15 @@ class NotificacionesService:
                 mensaje += "\n¡Que tengas un día productivo!"""
             
             self.whatsapp.send_text_message(usuario_whatsapp, mensaje)
-            print(f"resumen diario enviado a {usuario_whatsapp}")
+
         except Exception as e:
-            print(f"error enviado resumen diario a {usuario_whatsapp}: {e}")
+
 
     def send_custom_reminder(self,cita_id:str,mensaje_personalizado:str=None):
         try:
             cita=self.cita_repo.obtener_cita(cita_id)
             if not cita:
-                print(f"cita {cita_id} no encontrada")
+
                 return False
             if mensaje_personalizado:
                 mensaje=mensaje_personalizado
@@ -196,7 +192,7 @@ class NotificacionesService:
             result=self.whatsapp.send_text_message(cita.usuario_whatsapp,mensaje)
             return result is not None
         except Exception as e:
-            print(f"error enviando recordatorio personalizado: {e}")
+
             return False
 
     # J.RF14: Enviar resumen semanal a pacientes
@@ -224,7 +220,7 @@ class NotificacionesService:
                         'lastLogin': paciente_data.get('lastLogin'),
                     })
             
-            print(f"J.RF14: Enviando resúmenes semanales a {len(pacientes)} pacientes")
+
             
             # Calcular fechas para la semana
             now = datetime.now()
@@ -234,12 +230,12 @@ class NotificacionesService:
                 try:
                     self._send_weekly_summary_to_patient(paciente, now, semana_siguiente)
                 except Exception as e:
-                    print(f"Error enviando resumen semanal a {paciente.get('telefono')}: {e}")
+
             
-            print(f"J.RF14: Resúmenes semanales enviados")
+
             
         except Exception as e:
-            print(f"Error en send_weekly_summaries: {e}")
+
             import traceback
             traceback.print_exc()
 
@@ -364,10 +360,10 @@ Visita nuestra web para mantener tu información actualizada.
             
             # Enviar mensaje
             self.whatsapp.send_text_message(telefono, mensaje)
-            print(f"J.RF14: Resumen semanal enviado a {telefono}")
+
             
         except Exception as e:
-            print(f"Error enviando resumen semanal a paciente {paciente.get('telefono')}: {e}")
+
             import traceback
             traceback.print_exc()
 

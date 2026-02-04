@@ -43,7 +43,7 @@ class ActionsService:
                 }
             return None
         except Exception as e:
-            print(f"Error obteniendo info usuario: {e}")
+
             return None
     
     def get_user_appointments(self, user_id: str = None, phone: str = None, 
@@ -93,7 +93,7 @@ class ActionsService:
             return citas_formateadas
             
         except Exception as e:
-            print(f"Error obteniendo citas: {e}")
+
             import traceback
             traceback.print_exc()
             return []
@@ -115,11 +115,11 @@ class ActionsService:
             # Obtener último consultorio usado
             ultimo_consultorio = self.cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
             if not ultimo_consultorio:
-                print(f"No se encontró último consultorio para paciente {paciente.uid}, buscando consultorio por defecto")
+
                 # Buscar cualquier consultorio activo
                 consultorios = self.get_consultorios_info(limit=1)
                 if not consultorios:
-                    print("No hay consultorios activos disponibles")
+
                     return []
                 # Usar el primer consultorio disponible
                 consultorio_id = consultorios[0]['id']
@@ -149,10 +149,10 @@ class ActionsService:
                             'dentistaName': dentista_name or consultorio_data.get('dentistaName', 'Dentista')
                         }
                     else:
-                        print(f"No se encontró dentista activo para consultorio {consultorio_id}")
+
                         return []
                 else:
-                    print(f"Consultorio {consultorio_id} no existe")
+
                     return []
             
             # Obtener fechas disponibles
@@ -177,7 +177,7 @@ class ActionsService:
             return fechas_str
             
         except Exception as e:
-            print(f"Error obteniendo fechas disponibles: {e}")
+
             return []
     
     def get_available_times(self, user_id: str = None, phone: str = None,
@@ -197,11 +197,11 @@ class ActionsService:
             # Obtener último consultorio usado
             ultimo_consultorio = self.cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
             if not ultimo_consultorio:
-                print(f"No se encontró último consultorio para paciente {paciente.uid}, buscando consultorio por defecto")
+
                 # Buscar cualquier consultorio activo
                 consultorios = self.get_consultorios_info(limit=1)
                 if not consultorios:
-                    print("No hay consultorios activos disponibles")
+
                     return []
                 # Usar el primer consultorio disponible
                 consultorio_id = consultorios[0]['id']
@@ -231,10 +231,10 @@ class ActionsService:
                             'dentistaName': dentista_name or consultorio_data.get('dentistaName', 'Dentista')
                         }
                     else:
-                        print(f"No se encontró dentista activo para consultorio {consultorio_id}")
+
                         return []
                 else:
-                    print(f"Consultorio {consultorio_id} no existe")
+
                     return []
             
             # Convertir fecha a timestamp
@@ -261,7 +261,7 @@ class ActionsService:
                         try:
                             fecha_dt = datetime.strptime(fecha, '%d-%m-%Y')
                         except ValueError:
-                            print(f"Error: No se pudo parsear la fecha '{fecha}'. Formato esperado: YYYY-MM-DD")
+
                             raise ValueError(f"Formato de fecha inválido: {fecha}. Por favor proporciona la fecha en formato YYYY-MM-DD (ej: 2025-11-14)")
             else:
                 fecha_dt = fecha
@@ -285,7 +285,7 @@ class ActionsService:
             return horarios_str
             
         except Exception as e:
-            print(f"Error obteniendo horarios disponibles: {e}")
+
             return []
     
     def buscar_dentista_por_nombre(self, nombre_dentista: str, consultorio_id: str = None) -> Optional[Dict]:
@@ -349,7 +349,7 @@ class ActionsService:
             return None
             
         except Exception as e:
-            print(f"Error buscando dentista por nombre: {e}")
+
             import traceback
             traceback.print_exc()
             return None
@@ -436,7 +436,7 @@ class ActionsService:
                 }
                 
         except Exception as e:
-            print(f"Error creando cita: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -501,7 +501,7 @@ class ActionsService:
                 }
                 
         except Exception as e:
-            print(f"Error reagendando cita: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -569,7 +569,7 @@ class ActionsService:
                 }
                 
         except Exception as e:
-            print(f"Error cancelando cita: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -597,7 +597,7 @@ class ActionsService:
             return dentistas
             
         except Exception as e:
-            print(f"Error obteniendo dentistas: {e}")
+
             return []
     
     def get_consultorios_info(self, limit: int = 10) -> List[Dict]:
@@ -619,7 +619,7 @@ class ActionsService:
             return consultorios
             
         except Exception as e:
-            print(f"Error obteniendo consultorios: {e}")
+
             return []
     
     def _calculate_payment_deadline(self, payment_method: str):
@@ -732,13 +732,13 @@ class ActionsService:
             
             # Si aún no hay tratamientos, retornar lista vacía (no usar valores por defecto)
             if not tratamientos:
-                print(f"No se encontraron servicios para consultorio {consultorio_id}")
+
                 return []
             
             return tratamientos
             
         except Exception as e:
-            print(f"Error obteniendo tratamientos: {e}")
+
             import traceback
             traceback.print_exc()
             return []
@@ -777,7 +777,7 @@ class ActionsService:
             }
             
         except Exception as e:
-            print(f"Error en registro rápido: {e}")
+
             return None
 
     def get_medical_history(self, user_id: str = None, phone: str = None) -> Dict[str, Any]:
@@ -816,15 +816,13 @@ class ActionsService:
                 if historial_data.get('_encrypted'):
                     historial_data = decrypt_medical_history(historial_data, paciente.uid)
             except ImportError:
-                print("Encryption module not available")
-            except Exception as e:
-                print(f"Error decrypting history: {e}")
+
                 
             # 3. Retornar datos completos
             return historial_data
             
         except Exception as e:
-            print(f"Error getting medical history: {e}")
+
             import traceback
             traceback.print_exc()
             return {}
@@ -862,7 +860,7 @@ class ActionsService:
             return reseñas
             
         except Exception as e:
-            print(f"Error obteniendo reseñas: {e}")
+
             # Mock data si falla la DB (para demo)
             return [
                 {'autor': 'María G.', 'calificacion': 5, 'comentario': 'Excelente atención, muy suave.', 'dentista': 'Dr. Ana García'},
@@ -894,5 +892,5 @@ class ActionsService:
             
             return resultados
         except Exception as e:
-            print(f"Error buscando dentistas: {e}")
+
             return []

@@ -79,7 +79,7 @@ class RetryService:
             return True
             
         except Exception as e:
-            print(f"Error programando reintento: {e}")
+
             return False
     
     def process_pending_retries(self):
@@ -113,7 +113,7 @@ class RetryService:
             return processed
             
         except Exception as e:
-            print(f"Error procesando reintentos: {e}")
+
             return 0
     
     def _retry_message(self, retry_id: str, retry_data: Dict) -> bool:
@@ -189,7 +189,7 @@ class RetryService:
                 return False
                 
         except Exception as e:
-            print(f"Error en reintento de mensaje: {e}")
+
             self.collection.document(retry_id).update({
                 'status': 'failed',
                 'error': str(e),

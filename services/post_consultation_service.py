@@ -103,7 +103,7 @@ Solo toma 30 segundos y nos ayuda mucho.
             return result
             
         except Exception as e:
-            print(f"Error enviando solicitud de reseña: {e}")
+
             return None
     
     async def send_review_reminder(self, cita_id: str, paciente_id: str,
@@ -173,7 +173,7 @@ Solo toma 30 segundos.
             return result
             
         except Exception as e:
-            print(f"Error enviando recordatorio de reseña: {e}")
+
             return None
 
 # Instancia global

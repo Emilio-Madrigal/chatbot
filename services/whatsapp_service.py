@@ -93,39 +93,19 @@ class WhatsAppService:
                 self.latency_tracking = self.latency_tracking[-100:]
             
             # J.RNF2: Verificar si excede 3 segundos
-            if latency > 3.0:
-                print(f"ADVERTENCIA: Latencia de {latency:.2f}s excede el máximo de 3s")
-            
-            print(f"Mensaje enviado via Twilio. SID: {message_obj.sid}, Latencia: {latency:.2f}s")
+
             return {"status": "sent", "sid": message_obj.sid, "latency": latency}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)
             
-            print("="*60)
-            print(f"ERROR ENVIANDO MENSAJE VIA TWILIO")
-            print("="*60)
-            print(f"Código de error: {error_code}")
-            print(f"Mensaje: {error_msg}")
-            print(f"To: {to_number}")
-            print(f"From: {self.whatsapp_number}")
-            print("="*60)
-            
-            # Error específico 63112: Cuenta de Meta deshabilitada
-            if error_code == 63112:
-                print("ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada"),
-                print("   Revisa SOLUCION_ERROR_63112.md para más información")
+
             
             return None
         except Exception as e:
-            print("="*60)
-            print(f"ERROR INESPERADO ENVIANDO MENSAJE")
-            print("="*60)
-            print(f"Error: {e}")
-            import traceback
-            traceback.print_exc()
-            print("="*60)
-            return None
+
+
+
     
     def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None, content_sid: str = None):
         """
@@ -173,33 +153,17 @@ class WhatsAppService:
                     body=f"[Plantilla: {template_name}]"  # Fallback - usar content_sid en producción
                 )
             
-            print(f"Plantilla enviada via Twilio. SID: {message.sid}")
+
             return {"status": "sent", "sid": message.sid}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)
             
-            print("="*60)
-            print(f"ERROR ENVIANDO PLANTILLA VIA TWILIO")
-            print("="*60)
-            print(f"Código de error: {error_code}")
-            print(f"Mensaje: {error_msg}")
-            print("="*60)
-            
-            if error_code == 63112:
-                print("ERROR CRÍTICO 63112: La cuenta de Meta/WhatsApp Business fue deshabilitada"),
-                print("   Revisa SOLUCION_ERROR_63112.md para más información")
+
             
             return None
         except Exception as e:
-            print("="*60)
-            print(f"ERROR INESPERADO ENVIANDO PLANTILLA")
-            print("="*60)
-            print(f"Error: {e}")
-            import traceback
-            traceback.print_exc()
-            print("="*60)
-            return None
+
     
     def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list, content_sid: str = None):
         """
@@ -231,10 +195,10 @@ class WhatsAppService:
                         to=to,
                         content_sid=content_sid
                     )
-                    print(f"Mensaje con botones interactivos enviado. SID: {message.sid}")
+
                     return {"status": "sent", "sid": message.sid}
                 except TwilioRestException as e:
-                    print(f"Error usando Content Template, usando fallback: {e}")
+
                     # Continuar con fallback
             
             # Fallback: Enviar como mensaje de texto con botones formateados
@@ -256,9 +220,8 @@ class WhatsAppService:
             return result
                 
         except Exception as e:
-            print(f"Error enviando botones interactivos: {e}")
-            import traceback
-            traceback.print_exc()
+
+
             # Fallback final a texto numerado
             message_text = f"{header_text}\n\n{body_text}\n\n" if header_text else f"{body_text}\n\n"
             for i, button in enumerate(buttons, 1):
@@ -301,7 +264,7 @@ class WhatsAppService:
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_MENU_PRINCIPAL
         if content_sid:
-            print(f"Usando Content Template para menú principal: {content_sid}")
+
         
         return self.send_interactive_buttons(
             to_number,
@@ -321,7 +284,7 @@ class WhatsAppService:
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_GESTION
         if content_sid:
-            print(f"Usando Content Template para menú de gestión: {content_sid}")
+
         
         return self.send_interactive_buttons(
             to_number,

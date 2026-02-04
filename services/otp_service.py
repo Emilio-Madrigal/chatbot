@@ -113,7 +113,7 @@ class OTPService:
                 }
                 
         except Exception as e:
-            print(f"Error enviando OTP: {e}")
+
             return {
                 'success': False,
                 'error': str(e),
@@ -207,7 +207,7 @@ class OTPService:
             return count
             
         except Exception as e:
-            print(f"Error contando reenvíos: {e}")
+
             return 0
     
     async def verify_otp(self, paciente_id: str, otp_code: str, 
@@ -274,7 +274,7 @@ class OTPService:
             }
             
         except Exception as e:
-            print(f"Error verificando OTP: {e}")
+
             return {
                 'success': False,
                 'valid': False,

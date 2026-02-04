@@ -49,7 +49,7 @@ class LanguageService:
             
             return 'es'
         except Exception as e:
-            print(f"Error obteniendo idioma del paciente: {e}")
+
             return 'es'
             
     def get_language_from_session(self, context: Dict) -> str:

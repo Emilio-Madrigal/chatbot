@@ -43,7 +43,7 @@ class MLService:
         # Log de interacciones para aprendizaje continuo
         self.interaction_log = []
         
-        print(f"MLService inicializado - OpenAI habilitado: {self.use_openai}, Modelo: {self.openai_model}")
+
     
     def _call_huggingface(self, model: str, inputs: str, task: str = "text-generation") -> Optional[Dict]:
         """Llama a la API de Hugging Face"""
@@ -71,16 +71,16 @@ class MLService:
                 return response.json()
             elif response.status_code == 503:
                 # Modelo cargándose, esperar un poco
-                print(f"Modelo {model} cargándose, esperando...")
+
                 import time
                 time.sleep(5)
                 return self._call_huggingface(model, inputs, task)
             else:
-                print(f"Error llamando Hugging Face: {response.status_code} - {response.text}")
+
                 return None
                 
         except Exception as e:
-            print(f"Error en _call_huggingface: {e}")
+
             return None
     
     def _call_openai(self, prompt: str, system_prompt: str = None, 
@@ -116,7 +116,7 @@ class MLService:
             return response.choices[0].message.content.strip()
             
         except Exception as e:
-            print(f"Error llamando OpenAI: {e}")
+
             import traceback
             traceback.print_exc()
             return None
@@ -133,7 +133,7 @@ class MLService:
             # Verificar si el cache no ha expirado
             from time import time
             if cache_key in self.cache_ttl and self.cache_ttl[cache_key] > time():
-                print(f"Intent cache HIT para: {message_lower[:50]}")
+
                 return self.cache[cache_key]
             else:
                 # Expiró, eliminar
@@ -542,7 +542,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
                             entities['fecha'] = datetime.now().strftime('%Y-%m-%d')
                         else:
                             # Intentar parsear como fecha relativa
-                            print(f"Fecha extraída por IA no está en formato YYYY-MM-DD: {fecha}")
+
                             entities['fecha'] = None  # Invalidar si no es formato correcto
                 
                 # Validar formato de hora
@@ -567,10 +567,10 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
                 
                 return entities
         except json.JSONDecodeError as e:
-            print(f"Error parseando JSON de entidades: {e}")
-            print(f"Respuesta recibida: {response}")
+
+
         except Exception as e:
-            print(f"Error extrayendo entidades con IA: {e}")
+
             import traceback
             traceback.print_exc()
         
@@ -635,7 +635,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
                         days_ahead += 7
                     fecha_calculada = (today + timedelta(days=days_ahead)).strftime('%Y-%m-%d')
                     entities['fecha'] = fecha_calculada
-                    print(f"Fecha extraida: {dia} => {fecha_calculada}")
+
                     break
             if entities.get('fecha'):
                 break
@@ -717,7 +717,7 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
                         if hora_num < 24:
                             entities['hora'] = f"{hora_num:02d}:00"
                     
-                    print(f"Hora extraida: {hora_str} => {entities.get('hora')}")
+
                     break
         
         # Extraer nombre de dentista

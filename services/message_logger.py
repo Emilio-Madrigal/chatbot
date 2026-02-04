@@ -55,9 +55,7 @@ class MessageLogger:
             return doc_ref[1].id
             
         except Exception as e:
-            print(f"Error registrando mensaje: {e}")
-            import traceback
-            traceback.print_exc()
+
             return None
     
     def get_message_stats(self, start_date: datetime, end_date: datetime) -> Dict:
@@ -97,7 +95,7 @@ class MessageLogger:
             }
             
         except Exception as e:
-            print(f"Error obteniendo estadísticas: {e}")
+
             return {
                 'totalMessages': 0,
                 'byStatus': {},

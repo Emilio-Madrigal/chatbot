@@ -143,7 +143,7 @@ class PaymentService:
             }
             
         except Exception as e:
-            print(f"Error calculando tiempo restante: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -214,7 +214,7 @@ class PaymentService:
             }
             
         except Exception as e:
-            print(f"Error confirmando pago: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -262,7 +262,7 @@ class PaymentService:
             }
             
         except Exception as e:
-            print(f"Error verificando pago: {e}")
+
             return {
                 'success': False,
                 'error': str(e)
@@ -312,7 +312,7 @@ class PaymentService:
             return citas_pendientes
             
         except Exception as e:
-            print(f"Error obteniendo citas con pago pendiente: {e}")
+
             import traceback
             traceback.print_exc()
             return []
@@ -329,7 +329,7 @@ class PaymentService:
             # Por ahora retornar placeholder
             return f"http://localhost:4321/pagar/{cita_id}"
         except Exception as e:
-            print(f"Error generando link de pago: {e}")
+
             return None
     
     def get_instrucciones_pago(self, metodo_pago: str, cita: Dict = None) -> str:

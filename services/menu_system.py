@@ -62,7 +62,7 @@ class MenuSystem:
         # Obtener idioma del contexto
         language = context.get('language', 'es')
         
-        print(f"[MENU_SYSTEM] process_message - session_id={session_id}, message='{message}', current_step={current_step}, user_id={user_id}, phone={phone}, lang={language}")
+
         
         # Si es "menu" o "menú", volver al menú principal
         if message_clean in ['menu', 'menú', 'inicio', 'start', '0']:
@@ -90,13 +90,13 @@ class MenuSystem:
         # Si es un número, procesarlo según el paso actual
         if message_clean.isdigit():
             button_num = int(message_clean)
-            print(f"[MENU_SYSTEM] Mensaje numérico detectado: {button_num}, step actual: {current_step}")
+
             result = self._handle_numeric_input(session_id, button_num, context, user_id, phone)
-            print(f"[MENU_SYSTEM] Resultado de _handle_numeric_input: tiene response={bool(result.get('response'))}")
+
             return result
         
         # Si no es número ni comando reconocido, mostrar menú y pedir número
-        print(f"[MENU_SYSTEM] Mensaje no reconocido, mostrando menú por defecto")
+
         return {
             'response': f"{language_service.t('agent_fallback', language)}\n\n{self.get_main_menu(language)}",
             'action': None,
@@ -108,14 +108,14 @@ class MenuSystem:
                              context: Dict, user_id: str, phone: str) -> Dict:
         """Maneja entrada numérica según el paso actual"""
         current_step = context.get('step', 'menu_principal')
-        print(f"[MENU_SYSTEM] Procesando entrada numérica: button_num={button_num}, current_step={current_step}")
+
         
         # Menú principal
         if current_step == 'menu_principal' or current_step == 'inicial':
             if button_num == 1:
-                print(f"[MENU_SYSTEM] Opción 1 seleccionada - Agendar cita")
+
                 result = self._handle_schedule_appointment(session_id, context, user_id, phone)
-                print(f"[MENU_SYSTEM] Resultado de _handle_schedule_appointment: {result.get('response', '')[:100] if result.get('response') else 'SIN RESPUESTA'}")
+
                 return result
             elif button_num == 2:
                 return self._handle_view_appointments(context, user_id, phone)
@@ -770,7 +770,7 @@ class MenuSystem:
     def _handle_schedule_appointment(self, session_id: str, context: Dict,
                                     user_id: str, phone: str) -> Dict:
         """Opción 1: Agendar cita - Flujo completo desde selección de consultorio"""
-        print(f"[MENU_SYSTEM] _handle_schedule_appointment - user_id={user_id}, phone={phone}")
+
         
         language = context.get('language', 'es')
         context['step'] = 'seleccionando_consultorio'
@@ -816,7 +816,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"[MENU_SYSTEM] Error en _handle_schedule_appointment: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -882,7 +882,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"[MENU_SYSTEM] Error getting dentists: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -929,7 +929,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"[MENU_SYSTEM] Error getting services: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -966,7 +966,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo citas: {e}")
+
             return {
                 'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -1005,7 +1005,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo citas para reagendar: {e}")
+
             return {
                 'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -1044,7 +1044,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo citas para cancelar: {e}")
+
             return {
                 'response': f"{language_service.t('error_fetching_appointments', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -1124,7 +1124,7 @@ class MenuSystem:
             pending_count = len(pending_reviews)
             context['citas_pendientes_resena'] = pending_reviews
         except Exception as e:
-            print(f"Error checking pending reviews: {e}")
+
         
         # No mostrar contador de reseñas pendientes a petición del usuario
         pending_text = ""
@@ -1191,7 +1191,7 @@ class MenuSystem:
             dentista_id = context.get('dentista_id')
             consultorio_id = context.get('consultorio_id')
             
-            print(f"[MENU_SYSTEM] _show_available_dates_for_appointment - dentista_id={dentista_id}, consultorio_id={consultorio_id}")
+
             
             if not dentista_id or not consultorio_id:
                 return {
@@ -1209,7 +1209,7 @@ class MenuSystem:
             fecha_base = datetime.now()
             fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
             
-            print(f"[MENU_SYSTEM] Obteniendo fechas para dentista {dentista_id}, consultorio {consultorio_id}")
+
             fechas = cita_repo.obtener_fechas_disponibles(
                 dentista_id,
                 consultorio_id,
@@ -1217,7 +1217,7 @@ class MenuSystem:
                 cantidad=5
             )
             
-            print(f"[MENU_SYSTEM] Fechas obtenidas: {len(fechas) if fechas else 0}")
+
             context['fechas_disponibles'] = fechas or []
             
             if not fechas or len(fechas) == 0:
@@ -1246,7 +1246,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"[MENU_SYSTEM] Error obteniendo fechas: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -1413,7 +1413,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error solicitando OTP: {e}")
+
             return {
                 'response': 'Error al enviar código de verificación. Por favor intenta más tarde.\n\nEscribe "menu" para volver.',
                 'action': None,
@@ -1449,14 +1449,14 @@ class MenuSystem:
             if docs:
                 # Actualizar acceso existente
                 docs[0].reference.update(acceso_data)
-                print(f"Acceso al historial médico actualizado: Nivel {nivel}")
+
             else:
                 # Crear nuevo acceso
                 accesos_ref.add(acceso_data)
-                print(f"Acceso al historial médico otorgado: Nivel {nivel}")
+
                 
         except Exception as e:
-            print(f"Error otorgando acceso al historial médico: {e}")
+
             import traceback
             traceback.print_exc()
             # No lanzar excepción, solo loggear
@@ -1493,7 +1493,7 @@ class MenuSystem:
             return self._confirm_appointment(session_id, context, user_id, phone)
             
         except Exception as e:
-            print(f"Error verificando OTP: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -1538,7 +1538,7 @@ class MenuSystem:
             from datetime import datetime, timezone
             fecha_midnight = datetime(fecha_dt.year, fecha_dt.month, fecha_dt.day, 12, 0, 0, tzinfo=timezone.utc)
             
-            print(f"[MENU_SYSTEM] Getting horarios for dentista={dentista_id}, consultorio={consultorio_id}, fecha={fecha_midnight}")
+
             
             horarios_slots = cita_repo.obtener_horarios_disponibles(
                 dentista_id,
@@ -1546,7 +1546,7 @@ class MenuSystem:
                 fecha_midnight  # datetime tiene .timestamp() method
             )
             
-            print(f"[MENU_SYSTEM] Horarios slots received: {len(horarios_slots) if horarios_slots else 0}")
+
             
             # Convertir slots a formato de texto para mostrar
             if not horarios_slots or len(horarios_slots) == 0:
@@ -1578,7 +1578,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"[MENU_SYSTEM] Error obteniendo horarios: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -1596,8 +1596,8 @@ class MenuSystem:
             dentista_id = cita_reagendar.get('dentistaId')
             consultorio_id = cita_reagendar.get('consultorioId')
             
-            print(f"[_show_available_dates_for_reschedule] cita_reagendar={cita_reagendar}")
-            print(f"[_show_available_dates_for_reschedule] dentista_id={dentista_id}, consultorio_id={consultorio_id}")
+
+
             
             from database.models import CitaRepository
             from datetime import datetime
@@ -1621,7 +1621,7 @@ class MenuSystem:
             
             # Si no hay fechas o no tenemos dentista/consultorio, buscar en el primer consultorio disponible
             if not fechas:
-                print(f"[_show_available_dates_for_reschedule] Buscando fechas alternativas...")
+
                 try:
                     # Buscar el primer consultorio con disponibilidad
                     consultorios = list(self.db.collection('consultorios').limit(3).stream())
@@ -1650,14 +1650,14 @@ class MenuSystem:
                                 fechas = fechas_temp
                                 context['dentista_id'] = dent_id
                                 context['consultorio_id'] = cons_id
-                                print(f"[_show_available_dates_for_reschedule] Encontradas {len(fechas)} fechas en consultorio {cons_id}, dentista {dent_id}")
+
                                 break
                         
                         if fechas:
                             break
                             
                 except Exception as inner_e:
-                    print(f"[_show_available_dates_for_reschedule] Error en fallback: {inner_e}")
+
             
             context['fechas_disponibles'] = fechas
             
@@ -1682,7 +1682,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error obteniendo fechas para reagendar: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -1752,7 +1752,7 @@ class MenuSystem:
                     try:
                         self._grant_medical_history_access(user_id, dentista_id, nivel_acceso)
                     except Exception as e:
-                        print(f"Error registrando acceso al historial médico: {e}")
+
                         # No fallar la creación de la cita si esto falla
                 
                 # Mensaje de confirmación completo (RF6, RF9)
@@ -1792,7 +1792,7 @@ class MenuSystem:
                     'mode': 'menu'
                 }
         except Exception as e:
-            print(f"Error confirmando cita: {e}")
+
             import traceback
             traceback.print_exc()
             return {
@@ -1891,7 +1891,7 @@ class MenuSystem:
                     'mode': 'menu'
                 }
         except Exception as e:
-            print(f"Error confirmando reagendamiento: {e}")
+
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -1944,7 +1944,7 @@ class MenuSystem:
                     'mode': 'menu'
                 }
         except Exception as e:
-            print(f"Error ejecutando cancelación: {e}")
+
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -2014,7 +2014,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando datos personales: {e}")
+
             return self._error_response(language, "Volver")
 
     def _show_medical_details(self, context: Dict, user_id: str, phone: str) -> Dict:
@@ -2074,7 +2074,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando detalles médicos: {e}")
+
             return self._error_response(language, "Volver")
 
     def _show_dental_history(self, context: Dict, user_id: str, phone: str) -> Dict:
@@ -2118,7 +2118,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando historia dental: {e}")
+
             return self._error_response(language, "Volver")
 
     def _show_medical_completeness(self, context: Dict, user_id: str, phone: str) -> Dict:
@@ -2175,7 +2175,7 @@ class MenuSystem:
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando completitud: {e}")
+
             return self._error_response(language, "Volver")
 
     def _error_response(self, language, back_text):
@@ -2228,7 +2228,7 @@ Total: {len(reviews)}
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando reseñas: {e}")
+
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n*9.* {language_service.t('back_to_reviews', language)}\n*0.* {language_service.t('menu_opt_exit', language)}",
                 'action': None,
@@ -2280,7 +2280,7 @@ Total: {len(reviews)}
                 'mode': 'menu'
             }
         except Exception as e:
-            print(f"Error mostrando citas pendientes: {e}")
+
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
@@ -2350,7 +2350,7 @@ Total: {len(reviews)}
                     'mode': 'menu'
                 }
         except Exception as e:
-            print(f"Error enviando reseña: {e}")
+
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,

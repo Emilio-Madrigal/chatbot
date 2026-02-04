@@ -66,7 +66,7 @@ def is_valid_phone_number(phone: str) -> bool:
 def verify_webhook():
     """Verificación de webhook para Twilio (opcional, Twilio no requiere GET)"""
     # Twilio no usa verificación GET como Meta, pero mantenemos por compatibilidad
-    print("GET request recibido en /webhook")
+
     return "OK", 200
 
 @app.route('/health',methods=['GET'])
@@ -460,12 +460,12 @@ def web_chat_options():
 def web_chat():
     """Endpoint para el chat web con ML mejorado"""
     try:
-        print(f"WEB CHAT REQUEST - Headers: {dict(request.headers)}")
-        print(f"WEB CHAT REQUEST - Origin: {request.headers.get('Origin', 'No Origin')}")
+
+
         
         data = request.get_json()
         if not data:
-            print("ERROR: No se recibió JSON en el request")
+
             return jsonify({'success': False, 'error': 'Invalid JSON'}), 400
             
         message_body = data.get('message')
@@ -476,10 +476,10 @@ def web_chat():
         user_name = data.get('user_name')  # Nombre del usuario
 
         if not message_body or not session_id:
-            print(f"ERROR: Faltan parámetros - message: {bool(message_body)}, session_id: {bool(session_id)}")
+
             return jsonify({'success': False, 'error': 'Message and session_id are required'}), 400
 
-        print(f"WEB CHAT RECIBIDO - Session ID: {session_id}, Message: {message_body}, User ID: {user_id}, Phone: {phone}")
+
 
         # SIEMPRE usar sistema de menús - ignorar modo agente
         # Procesar el mensaje usando el sistema de menús estructurado
@@ -494,7 +494,7 @@ def web_chat():
                 mode='hybrid'  # Modo híbrido inteligente
             )
             bot_response_text = response_data.get('response', '')
-            print(f"Sistema de menús procesó correctamente - Response: {bot_response_text[:100]}...")
+
         except Exception as menu_error:
             print(f"Error en sistema de menús, usando fallback: {menu_error}")
             import traceback
@@ -504,10 +504,10 @@ def web_chat():
 
         # Si la respuesta está vacía o es solo "...", usar un mensaje por defecto
         if not bot_response_text or bot_response_text.strip() == "" or bot_response_text.strip() == "...":
-            print(f"WEB CHAT RESPUESTA VACÍA - Usando mensaje por defecto")
+
             bot_response_text = "Lo siento, no pude procesar tu mensaje. Por favor, intenta nuevamente o escribe *menu* para ver las opciones disponibles."
         
-        print(f"WEB CHAT RESPUESTA - Response: {bot_response_text[:200]}...")
+
 
         return jsonify({
             'success': True,
@@ -528,16 +528,8 @@ def webhook():
     """Webhook para recibir mensajes de Twilio"""
     try:
         # Log de depuración - ver qué está llegando
-        print("="*60)
-        print("WEBHOOK RECIBIDO")
-        print(f"URL: {request.url}")
-        print(f"Path: {request.path}")
-        print("="*60)
-        print(f"Request method: {request.method}")
-        print(f"Content-Type: {request.content_type}")
-        print(f"Form data: {dict(request.form)}")
-        print(f"Values: {dict(request.values)}")
-        print("="*60)
+
+
         
         # Twilio envía datos como form-data, no JSON
         from_number = request.values.get('From', '') or request.form.get('From', '')
@@ -545,10 +537,7 @@ def webhook():
         message_sid = request.values.get('MessageSid', '') or request.form.get('MessageSid', '')
         num_media = request.values.get('NumMedia', '0') or request.form.get('NumMedia', '0')
         
-        print(f"Webhook Twilio recibido:")
-        print(f"  From: {from_number}")
-        print(f"  Body: {message_body}")
-        print(f"  MessageSid: {message_sid}")
+
         
         # Si no hay datos, puede ser que Twilio esté enviando en otro formato
         if not from_number and not message_body:
@@ -774,7 +763,7 @@ def process_message(message_data):
             from_number = message['from']
             message_type = message['type']
             
-            print(f"mensaje desde {from_number}, de tipo: {message_type}")
+
             
             if message_type == 'text':
                 text_content = message['text']['body']
@@ -869,7 +858,7 @@ def handle_interactive_message(from_number,interactive_data):
             list_id=interactive_data['list_reply']['id']
             handle_list_response(from_number,list_id)
     except Exception as e:
-        print(f"error manejado interracion: {e}")
+
 def handle_button_response(from_number,button_id):
     try:
         # Si viene como button_X, extraer el número
@@ -877,12 +866,12 @@ def handle_button_response(from_number,button_id):
             button_num = button_id.replace('button_', '')
             # Mapear número a botón según el último mensaje enviado
             # Por ahora, manejamos respuestas numéricas directamente
-            print(f"Respuesta numerica recibida: {button_num}")
+
             # Convertir respuesta numérica a acción según contexto
             # Esto se manejará en handle_text_message_extended
             return
         
-        print(f"boton presionado: {button_id}")
+
         if button_id=='agendar_cita':
             # Obtener fechas dinámicas del último consultorio
             from database.models import CitaRepository
@@ -893,29 +882,25 @@ def handle_button_response(from_number,button_id):
             user_id = state.get('user_id')
             phone = state.get('phone')
             
-            print(f"AGENDAR_CITA - from_number: {from_number}, user_id: {user_id}, phone: {phone}")
+
             
             # Obtener paciente por ID o teléfono, priorizando user_id
             paciente = None
             if user_id:
-                print(f"Buscando paciente por user_id: {user_id}")
-                paciente = cita_repo.obtener_paciente_por_id(user_id)
-                print(f"Paciente encontrado por ID: {paciente is not None}")
+
             
             if not paciente and (phone or from_number):
                 telefono_buscar = phone or from_number
-                print(f"Buscando paciente por teléfono: {telefono_buscar}")
-                paciente = cita_repo.obtener_paciente_por_telefono(telefono_buscar)
-                print(f"Paciente encontrado por teléfono: {paciente is not None}")
+
             
             fechas_disponibles = []
             
             if paciente:
-                print(f"Paciente encontrado: {paciente.uid if hasattr(paciente, 'uid') else 'N/A'}")
+
                 try:
                     ultimo_consultorio = cita_repo.obtener_ultimo_consultorio_paciente(paciente.uid)
                     if ultimo_consultorio:
-                        print(f"Último consultorio encontrado: {ultimo_consultorio}")
+
                         from datetime import datetime
                         fecha_base = datetime.now()
                         fecha_timestamp = datetime.combine(fecha_base.date(), datetime.min.time())
@@ -926,7 +911,7 @@ def handle_button_response(from_number,button_id):
                             fecha_timestamp,
                             cantidad=3
                         )
-                        print(f"Fechas disponibles encontradas: {len(fechas_disponibles)}")
+
                         # Guardar fechas en estado para mapeo numérico
                         user_states[from_number] = {
                             'step': 'seleccionando_fecha',
@@ -937,7 +922,7 @@ def handle_button_response(from_number,button_id):
                             'ultimo_consultorio': ultimo_consultorio
                         }
                     else:
-                        print("No se encontró último consultorio para el paciente")
+
                         user_states[from_number] = {
                             'step': 'seleccionando_fecha',
                             'user_id': user_id,
@@ -945,7 +930,7 @@ def handle_button_response(from_number,button_id):
                             'paciente_uid': paciente.uid
                         }
                 except Exception as e:
-                    print(f"Error obteniendo último consultorio: {e}")
+
                     import traceback
                     traceback.print_exc()
                     user_states[from_number] = {
@@ -954,7 +939,7 @@ def handle_button_response(from_number,button_id):
                         'phone': phone
                     }
             else:
-                print(f"Paciente no encontrado - user_id: {user_id}, phone: {phone or from_number}")
+
                 user_states[from_number] = {
                     'step': 'seleccionando_fecha',
                     'user_id': user_id,
@@ -967,12 +952,12 @@ def handle_button_response(from_number,button_id):
             state = user_states.get(from_number, {})
             user_id = state.get('user_id')
             phone = state.get('phone')
-            print(f"VER CITAS - from_number: {from_number}, user_id: {user_id}, phone: {phone}")
+
             try:
                 # Pasar WhatsApp_service para que use el servicio correcto (puede ser WebResponseCaptureService)
                 citas_service.obtener_citas_usuario(from_number,'ver', user_id=user_id, whatsapp_service=WhatsApp_service)
             except Exception as e:
-                print(f"Error en ver_citas: {e}")
+
                 import traceback
                 traceback.print_exc()
                 WhatsApp_service.send_text_message(from_number, f"Error al obtener tus citas: {str(e)}")
@@ -1112,10 +1097,10 @@ def handle_button_response(from_number,button_id):
             }
             # No cancelar todavía, solo guardar el estado para confirmación
     except Exception as e:
-        print(f"error con el bototn: {e}")
+
 def handle_list_response(from_number,list_id):
     try:
-        print(f"Lista seleccionada: {list_id}")
+
         if '_' in list_id:
             action,cita_id=list_id.split('_',1)
             if action=='ver':
@@ -1155,7 +1140,7 @@ def handle_list_response(from_number,list_id):
                     'cita_id':cita_id
                 }
     except Exception as e:
-        print(f"error manejando lista: {e}")
+
 def handle_reagendamiento(from_number, button_id):
     try:
         state = user_states.get(from_number, {})
@@ -1408,7 +1393,7 @@ Escribe el *número* de la opción que deseas (1, 2 o 3)."""
         # Crear un identificador temporal que será usado por handle_button_response
         user_identifier = phone or user_id or session_id
         
-        print(f"PROCESS_WEB_BUTTON_RESPONSE - user_identifier: {user_identifier}, button_id: {button_id}")
+
         
         # Si tenemos user_id o phone, actualizar el estado tanto con session_id como con user_identifier
         # Esto asegura que handle_button_response pueda encontrar el estado

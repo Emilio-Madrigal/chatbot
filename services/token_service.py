@@ -56,7 +56,7 @@ class TokenService:
             return token
             
         except Exception as e:
-            print(f"Error generando token: {e}")
+
             return None
     
     def validate_token(self, token: str) -> Optional[Dict]:
@@ -105,7 +105,7 @@ class TokenService:
             return token_data
             
         except Exception as e:
-            print(f"Error validando token: {e}")
+
             return None
     
     def generate_cancel_link(self, cita_id: str, paciente_id: str) -> str:
