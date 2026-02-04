@@ -996,7 +996,7 @@ class FirebaseFunctionsService:
                     resenas_ref = dentista_doc.reference.collection('resenas')
                     
                     # Buscar por pacienteId
-                    query1 = resenas_ref.where('pacienteId', '==', paciente_id).limit(3)
+                    query1 = resenas_ref.where('pacienteId', '==', paciente_id).limit(20)
                     for resena_doc in query1.stream():
                         data = resena_doc.to_dict()
                         dentista_data = dentista_doc.to_dict()
@@ -1030,7 +1030,7 @@ class FirebaseFunctionsService:
                         })
                     
                     # Tambien buscar por userId si es diferente
-                    query2 = resenas_ref.where('userId', '==', paciente_id).limit(3)
+                    query2 = resenas_ref.where('userId', '==', paciente_id).limit(20)
                     for resena_doc in query2.stream():
                         # Evitar duplicados
                         if resena_doc.id not in [r['id'] for r in reviews]:
