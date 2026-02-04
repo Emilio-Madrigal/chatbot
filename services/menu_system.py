@@ -599,7 +599,7 @@ class MenuSystem:
                 type_text = language_service.t('type_number', language)
                 
                 return {
-                    'response': f'*{rate_title}: {cita_seleccionada.get("fecha", "")}*\n\n{language_service.t("label_dentist", language)}: {cita_seleccionada.get("dentista", "")}\n\n{rate_prompt}\n\n*1.* {r1}\n*2.* {r2}\n*3.* {r3}\n*4.* {r4}\n*5.* {r5}\n\n{type_text}',
+                    'response': f'*{rate_title}*\n\n{language_service.t("label_dentist", language)}: {cita_seleccionada.get("dentista", "")}\n\n{rate_prompt}\n\n*1.* {r1}\n*2.* {r2}\n*3.* {r3}\n*4.* {r4}\n*5.* {r5}\n\n{type_text}',
                     'action': None,
                     'next_step': 'ingresando_calificacion',
                     'mode': 'menu'
@@ -624,14 +624,14 @@ class MenuSystem:
                 label_dentist = language_service.t('label_dentist', language)
                 label_date = language_service.t('label_date', language)
                 label_rating = language_service.t('label_rating', language)
-                rating_stars = "⭐" * button_num
+                rating_stars = "🦷" * button_num
                 prompt = language_service.t('review_anon_prompt', language)
                 btn_yes = language_service.t('btn_anon_yes', language)
                 btn_no = language_service.t('btn_anon_no', language)
                 cancel = language_service.t('cancel', language)
                 
                 return {
-                    'response': f'{confirm_title}\n\n{label_dentist}: {cita.get("dentista", "")}\n{label_date}: {cita.get("fecha", "")}\n{label_rating}: {rating_stars}\n\n{prompt}\n*1.* {btn_yes}\n*2.* {btn_no}\n*0.* {cancel}',
+                    'response': f'{confirm_title}\n\n{label_dentist}: {cita.get("dentista", "")}\n{label_rating}: {rating_stars}\n\n{prompt}\n*1.* {btn_yes}\n*2.* {btn_no}\n*0.* {cancel}',
                     'action': None,
                     'next_step': 'confirmando_resena',
                     'mode': 'menu'
