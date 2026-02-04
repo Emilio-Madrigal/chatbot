@@ -201,10 +201,10 @@ TRANSLATIONS = {
         # Reviews Menu
         'reviews_title': 'Reseñas y Calificaciones',
         'reviews_menu_title': '*Reseñas y Calificaciones*',
-        'pending_reviews_msg': 'Tienes {count} cita(s) pendiente(s) de calificar',
+        'pending_reviews_msg': 'Tienes {count} dentista(s) pendiente(s) de calificar',
         'reviews_opt_my_reviews': 'Ver mis reseñas escritas',
         'reviews_opt_view': 'Ver mis reseñas escritas',
-        'reviews_opt_rate': 'Calificar una cita pendiente',
+        'reviews_opt_rate': 'Calificar un dentista',
         'reviews_opt_info': '¿Cómo funcionan las reseñas?',
         
         'my_reviews_title': '*Mis Reseñas*',
@@ -212,9 +212,9 @@ TRANSLATIONS = {
         'no_reviews': 'No has escrito ninguna reseña todavía.\n\nDespués de cada cita, podrás calificar tu experiencia.',
         'no_reviews_yet': 'No has escrito ninguna reseña todavía.\n\nDespués de cada cita, podrás calificar tu experiencia.',
         
-        'rate_title': '*Calificar Cita*',
-        'select_review_prompt': 'Selecciona la cita que deseas calificar:',
-        'no_pending_reviews': 'No tienes citas pendientes de calificar.',
+        'rate_title': '*Calificar Dentista*',
+        'select_review_prompt': 'Selecciona el dentista que deseas calificar:',
+        'no_pending_reviews': 'No tienes dentistas pendientes de calificar.',
         'rate_prompt': '¿Qué calificación le das? (1-5 estrellas)',
         'rate_1': '⭐ (Muy malo)',
         'rate_2': '⭐⭐ (Malo)',
