@@ -2257,7 +2257,7 @@ Total: {len(reviews)}
             context['step'] = 'seleccionando_cita_calificar'
             
             citas_texto = '\n'.join([
-                f"*{i+1}.* {c.get('dentista', 'Dentista')} ({c.get('fecha', '')})"
+                f"*{i+1}.* {c.get('dentista', 'Dentista')}"
                 for i, c in enumerate(pending[:5])
             ])
             
