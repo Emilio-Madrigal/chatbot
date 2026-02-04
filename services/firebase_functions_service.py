@@ -987,12 +987,18 @@ class FirebaseFunctionsService:
             print(f"[get_visited_dentists] Buscando citas para paciente_id={paciente_id}")
             
             citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
-            # Buscar últimas 40 citas para asegurar encontrar historial
-            query = citas_ref.order_by('fechaHora', direction='DESCENDING').limit(40)
+            # Buscar últimas 100 citas para asegurar encontrar historial completo
+            query = citas_ref.order_by('fechaHora', direction='DESCENDING').limit(100)
             
             estados_completados = ['completado', 'completada', 'completed', 'finalizada', 'finalizado']
+            estados_cancelados = ['cancelado', 'cancelada', 'cancelled', 'anulado']
+            
             dentistas_vistos = set()
             lista_dentistas = []
+            
+            from datetime import datetime, timezone
+            # Usar UTC para comparación segura con fechas de Firestore
+            now = datetime.now(timezone.utc)
             
             for doc in query.stream():
                 data = doc.to_dict()
@@ -1000,8 +1006,47 @@ class FirebaseFunctionsService:
                 estado = data.get('estado', data.get('status', '')).lower().strip()
                 dentista_id = data.get('dentistaId')
                 
-                # Filtrar completados y que tengan dentistaId
-                if estado not in estados_completados or not dentista_id:
+                # Obtener fecha para comparar
+                fecha_dt = None
+                fecha_str = ''
+                if data.get('fechaHora'):
+                    try:
+                        fecha_obj = data['fechaHora']
+                        if hasattr(fecha_obj, 'to_datetime'):
+                            fecha_dt = fecha_obj.to_datetime()
+                            fecha_str = fecha_dt.strftime('%d/%m/%Y')
+                        elif hasattr(fecha_obj, 'timestamp'):
+                            # Timestamp usually returns naive local in fromtimestamp unless tz provided
+                            fecha_dt = datetime.fromtimestamp(fecha_obj.timestamp(), tz=timezone.utc)
+                            fecha_str = fecha_dt.strftime('%d/%m/%Y')
+                        elif isinstance(fecha_obj, str):
+                             pass
+                        else:
+                            fecha_dt = fecha_obj 
+                    except:
+                        pass
+                
+                # Criterio de inclusión (Lógica Web):
+                # 1. Estado explícitamente completado
+                # 2. O: No cancelado Y fecha pasada
+                
+                # Asegurar compatibilidad de zonas horarias
+                es_pasada = False
+                if fecha_dt:
+                    try:
+                        if fecha_dt.tzinfo is None:
+                            # Si fecha_dt es naive, comparar con now naive
+                            es_pasada = fecha_dt < datetime.now()
+                        else:
+                            # Si es aware, comparar con now aware (UTC)
+                            es_pasada = fecha_dt < now
+                    except:
+                        # Fallback por si acaso
+                        es_pasada = False
+                
+                es_valida = (estado in estados_completados) or (estado not in estados_cancelados and es_pasada)
+                
+                if not es_valida or not dentista_id:
                     continue
                     
                 # Si ya agregamos a este dentista, skipear (queremos únicos)
@@ -1010,24 +1055,6 @@ class FirebaseFunctionsService:
                 
                 # Agregarlo
                 dentistas_vistos.add(dentista_id)
-                
-                fecha_str = ''
-                if data.get('fechaHora'):
-                    try:
-                        fecha_obj = data['fechaHora']
-                        if hasattr(fecha_obj, 'strftime'):
-                            fecha_str = fecha_obj.strftime('%d/%m/%Y')
-                        elif hasattr(fecha_obj, 'to_datetime'):
-                            fecha_str = fecha_obj.to_datetime().strftime('%d/%m/%Y')
-                        else:
-                            # timestamp handling
-                            from datetime import datetime
-                            if hasattr(fecha_obj, 'timestamp'): 
-                                fecha_str = datetime.fromtimestamp(fecha_obj.timestamp()).strftime('%d/%m/%Y')
-                            else:
-                                fecha_str = str(fecha_obj)
-                    except:
-                        pass
                 
                 lista_dentistas.append({
                     'id': cita_id, # Usamos el ID de la cita más reciente como referencia
