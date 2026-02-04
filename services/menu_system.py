@@ -1126,9 +1126,8 @@ class MenuSystem:
         except Exception as e:
             print(f"Error checking pending reviews: {e}")
         
+        # No mostrar contador de reseñas pendientes a petición del usuario
         pending_text = ""
-        if pending_count > 0:
-            pending_text = f"\n*{language_service.t('pending_reviews_msg', language, count=pending_count)}*\n"
         
         title = language_service.t('reviews_title', language)
         what_to_do = language_service.t('what_to_do', language)
@@ -2209,7 +2208,7 @@ class MenuSystem:
                 }
             
             reviews_texto = '\n'.join([
-                f"- {r.get('dentista', 'Dentista')} - {r.get('calificacion', 0)}/5 ({r.get('fecha', '')})"
+                f"- {r.get('dentista', 'Dentista')} - {r.get('calificacion', 0)}/5 ({r.get('fecha', '')})\n  \"{r.get('comentario', 'Sin comentario')}\""  
                 for r in reviews[:5]
             ])
             

@@ -1001,6 +1001,14 @@ class FirebaseFunctionsService:
                         data = resena_doc.to_dict()
                         dentista_data = dentista_doc.to_dict()
                         
+                        # Desencriptar datos si es necesario
+                        try:
+                            from utils.encryption import decrypt_object
+                            # Intentar desencriptar todo el objeto data
+                            data = decrypt_object(data, paciente_id)
+                        except Exception as e:
+                            print(f"[get_user_reviews] Error desencriptando review: {e}")
+
                         fecha_str = ''
                         if data.get('created_at'):
                             try:
@@ -1029,6 +1037,13 @@ class FirebaseFunctionsService:
                             data = resena_doc.to_dict()
                             dentista_data = dentista_doc.to_dict()
                             
+                            # Desencriptar datos si es necesario
+                            try:
+                                from utils.encryption import decrypt_object
+                                data = decrypt_object(data, paciente_id)
+                            except Exception as e:
+                                print(f"[get_user_reviews] Error desencriptando review (query2): {e}")
+
                             fecha_str = ''
                             if data.get('created_at'):
                                 try:
