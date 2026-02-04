@@ -483,10 +483,10 @@ TRANSLATIONS = {
         # Reviews Menu
         'reviews_title': 'Reviews & Ratings',
         'reviews_menu_title': '*Reviews & Ratings*',
-        'pending_reviews_msg': 'You have {count} appointment(s) pending review',
+        'pending_reviews_msg': 'You have {count} dentist(s) pending review',
         'reviews_opt_my_reviews': 'View my written reviews',
         'reviews_opt_view': 'View my written reviews',
-        'reviews_opt_rate': 'Rate a pending appointment',
+        'reviews_opt_rate': 'Rate a dentist',
         'reviews_opt_info': 'How do reviews work?',
         
         'my_reviews_title': '*My Reviews*',
@@ -494,9 +494,9 @@ TRANSLATIONS = {
         'no_reviews': 'You haven\'t written any reviews yet.\n\nAfter each appointment, you will be able to rate your experience.',
         'no_reviews_yet': 'You haven\'t written any reviews yet.\n\nAfter each appointment, you will be able to rate your experience.',
         
-        'rate_title': '*Rate Appointment*',
-        'select_review_prompt': 'Select the appointment you want to rate:',
-        'no_pending_reviews': 'You have no appointments pending review.',
+        'rate_title': '*Rate Dentist*',
+        'select_review_prompt': 'Select the dentist you want to rate:',
+        'no_pending_reviews': 'You have no dentists pending review.',
         'rate_prompt': 'What rating do you give? (1-5 stars)',
         'rate_1': '⭐ (Very bad)',
         'rate_2': '⭐⭐ (Bad)',
