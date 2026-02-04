@@ -214,7 +214,7 @@ TRANSLATIONS = {
         
         'rate_title': '*Calificar Dentista*',
         'select_review_prompt': 'Selecciona el dentista que deseas calificar:',
-        'no_pending_reviews': 'No tienes dentistas pendientes de calificar.',
+        'no_pending_reviews': 'Aún no tienes historial de citas completadas para calificar.',
         'rate_prompt': '¿Qué calificación le das? (1-5 dientes)',
         'rate_1': '🦷 (Muy malo)',
         'rate_2': '🦷🦷 (Malo)',
@@ -496,7 +496,7 @@ TRANSLATIONS = {
         
         'rate_title': '*Rate Dentist*',
         'select_review_prompt': 'Select the dentist you want to rate:',
-        'no_pending_reviews': 'You have no dentists pending review.',
+        'no_pending_reviews': 'You have no completed appointment history to rate yet.',
         'rate_prompt': 'What rating do you give? (1-5 teeth)',
         'rate_1': '🦷 (Very bad)',
         'rate_2': '🦷🦷 (Bad)',

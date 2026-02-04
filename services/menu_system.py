@@ -2240,7 +2240,9 @@ Total: {len(reviews)}
         """Muestra citas pendientes de calificar"""
         language = context.get('language', 'es')
         try:
-            pending = self.firebase_service.get_pending_reviews(user_id=user_id, phone=phone)
+            # pending = self.firebase_service.get_pending_reviews(user_id=user_id, phone=phone)
+            # Cambiado a get_visited_dentists para permitir reseñar a cualquiera con historial
+            pending = self.firebase_service.get_visited_dentists(user_id=user_id, phone=phone)
             context['citas_pendientes_resena'] = pending
             
             back_rev = language_service.t('back_to_reviews', language)

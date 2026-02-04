@@ -961,6 +961,91 @@ class FirebaseFunctionsService:
             import traceback
             traceback.print_exc()
             return []
+            
+    def get_visited_dentists(self, user_id: str = None, phone: str = None) -> List[Dict]:
+        """
+        Obtiene lista de dentistas únicos con los que el paciente ha completado citas.
+        No filtra si ya tienen reseña (permite reseñar de nuevo o si no era obligatorio).
+        """
+        try:
+            # Obtener paciente
+            paciente_id = None
+            if user_id:
+                paciente_id = user_id
+            elif phone:
+                phone_normalizado = normalize_phone_for_database(phone)
+                pacientes_ref = self.db.collection('pacientes')
+                query = pacientes_ref.where('telefono', '==', phone_normalizado).limit(1)
+                docs = list(query.stream())
+                if docs:
+                    paciente_id = docs[0].id
+                    
+            if not paciente_id:
+                print(f"[get_visited_dentists] No se encontro paciente")
+                return []
+            
+            print(f"[get_visited_dentists] Buscando citas para paciente_id={paciente_id}")
+            
+            citas_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
+            # Buscar últimas 40 citas para asegurar encontrar historial
+            query = citas_ref.order_by('fechaHora', direction='DESCENDING').limit(40)
+            
+            estados_completados = ['completado', 'completada', 'completed', 'finalizada', 'finalizado']
+            dentistas_vistos = set()
+            lista_dentistas = []
+            
+            for doc in query.stream():
+                data = doc.to_dict()
+                cita_id = doc.id
+                estado = data.get('estado', data.get('status', '')).lower().strip()
+                dentista_id = data.get('dentistaId')
+                
+                # Filtrar completados y que tengan dentistaId
+                if estado not in estados_completados or not dentista_id:
+                    continue
+                    
+                # Si ya agregamos a este dentista, skipear (queremos únicos)
+                if dentista_id in dentistas_vistos:
+                    continue
+                
+                # Agregarlo
+                dentistas_vistos.add(dentista_id)
+                
+                fecha_str = ''
+                if data.get('fechaHora'):
+                    try:
+                        fecha_obj = data['fechaHora']
+                        if hasattr(fecha_obj, 'strftime'):
+                            fecha_str = fecha_obj.strftime('%d/%m/%Y')
+                        elif hasattr(fecha_obj, 'to_datetime'):
+                            fecha_str = fecha_obj.to_datetime().strftime('%d/%m/%Y')
+                        else:
+                            # timestamp handling
+                            from datetime import datetime
+                            if hasattr(fecha_obj, 'timestamp'): 
+                                fecha_str = datetime.fromtimestamp(fecha_obj.timestamp()).strftime('%d/%m/%Y')
+                            else:
+                                fecha_str = str(fecha_obj)
+                    except:
+                        pass
+                
+                lista_dentistas.append({
+                    'id': cita_id, # Usamos el ID de la cita más reciente como referencia
+                    'fecha': fecha_str,
+                    'dentista': data.get('dentistaName', 'Dentista'),
+                    'dentistaId': dentista_id,
+                    'consultorio': data.get('consultorioName', 'Consultorio'),
+                    'tratamiento': data.get('tratamientoNombre', 'Consulta')
+                })
+            
+            print(f"[get_visited_dentists] Dentistas encontrados: {len(lista_dentistas)}")
+            return lista_dentistas
+            
+        except Exception as e:
+            print(f"Error obteniendo dentistas visitados: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
     
     def get_user_reviews(self, user_id: str = None, phone: str = None) -> List[Dict]:
         """
