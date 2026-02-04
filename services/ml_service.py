@@ -127,7 +127,15 @@ class MLService:
         """
         message_lower = message.lower().strip()
         
-        # Cache con TTL (5 minutos)
+        # FAST PATH: Números siempre son comandos de menú - NO llamar a OpenAI
+        if message_lower.isdigit():
+            return {'intent': 'comando_menu', 'confidence': 1.0, 'method': 'fast_path'}
+        
+        # FAST PATH: Comandos de sistema - NO llamar a OpenAI
+        if message_lower in ['menu', 'menú', 'inicio', 'start', 'salir', 'cancelar', '0']:
+            return {'intent': 'mostrar_menu', 'confidence': 1.0, 'method': 'fast_path'}
+        
+        # Cache con TTL extendido (15 minutos para reducir latencia)
         cache_key = f"intent_{message_lower}"
         if cache_key in self.cache:
             # Verificar si el cache no ha expirado
@@ -146,7 +154,10 @@ class MLService:
         if self.use_openai:
             ml_result = self._classify_intent_ml_advanced(message, context)
             if ml_result and ml_result.get('confidence', 0) > 0.7:
+                # Cache con TTL de 15 minutos
+                from time import time
                 self.cache[cache_key] = ml_result
+                self.cache_ttl[cache_key] = time() + 900  # 15 minutos
                 return ml_result
         
         # PRIORIDAD 2: Palabras clave mejoradas (fallback rápido)
@@ -567,10 +578,8 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
                 
                 return entities
         except json.JSONDecodeError as e:
-
-
+            print(f"[ML_SERVICE] Error parsing JSON in entity extraction: {e}")
         except Exception as e:
-
             import traceback
             traceback.print_exc()
         

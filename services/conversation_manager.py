@@ -110,14 +110,20 @@ class ConversationManager:
         
         # LÓGICA HÍBRIDA MEJORADA
         
-        # 1. Si es un comando de sistema, procesarlo siempre
+        # FAST PATH: Comandos de sistema - respuesta inmediata sin ML
         if message.lower().strip() in ['menu', 'menú', 'salir', 'cancelar', 'inicio']:
              result = self.menu_system.process_message(session_id, message, context, user_id, phone)
              self._update_context_and_history(session_id, result)
              return result
 
-        # 1.1 J.RF12: Keyword-based quick responses
-        # Check for predefined keywords that trigger helpful responses
+        # FAST PATH: Números simples - procesar directo con menú sin ML
+        message_clean = message.strip()
+        if message_clean.isdigit() and len(message_clean) <= 2:
+            result = self.menu_system.process_message(session_id, message, context, user_id, phone)
+            self._update_context_and_history(session_id, result)
+            return result
+
+        # 1.1 J.RF12: Keyword-based quick responses (solo para texto, no números)
         keyword_result = self._handle_keyword_response(message, context, user_id, phone)
         if keyword_result:
             self._update_context_and_history(session_id, keyword_result)
@@ -133,7 +139,7 @@ class ConversationManager:
                 self.update_conversation_context(session_id, {
                     'step': 'registro_nombre',
                     'registro_iniciado': True,
-                    'last_intent_pending': self.ml_service.classify_intent(message, context)['intent'] # Guardar intención original
+                    'last_intent_pending': 'unknown'  # Evitar llamada ML innecesaria
                 })
                 language = context.get('language', 'es')
                 return {
