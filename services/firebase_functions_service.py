@@ -48,7 +48,7 @@ class FirebaseFunctionsService:
                     break
             
             if not paciente_id:
-
+                print("[FIREBASE_SERVICE] Paciente no encontrado")
                 return []
             
 
@@ -129,7 +129,7 @@ class FirebaseFunctionsService:
                             if nombre or apellido:
                                 dentista_name = f"{nombre} {apellido}".strip()
                     except Exception as e:
-
+                        print(f"[FIREBASE_SERVICE] Error obteniendo dentista {dentista_id}: {e}")
 
                 citas_ids.add(doc_id)
                 citas.append({
@@ -150,18 +150,18 @@ class FirebaseFunctionsService:
             try:
                 citas_subcol_ref = self.db.collection('pacientes').document(paciente_id).collection('citas')
                 all_subcol_docs = list(citas_subcol_ref.stream())
-
+                print(f"[FIREBASE_SERVICE] Encontradas {len(all_subcol_docs)} citas en subcolección")
                 
                 for doc in all_subcol_docs:
                     process_cita_doc(doc, doc.to_dict())
             except Exception as e:
-
+                print(f"[FIREBASE_SERVICE] Error buscando en subcolección: {e}")
             
             # 2. Buscar en la colección principal 'citas' por pacienteId
             try:
                 citas_principal_ref = self.db.collection('citas').where('pacienteId', '==', paciente_id)
                 all_principal_docs = list(citas_principal_ref.stream())
-
+                print(f"[FIREBASE_SERVICE] Encontradas {len(all_principal_docs)} citas en colección principal")
                 
                 for doc in all_principal_docs:
                     data = doc.to_dict()
@@ -170,16 +170,16 @@ class FirebaseFunctionsService:
                     if effective_id not in citas_ids:
                         process_cita_doc(doc, data)
             except Exception as e:
-
+                print(f"[FIREBASE_SERVICE] Error buscando en colección principal: {e}")
             
             # Ordenar por fecha
             citas.sort(key=lambda x: x.get('fechaHora') or datetime.max)
             
-
+            print(f"[FIREBASE_SERVICE] Total citas encontradas: {len(citas)}")
             return citas
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error obteniendo citas: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -272,7 +272,7 @@ class FirebaseFunctionsService:
             return fechas_disponibles
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error obteniendo fechas disponibles: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -399,7 +399,7 @@ class FirebaseFunctionsService:
             return horarios_disponibles[:10]  # Máximo 10 horarios
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error obteniendo horarios disponibles: {e}")
             import traceback
             traceback.print_exc()
             return []
@@ -536,7 +536,7 @@ class FirebaseFunctionsService:
             }
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error creando cita: {e}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
@@ -597,12 +597,11 @@ class FirebaseFunctionsService:
                             'updatedAt': datetime.now()
                         })
             except Exception as e:
-
-            
+                print(f"[FIREBASE_SERVICE] Error actualizando cita en colección principal: {e}")
             return {'success': True, 'message': 'Cita reagendada exitosamente'}
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error reagendando cita: {e}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
@@ -673,12 +672,11 @@ class FirebaseFunctionsService:
                             'updatedAt': datetime.now()
                         })
             except Exception as e:
-
-            
+                print(f"[FIREBASE_SERVICE] Error actualizando cancelación en colección principal: {e}")
             return {'success': True, 'message': 'Cita cancelada exitosamente'}
             
         except Exception as e:
-
+            print(f"[FIREBASE_SERVICE] Error cancelando cita: {e}")
             import traceback
             traceback.print_exc()
             return {'success': False, 'error': str(e)}
@@ -703,22 +701,20 @@ class FirebaseFunctionsService:
                     paciente_id = docs[0].id
             
             if not paciente_id:
-
+                print("[FIREBASE_SERVICE] Paciente no encontrado para historial médico")
                 return {'success': False, 'error': 'Paciente no encontrado'}
             
-
-            
+            print(f"[FIREBASE_SERVICE] Obteniendo historial médico para paciente {paciente_id}")
             # Obtener documento del paciente
             paciente_ref = self.db.collection('pacientes').document(paciente_id)
             paciente_doc = paciente_ref.get()
             
             if not paciente_doc.exists:
-
+                print(f"[FIREBASE_SERVICE] Documento de paciente {paciente_id} no existe")
                 return {'success': False, 'error': 'Paciente no encontrado'}
             
             paciente_data = paciente_doc.to_dict()
-
-            
+            print(f"[FIREBASE_SERVICE] Datos de paciente obtenidos: {list(paciente_data.keys())}")
             # 1. PRIMARIO: Obtener historial médico desde subcollection historialMedico
             #    La web guarda con addDoc() y IDs automáticos, marcando isActive=True
             historial_data = {}
@@ -731,9 +727,7 @@ class FirebaseFunctionsService:
                 if historial_docs:
                     historial_data = historial_docs[0].to_dict()
                     historial_completado = True
-
-
-
+                    print(f"[FIREBASE_SERVICE] Historial activo encontrado con {len(historial_data)} campos")
                 else:
                     # Fallback: buscar documento 'current' (estructura legacy)
                     historial_current_ref = paciente_ref.collection('historialMedico').document('current')
@@ -742,18 +736,18 @@ class FirebaseFunctionsService:
                     if historial_current_doc.exists:
                         historial_data = historial_current_doc.to_dict()
                         historial_completado = True
-
+                        print("[FIREBASE_SERVICE] Historial 'current' encontrado")
                     else:
                         # Último intento: obtener cualquier documento de la colección
                         any_docs = list(paciente_ref.collection('historialMedico').limit(1).stream())
                         if any_docs:
                             historial_data = any_docs[0].to_dict()
                             historial_completado = True
-
+                            print("[FIREBASE_SERVICE] Historial encontrado en cualquier documento")
                         else:
-
+                            print("[FIREBASE_SERVICE] No se encontró historial médico")
             except Exception as e:
-
+                print(f"[FIREBASE_SERVICE] Error obteniendo historial médico: {e}")
                 import traceback
                 traceback.print_exc()
             
@@ -762,15 +756,13 @@ class FirebaseFunctionsService:
             if historial_data and (historial_data.get('_encrypted') or historial_data.get('encryptionEnabled')):
                 try:
                     from utils.encryption import decrypt_medical_history
-
-
+                    print("[FIREBASE_SERVICE] Desencriptando historial médico...")
                     historial_data = decrypt_medical_history(historial_data, paciente_id)
-
-
+                    print("[FIREBASE_SERVICE] Historial desencriptado correctamente")
                 except ImportError as ie:
-
+                    print(f"[FIREBASE_SERVICE] Módulo de encriptación no disponible: {ie}")
                 except Exception as e:
-
+                    print(f"[FIREBASE_SERVICE] Error desencriptando historial: {e}")
                     import traceback
                     traceback.print_exc()
             
@@ -1137,7 +1129,7 @@ class FirebaseFunctionsService:
                             # Intentar desencriptar todo el objeto data
                             data = decrypt_object(data, paciente_id)
                         except Exception as e:
-
+                            print(f"[FIREBASE_SERVICE] Error desencriptando reseña: {e}")
 
                         fecha_str = ''
                         if data.get('created_at'):
@@ -1172,7 +1164,7 @@ class FirebaseFunctionsService:
                                 from utils.encryption import decrypt_object
                                 data = decrypt_object(data, paciente_id)
                             except Exception as e:
-
+                                print(f"[FIREBASE_SERVICE] Error desencriptando datos: {e}")
 
                             fecha_str = ''
                             if data.get('created_at'):

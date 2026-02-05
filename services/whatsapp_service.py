@@ -93,20 +93,17 @@ class WhatsAppService:
                 self.latency_tracking = self.latency_tracking[-100:]
             
             # J.RNF2: Verificar si excede 3 segundos
-
+            if latency > 3:
+                print(f"[WHATSAPP] ALERTA: Latencia alta: {latency:.2f}s")
             return {"status": "sent", "sid": message_obj.sid, "latency": latency}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)
-            
-
-            
+            print(f"[WHATSAPP] Twilio error: {error_code} - {error_msg}")
             return None
         except Exception as e:
-
-
-
-    
+            print(f"[WHATSAPP] Error enviando mensaje: {e}")
+            return None
     def send_template_message(self, to_number: str, template_name: str, language_code: str = "es", components: list = None, content_sid: str = None):
         """
         Envía un mensaje usando una plantilla verificada de WhatsApp a través de Twilio (PRODUCCIÓN)
@@ -153,18 +150,16 @@ class WhatsAppService:
                     body=f"[Plantilla: {template_name}]"  # Fallback - usar content_sid en producción
                 )
             
-
+            print(f"[WHATSAPP] Template enviado: {message.sid}")
             return {"status": "sent", "sid": message.sid}
         except TwilioRestException as e:
             error_code = e.code if hasattr(e, 'code') else None
             error_msg = str(e)
-            
-
-            
+            print(f"[WHATSAPP] Twilio error en template: {error_code} - {error_msg}")
             return None
         except Exception as e:
-
-    
+            print(f"[WHATSAPP] Error enviando template: {e}")
+            return None
     def send_interactive_buttons(self, to_number: str, header_text: str, body_text: str, buttons: list, content_sid: str = None):
         """
         Envía mensaje con botones interactivos de WhatsApp usando la API de Twilio
@@ -198,7 +193,7 @@ class WhatsAppService:
 
                     return {"status": "sent", "sid": message.sid}
                 except TwilioRestException as e:
-
+                    print(f"[WHATSAPP] Error con content_sid, usando fallback: {e}")
                     # Continuar con fallback
             
             # Fallback: Enviar como mensaje de texto con botones formateados
@@ -220,8 +215,7 @@ class WhatsAppService:
             return result
                 
         except Exception as e:
-
-
+            print(f"[WHATSAPP] Error enviando botones: {e}")
             # Fallback final a texto numerado
             message_text = f"{header_text}\n\n{body_text}\n\n" if header_text else f"{body_text}\n\n"
             for i, button in enumerate(buttons, 1):
@@ -264,7 +258,7 @@ class WhatsAppService:
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_MENU_PRINCIPAL
         if content_sid:
-
+            print(f"[WHATSAPP] Usando content_sid para menú: {content_sid}")
         
         return self.send_interactive_buttons(
             to_number,
@@ -284,7 +278,7 @@ class WhatsAppService:
         # Usar Content Template si está configurado
         content_sid = Config.CONTENT_SID_GESTION
         if content_sid:
-
+            print(f"[WHATSAPP] Usando content_sid para gestión: {content_sid}")
         
         return self.send_interactive_buttons(
             to_number,

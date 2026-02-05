@@ -113,9 +113,8 @@ class MenuSystem:
         # Menú principal
         if current_step == 'menu_principal' or current_step == 'inicial':
             if button_num == 1:
-
+                # Agendar cita
                 result = self._handle_schedule_appointment(session_id, context, user_id, phone)
-
                 return result
             elif button_num == 2:
                 return self._handle_view_appointments(context, user_id, phone)
@@ -1124,7 +1123,7 @@ class MenuSystem:
             pending_count = len(pending_reviews)
             context['citas_pendientes_resena'] = pending_reviews
         except Exception as e:
-
+            print(f"[MENU_SYSTEM] Error obteniendo reseñas pendientes: {e}")
         
         # No mostrar contador de reseñas pendientes a petición del usuario
         pending_text = ""
@@ -1657,8 +1656,7 @@ class MenuSystem:
                             break
                             
                 except Exception as inner_e:
-
-            
+                    print(f"[MENU_SYSTEM] Error obteniendo fechas: {inner_e}")
             context['fechas_disponibles'] = fechas
             
             if not fechas:
@@ -1752,7 +1750,7 @@ class MenuSystem:
                     try:
                         self._grant_medical_history_access(user_id, dentista_id, nivel_acceso)
                     except Exception as e:
-
+                        print(f"[MENU_SYSTEM] Error otorgando acceso a historial: {e}")
                         # No fallar la creación de la cita si esto falla
                 
                 # Mensaje de confirmación completo (RF6, RF9)
@@ -2350,7 +2348,7 @@ Total: {len(reviews)}
                     'mode': 'menu'
                 }
         except Exception as e:
-
+            print(f"[MENU_SYSTEM] Error ejecutando reagendamiento: {e}")
             return {
                 'response': f"{language_service.t('error_generic', language)}\n\n{language_service.t('type_menu', language)}",
                 'action': None,
