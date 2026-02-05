@@ -98,7 +98,7 @@ class RateLimiter:
             }
             
         except Exception as e:
-
+            print(f"[RATE_LIMITER] Error verificando límite: {e}")
             # En caso de error, permitir (fail open)
             return {
                 'allowed': True,
@@ -112,6 +112,7 @@ class RateLimiter:
         try:
             self.collection.document(paciente_id).delete()
         except Exception as e:
+            print(f"[RATE_LIMITER] Error reseteando límite: {e}")
 
 
 # Instancia global

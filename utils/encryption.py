@@ -8,7 +8,7 @@ try:
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 except ImportError:
-pass
+    pass
     AESGCM = None
     PBKDF2HMAC = None
     hashes = None
@@ -72,7 +72,7 @@ def decrypt_string(encrypted_data: Dict[str, str], user_id: str) -> Union[str, N
         return decrypted_bytes.decode('utf-8')
         
     except Exception as e:
-
+        print(f"[ENCRYPTION] Error decrypting string: {e}")
         return None
 
 def decrypt_object(obj: Any, user_id: str) -> Any:

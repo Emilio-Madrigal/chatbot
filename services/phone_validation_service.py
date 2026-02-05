@@ -82,7 +82,7 @@ class PhoneValidationService:
             return False, None
             
         except Exception as e:
-
+            print(f"[PHONE_VALIDATION] Error verificando bloqueo: {e}")
             return False, None
     
     def record_delivery_failure(self, phone: str, event_type: str, error_message: str) -> Dict:
@@ -142,8 +142,7 @@ class PhoneValidationService:
                     update_data['blockedAt'] = SERVER_TIMESTAMP
                     update_data['blockedUntil'] = now + timedelta(days=self.block_duration_days)
                     update_data['blockReason'] = f'Bloqueado automáticamente tras {consecutive_failures} fallos consecutivos de entrega'
-                    
-
+                    print(f"[PHONE_VALIDATION] Número {phone_normalized} bloqueado tras {consecutive_failures} fallos")
                 
                 doc_ref.update(update_data)
                 
@@ -177,7 +176,7 @@ class PhoneValidationService:
                 }
                 
         except Exception as e:
-
+            print(f"[PHONE_VALIDATION] Error registrando fallo: {e}")
             return {'error': str(e)}
     
     def record_delivery_success(self, phone: str) -> None:
@@ -197,8 +196,7 @@ class PhoneValidationService:
                 })
                 
         except Exception as e:
-
-    
+            print(f"[PHONE_VALIDATION] Error registrando éxito: {e}")
     def unblock_phone(self, phone: str, admin_id: str, reason: str = "") -> bool:
         """
         Desbloquea manualmente un número de teléfono
@@ -220,11 +218,11 @@ class PhoneValidationService:
                 'unblockReason': reason
             })
             
-
+            print(f"[PHONE_VALIDATION] Número {phone_normalized} desbloqueado por {admin_id}")
             return True
             
         except Exception as e:
-
+            print(f"[PHONE_VALIDATION] Error desbloqueando: {e}")
             return False
     
     def get_blocked_phones(self, limit: int = 100) -> list:
@@ -250,7 +248,7 @@ class PhoneValidationService:
             return blocked_phones
             
         except Exception as e:
-
+            print(f"[PHONE_VALIDATION] Error obteniendo bloqueados: {e}")
             return []
     
     def _normalize_phone(self, phone: str) -> str:

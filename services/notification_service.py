@@ -60,7 +60,7 @@ class NotificacionesService:
                 self._process_appointment_reminder(cita)
 
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error verificando citas próximas: {e}")
     def _process_appointment_reminder(self, cita):
         try:
             now=datetime.now()
@@ -73,7 +73,7 @@ class NotificacionesService:
             elif dias_hasta_cita==0:
                 self._check_same_day_reminder(cita)
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error procesando recordatorio: {e}")
     def _check_same_day_reminder(self, cita):
         try:
             now=datetime.now()
@@ -84,7 +84,7 @@ class NotificacionesService:
             if 110<=minutos_hasta_cita<=130:
                 self.send_2_hour_reminder(cita)
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error en recordatorio del mismo día: {e}")
 
     def send_24_hour_reminder(self, cita):
         try:
@@ -105,10 +105,10 @@ class NotificacionesService:
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
             if result:
-
+                print(f"[NOTIFICATION_SERVICE] Recordatorio 24h enviado a {cita.usuario_whatsapp}")
                 
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando recordatorio 24h: {e}")
     def send_2_hour_reminder(self, cita):
         try:
             mensaje = f"""*RECORDATORIO URGENTE*
@@ -124,10 +124,10 @@ class NotificacionesService:
             result = self.whatsapp.send_text_message(cita.usuario_whatsapp, mensaje)
             
             if result:
-
+                print(f"[NOTIFICATION_SERVICE] Recordatorio 2h enviado a {cita.usuario_whatsapp}")
             
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando recordatorio 2h: {e}")
     def send_daily_reminders(self):
         try:
             today=datetime.now().strftime('%Y-%m-%d')
@@ -144,7 +144,7 @@ class NotificacionesService:
 
 
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando recordatorios diarios: {e}")
     def _send_daily_summary(self,usuario_whatsapp,citas_hoy):
         try:
             if len(citas_hoy) == 1:
@@ -170,13 +170,13 @@ class NotificacionesService:
             self.whatsapp.send_text_message(usuario_whatsapp, mensaje)
 
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando resumen diario: {e}")
 
     def send_custom_reminder(self,cita_id:str,mensaje_personalizado:str=None):
         try:
             cita=self.cita_repo.obtener_cita(cita_id)
             if not cita:
-
+                print(f"[NOTIFICATION_SERVICE] Cita {cita_id} no encontrada")
                 return False
             if mensaje_personalizado:
                 mensaje=mensaje_personalizado
@@ -192,7 +192,7 @@ class NotificacionesService:
             result=self.whatsapp.send_text_message(cita.usuario_whatsapp,mensaje)
             return result is not None
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando recordatorio personalizado: {e}")
             return False
 
     # J.RF14: Enviar resumen semanal a pacientes
@@ -220,7 +220,7 @@ class NotificacionesService:
                         'lastLogin': paciente_data.get('lastLogin'),
                     })
             
-
+            print(f"[NOTIFICATION_SERVICE] Procesando resúmenes semanales para {len(pacientes)} pacientes")
             
             # Calcular fechas para la semana
             now = datetime.now()
@@ -230,12 +230,12 @@ class NotificacionesService:
                 try:
                     self._send_weekly_summary_to_patient(paciente, now, semana_siguiente)
                 except Exception as e:
-
+                    print(f"[NOTIFICATION_SERVICE] Error enviando resumen a {paciente.get('telefono')}: {e}")
             
-
+            print(f"[NOTIFICATION_SERVICE] Resúmenes semanales completados")
             
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error en resúmenes semanales: {e}")
             import traceback
             traceback.print_exc()
 
@@ -360,10 +360,10 @@ Visita nuestra web para mantener tu información actualizada.
             
             # Enviar mensaje
             self.whatsapp.send_text_message(telefono, mensaje)
-
+            print(f"[NOTIFICATION_SERVICE] Resumen semanal enviado a {telefono}")
             
         except Exception as e:
-
+            print(f"[NOTIFICATION_SERVICE] Error enviando resumen semanal: {e}")
             import traceback
             traceback.print_exc()
 
