@@ -8,12 +8,12 @@ RED.RF1-RF4: Redirección inteligente de citas
 
 import requests
 from config import Config
-from database.firebase_config import get_firestore_db
+from database.database import FirebaseConfig
 from datetime import datetime, timedelta
 
 class RedirectionService:
     def __init__(self):
-        self.db = get_firestore_db()
+        self.db = FirebaseConfig.get_db()
         self.functions_base_url = "https://us-central1-densora-4f01d.cloudfunctions.net"
     
     def check_pending_redirection(self, phone: str) -> dict:
