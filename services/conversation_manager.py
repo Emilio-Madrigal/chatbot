@@ -8,6 +8,7 @@ from services.ml_service import MLService
 from services.actions_service import ActionsService
 from services.payment_service import PaymentService
 from services.language_service import language_service
+from services.redirection_service import redirection_service
 from typing import Dict, Optional
 from datetime import datetime
 
@@ -115,6 +116,21 @@ class ConversationManager:
              result = self.menu_system.process_message(session_id, message, context, user_id, phone)
              self._update_context_and_history(session_id, result)
              return result
+
+        # RED.RF3: FAST PATH - Verificar si es respuesta a redirección pendiente
+        # Prioridad alta para manejar ACEPTAR, CANCELAR, ALTERNATIVAS, OPCION X
+        if phone and redirection_service.is_redirection_response(message):
+            pending_redirection = redirection_service.check_pending_redirection(phone)
+            if pending_redirection:
+                print(f"[CONVERSATION_MANAGER] Procesando respuesta de redirección: {message}")
+                result = redirection_service.process_response(phone, message)
+                response = {
+                    'response': result.get('mensaje', ''),
+                    'action': result.get('accion', 'redirection_response'),
+                    'next_step': 'menu_principal' if result.get('success') else current_step
+                }
+                self._update_context_and_history(session_id, response)
+                return response
 
         # FAST PATH: Números simples - procesar directo con menú sin ML
         message_clean = message.strip()

@@ -10,6 +10,7 @@ from services.retry_service import retry_service
 from services.token_service import token_service
 from services.bot_config_service import bot_config_service
 from services.notification_config_service import notification_config_service
+from services.redirection_service import redirection_service  # RED.RF1-RF4: Redirección de citas
 from utils.phone_utils import normalize_phone_for_database
 from datetime import datetime
 import json
@@ -1283,8 +1284,42 @@ def handle_cancelacion(from_number, text):
     except Exception as e:
         print(f"Error manejando cancelación: {e}")
         return False
+
+def handle_redirection(from_number, text):
+    """
+    RED.RF1-RF4: Maneja respuestas del paciente cuando el dentista cancela/reagenda una cita.
+    Retorna True si el mensaje fue procesado como respuesta de redirección.
+    """
+    try:
+        # Verificar si el texto parece una respuesta de redirección
+        if not redirection_service.is_redirection_response(text):
+            return False
+        
+        # Verificar si hay una redirección pendiente para este número
+        redirection = redirection_service.check_pending_redirection(from_number)
+        
+        if not redirection:
+            return False
+        
+        # Procesar la respuesta
+        resultado = redirection_service.process_response(from_number, text)
+        
+        # Enviar el mensaje de respuesta
+        WhatsApp_service.send_text_message(from_number, resultado.get('mensaje', 'Respuesta procesada.'))
+        
+        return True
     
+    except Exception as e:
+        print(f"Error manejando redirección: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 def handle_text_message_extended(from_number, text):
+    # RED.RF1-RF4: Primero verificar si es respuesta de redirección
+    if handle_redirection(from_number, text):
+        return
+    
     if handle_cancelacion(from_number, text):
         return
 
